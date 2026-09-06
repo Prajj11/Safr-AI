@@ -127,7 +127,6 @@ For the comprehensive 500+ line technical blueprint covering all database schema
 ## 👥 Authors & Credits
 
 * **Development Team**: Team KoS
-* **Lead Engineer**: Prajwal ([@Prajj11](https://github.com/Prajj11))
 * **Initiative**: Safr (Smart Travel Safety Companion for India)
 
 ---
