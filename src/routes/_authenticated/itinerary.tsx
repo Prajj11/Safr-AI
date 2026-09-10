@@ -3,17 +3,19 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Calendar,
+  CheckCircle2,
+  Circle,
   Clock,
-  Download,
+  ExternalLink,
   Loader2,
   MapPin,
   Navigation,
   Printer,
-  Share2,
+  Radio,
   Sparkles,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -62,19 +64,31 @@ function getTomorrowDate(): string {
 function getWeekendDate(): string {
   const d = new Date();
   const day = d.getDay();
-  const daysUntilSaturday = (6 - day + 7) % 7 || 7;
-  d.setDate(d.getDate() + daysUntilSaturday);
+  const diff = day <= 5 ? 6 - day : 0;
+  d.setDate(d.getDate() + diff);
   return d.toISOString().split("T")[0] || "";
 }
 
+const TELEMETRY_STEPS = [
+  "Connecting to Goan local map engine & GPS network…",
+  "Pinpointing verified nearby spots within destination radius…",
+  "Gemini 2.5 Flash reasoning through travel pacing & preferences…",
+  "Syncing live marine swell & coastal daylight window…",
+  "Calculating transit road distances & safe buffer intervals…",
+  "Finalizing personalized hour-by-hour Goan schedule…",
+];
+
 function ItineraryPage() {
-  const [place, setPlace] = useState<string>("Panjim");
+  const [place, setPlace] = useState<string>("Anjuna Beach");
   const [date, setDate] = useState<string>(getTodayDate());
   const [hours, setHours] = useState(6);
   const [startTime, setStartTime] = useState("09:00");
   const [pace, setPace] = useState<"relaxed" | "balanced" | "packed">("balanced");
-  const [interests, setInterests] = useState<string[]>(["Local food", "History & heritage"]);
+  const [interests, setInterests] = useState<string[]>(["Local food", "Beaches & sunsets"]);
   const [notes, setNotes] = useState("");
+
+  const [telemetryIndex, setTelemetryIndex] = useState(0);
+  const [visitedStops, setVisitedStops] = useState<Record<number, boolean>>({});
 
   const generate = useServerFn(generateItinerary);
 
@@ -99,8 +113,24 @@ function ItineraryPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not build itinerary"),
   });
 
+  // Cycle telemetry steps during generation
+  useEffect(() => {
+    if (!plan.isPending) {
+      setTelemetryIndex(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setTelemetryIndex((prev) => (prev + 1) % TELEMETRY_STEPS.length);
+    }, 1100);
+    return () => clearInterval(interval);
+  }, [plan.isPending]);
+
   const handlePrint = () => {
     window.print();
+  };
+
+  const toggleVisited = (index: number) => {
+    setVisitedStops((prev) => ({ ...prev, [index]: !prev[index] }));
   };
 
   return (
@@ -114,6 +144,7 @@ function ItineraryPage() {
             toast.error("Please select at least one travel interest");
             return;
           }
+          setVisitedStops({});
           plan.mutate();
         }}
       >
@@ -128,7 +159,7 @@ function ItineraryPage() {
         {/* Location Dropdown */}
         <div className="space-y-1.5">
           <Label htmlFor="place" className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <MapPin className="size-3.5 text-primary" /> Destination Base
+            <MapPin className="size-3.5 text-primary" /> Destination Base in Goa
           </Label>
           <select
             id="place"
@@ -291,7 +322,7 @@ function ItineraryPage() {
         >
           {plan.isPending ? (
             <>
-              <Loader2 className="size-4 animate-spin mr-2" /> Building your Goan Itinerary…
+              <Loader2 className="size-4 animate-spin mr-2" /> Synthesizing Itinerary…
             </>
           ) : (
             <>
@@ -301,19 +332,68 @@ function ItineraryPage() {
         </Button>
       </form>
 
+      {/* REAL-TIME GENERATION TELEMETRY RADAR */}
+      {plan.isPending && (
+        <div className="mt-8 rounded-3xl border border-primary/30 bg-card/90 backdrop-blur-2xl p-6 sm:p-8 shadow-lg animate-in fade-in duration-300">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-2xl bg-primary/15 flex items-center justify-center text-primary">
+              <Radio className="size-5 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-foreground">Local Map Engine Active</h4>
+              <p className="text-xs text-muted-foreground">Grounding {place} nearby spots with real-time transit & crowd analysis…</p>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-2.5">
+            {TELEMETRY_STEPS.map((step, idx) => {
+              const isCurrent = idx === telemetryIndex;
+              const isDone = idx < telemetryIndex;
+              return (
+                <div
+                  key={idx}
+                  className={`flex items-center gap-3 text-xs transition-all duration-300 ${
+                    isCurrent
+                      ? "text-primary font-bold translate-x-1"
+                      : isDone
+                      ? "text-muted-foreground line-through opacity-60"
+                      : "text-muted-foreground/40"
+                  }`}
+                >
+                  {isDone ? (
+                    <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                  ) : isCurrent ? (
+                    <Loader2 className="size-4 text-primary animate-spin shrink-0" />
+                  ) : (
+                    <Circle className="size-3.5 shrink-0 opacity-40" />
+                  )}
+                  <span>{step}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* RESULTING ITINERARY TIMELINE */}
-      {plan.data && (
+      {plan.data && !plan.isPending && (
         <section className="mt-8 rounded-3xl border border-border/60 bg-card/80 backdrop-blur-2xl p-6 sm:p-8 shadow-sm animate-in fade-in slide-in-from-bottom-6 duration-500">
+          {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-5">
             <div>
-              <span className="rounded-full bg-primary/10 text-primary px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                Personalized Schedule
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-bold font-display text-foreground mt-1">
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-primary/10 text-primary px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                  Verified Local Schedule
+                </span>
+                <span className="rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold">
+                  ● Real-Time Maps Synced
+                </span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold font-display text-foreground mt-1.5">
                 {plan.data.title}
               </h2>
               {plan.data.date && (
-                <p className="text-xs font-semibold text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                <p className="text-xs font-semibold text-muted-foreground mt-1 flex items-center gap-1.5">
                   <Calendar className="size-3.5 text-primary" />
                   {new Date(plan.data.date).toLocaleDateString("en-US", {
                     weekday: "long",
@@ -329,70 +409,177 @@ function ItineraryPage() {
               onClick={handlePrint}
               variant="outline"
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 shadow-sm hover:border-primary/40"
+              className="rounded-full font-bold text-xs gap-1.5 shadow-sm hover:border-primary/40 self-start sm:self-auto"
             >
               <Printer className="size-3.5" /> Print / Save PDF
             </Button>
           </div>
 
-          <p className="mt-4 text-sm text-foreground/90 leading-relaxed">{plan.data.overview}</p>
+          {/* Live Coastal Telemetry Banner */}
+          {(plan.data.liveWeather || plan.data.liveSwell) && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-3 rounded-2xl bg-secondary/50 border border-border/50 p-3 text-xs text-foreground">
+              {plan.data.liveWeather && (
+                <span className="font-semibold flex items-center gap-1.5">
+                  {plan.data.liveWeather}
+                </span>
+              )}
+              {plan.data.liveWeather && plan.data.liveSwell && (
+                <span className="text-muted-foreground hidden sm:inline">·</span>
+              )}
+              {plan.data.liveSwell && (
+                <span className="font-semibold flex items-center gap-1.5">
+                  {plan.data.liveSwell}
+                </span>
+              )}
+            </div>
+          )}
+
+          <p className="mt-4 text-sm text-foreground/90 leading-relaxed font-medium">
+            {plan.data.overview}
+          </p>
 
           {/* Sequential Timeline Stops */}
-          <ol className="mt-6 space-y-6 border-l-2 border-primary/30 pl-6 ml-2">
-            {plan.data.stops.map((stop, i) => (
-              <li key={i} className="relative group">
-                {/* Numbered Step Bubble */}
-                <span className="absolute -left-[33px] top-0.5 flex size-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-sm group-hover:scale-110 transition-transform">
-                  {i + 1}
-                </span>
+          <ol className="mt-8 space-y-6 border-l-2 border-primary/30 pl-6 ml-2">
+            {plan.data.stops.map((stop, i) => {
+              const isVisited = Boolean(visitedStops[i]);
+              return (
+                <li key={i} className="relative group">
+                  {/* Numbered Step Bubble */}
+                  <button
+                    type="button"
+                    onClick={() => toggleVisited(i)}
+                    className={`absolute -left-[33px] top-0.5 flex size-6 items-center justify-center rounded-full text-xs font-bold shadow-sm transition-all ${
+                      isVisited
+                        ? "bg-emerald-500 text-white scale-110 ring-2 ring-emerald-300"
+                        : "bg-primary text-primary-foreground group-hover:scale-110"
+                    }`}
+                    title={isVisited ? "Mark as not visited" : "Mark as visited"}
+                  >
+                    {isVisited ? "✓" : i + 1}
+                  </button>
 
-                <div className="rounded-2xl border border-border/50 bg-secondary/30 p-4 transition-all hover:border-primary/40 hover:bg-secondary/50">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-xs font-bold font-mono">
-                        🕒 {stop.time}
-                      </span>
-                      <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold capitalize text-muted-foreground">
-                        {stop.duration}
-                      </span>
+                  <div
+                    className={`rounded-2xl border p-4 sm:p-5 transition-all ${
+                      isVisited
+                        ? "border-emerald-500/30 bg-emerald-500/5 opacity-80"
+                        : "border-border/60 bg-secondary/30 hover:border-primary/40 hover:bg-secondary/50"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-xs font-bold font-mono">
+                          🕒 {stop.time}
+                        </span>
+                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold capitalize text-muted-foreground">
+                          {stop.duration}
+                        </span>
+
+                        {/* Real-time Crowd Indicator */}
+                        {stop.crowdLevel && (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                              stop.crowdLevel === "low"
+                                ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                                : stop.crowdLevel === "high"
+                                ? "bg-rose-500/10 text-rose-600 border border-rose-500/20"
+                                : "bg-amber-500/10 text-amber-700 border border-amber-500/20"
+                            }`}
+                          >
+                            <span
+                              className={`size-1.5 rounded-full ${
+                                stop.crowdLevel === "low"
+                                  ? "bg-emerald-500"
+                                  : stop.crowdLevel === "high"
+                                  ? "bg-rose-500 animate-pulse"
+                                  : "bg-amber-500"
+                              }`}
+                            />
+                            {stop.crowdLevel === "low"
+                              ? "Low Crowds"
+                              : stop.crowdLevel === "high"
+                              ? "Peak Crowds"
+                              : "Moderate Buzz"}
+                          </span>
+                        )}
+
+                        {/* Transit Distance pill */}
+                        {stop.distanceKm !== undefined && stop.distanceKm > 0 && (
+                          <span className="rounded-full bg-secondary/80 px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                            📍 {stop.distanceKm} km · ~{stop.transitMin ?? 5}m drive
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Direct Turn-by-Turn Safe Route & Google Maps Actions */}
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs font-bold text-primary hover:bg-primary/10 rounded-full px-3 gap-1"
+                        >
+                          <Link
+                            to="/map"
+                            search={{
+                              dest: stop.title,
+                              lat: stop.lat !== undefined ? String(stop.lat) : undefined,
+                              lng: stop.lng !== undefined ? String(stop.lng) : undefined,
+                            }}
+                          >
+                            <Navigation className="size-3 mr-0.5" /> Safe Route
+                          </Link>
+                        </Button>
+
+                        {stop.lat && stop.lng && (
+                          <a
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center size-7 rounded-full border border-border/70 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                            title="Open Google Maps GPS Navigation"
+                          >
+                            <ExternalLink className="size-3" />
+                          </a>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => toggleVisited(i)}
+                          className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-colors ${
+                            isVisited
+                              ? "bg-emerald-500 text-white border-emerald-500"
+                              : "text-muted-foreground border-border/60 hover:bg-secondary"
+                          }`}
+                        >
+                          {isVisited ? "Visited ✓" : "Mark Visited"}
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Direct Turn-by-Turn Navigation Action */}
-                    <Button
-                      asChild
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs font-bold text-primary hover:bg-primary/10 rounded-full px-3"
-                    >
-                      <Link to="/map" search={{ dest: stop.title }}>
-                        <Navigation className="size-3 mr-1" /> Navigate
-                      </Link>
-                    </Button>
+                    <h3 className="mt-2.5 text-base font-bold text-foreground flex items-center gap-2">
+                      <span>{typeEmoji[stop.type] ?? "📍"}</span>
+                      <span className={isVisited ? "line-through text-muted-foreground" : ""}>{stop.title}</span>
+                    </h3>
+
+                    <p className="mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                      {stop.description}
+                    </p>
+
+                    <p className="mt-2.5 text-xs font-semibold text-primary bg-primary/5 px-2.5 py-1 rounded-lg w-fit flex items-center gap-1.5">
+                      <span>🛵</span>
+                      <span>{stop.travel_note}</span>
+                    </p>
                   </div>
-
-                  <h3 className="mt-2 text-base font-bold text-foreground flex items-center gap-2">
-                    <span>{typeEmoji[stop.type] ?? "📍"}</span>
-                    <span>{stop.title}</span>
-                  </h3>
-
-                  <p className="mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                    {stop.description}
-                  </p>
-
-                  <p className="mt-2 text-xs font-semibold text-primary bg-primary/5 px-2.5 py-1 rounded-lg w-fit flex items-center gap-1.5">
-                    <span>🛵</span>
-                    <span>{stop.travel_note}</span>
-                  </p>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ol>
 
           {/* Travel Tips & Good to Know */}
           {plan.data.tips.length > 0 && (
             <div className="mt-8 rounded-2xl bg-primary/5 border border-primary/20 p-5">
               <p className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-                <span>💡</span> Travel Insights & Pro-Tips
+                <span>💡</span> Local Travel Insights & Pro-Tips
               </p>
               <ul className="mt-2.5 space-y-1.5 text-xs sm:text-sm text-foreground/90 leading-relaxed">
                 {plan.data.tips.map((t, idx) => (

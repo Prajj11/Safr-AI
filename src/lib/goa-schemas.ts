@@ -75,11 +75,16 @@ export const itinerarySchema = z.object({
         travel_note: z.string(),
         lat: z.number().optional(),
         lng: z.number().optional(),
+        crowdLevel: z.enum(["low", "moderate", "high"]).optional(),
+        distanceKm: z.number().optional(),
+        transitMin: z.number().optional(),
       }),
     )
-    .min(3)
+    .min(2)
     .max(12),
   tips: z.array(z.string()).min(2).max(6),
+  liveWeather: z.string().optional(),
+  liveSwell: z.string().optional(),
 });
 
 export type Itinerary = z.infer<typeof itinerarySchema>;
