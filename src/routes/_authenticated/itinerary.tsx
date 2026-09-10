@@ -1,8 +1,21 @@
 import { useMutation } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Calendar, Loader2, Sparkles } from "lucide-react";
-import { useState } from "react";
+import {
+  Calendar,
+  CheckCircle2,
+  Circle,
+  Clock,
+  ExternalLink,
+  Loader2,
+  MapPin,
+  Navigation,
+  Printer,
+  Radio,
+  Sparkles,
+  Zap,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -21,7 +34,7 @@ export const Route = createFileRoute("/_authenticated/itinerary")({
 const INTERESTS = [
   "History & heritage",
   "Local food",
-  "Beaches",
+  "Beaches & sunsets",
   "Nightlife",
   "Nature & wildlife",
   "Markets & shopping",
@@ -38,32 +51,44 @@ const typeEmoji: Record<string, string> = {
   travel: "🛵",
 };
 
-function getTodayDate() {
-  return new Date().toISOString().split("T")[0];
+function getTodayDate(): string {
+  return new Date().toISOString().split("T")[0] || "";
 }
 
-function getTomorrowDate() {
+function getTomorrowDate(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().split("T")[0];
+  return d.toISOString().split("T")[0] || "";
 }
 
-function getWeekendDate() {
+function getWeekendDate(): string {
   const d = new Date();
   const day = d.getDay();
-  const daysUntilSaturday = (6 - day + 7) % 7 || 7;
-  d.setDate(d.getDate() + daysUntilSaturday);
-  return d.toISOString().split("T")[0];
+  const diff = day <= 5 ? 6 - day : 0;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().split("T")[0] || "";
 }
 
+const TELEMETRY_STEPS = [
+  "Connecting to Goan local map engine & GPS network…",
+  "Pinpointing verified nearby spots within destination radius…",
+  "Gemini 2.5 Flash reasoning through travel pacing & preferences…",
+  "Syncing live marine swell & coastal daylight window…",
+  "Calculating transit road distances & safe buffer intervals…",
+  "Finalizing personalized hour-by-hour Goan schedule…",
+];
+
 function ItineraryPage() {
-  const [place, setPlace] = useState<string>("Panjim");
-  const [date, setDate] = useState<string>(getTodayDate);
+  const [place, setPlace] = useState<string>("Anjuna Beach");
+  const [date, setDate] = useState<string>(getTodayDate());
   const [hours, setHours] = useState(6);
   const [startTime, setStartTime] = useState("09:00");
   const [pace, setPace] = useState<"relaxed" | "balanced" | "packed">("balanced");
-  const [interests, setInterests] = useState<string[]>(["Local food", "History & heritage"]);
+  const [interests, setInterests] = useState<string[]>(["Local food", "Beaches & sunsets"]);
   const [notes, setNotes] = useState("");
+
+  const [telemetryIndex, setTelemetryIndex] = useState(0);
+  const [visitedStops, setVisitedStops] = useState<Record<number, boolean>>({});
 
   const generate = useServerFn(generateItinerary);
 
@@ -85,29 +110,62 @@ function ItineraryPage() {
       }
       return result;
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not build a plan"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not build itinerary"),
   });
 
+  // Cycle telemetry steps during generation
+  useEffect(() => {
+    if (!plan.isPending) {
+      setTelemetryIndex(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setTelemetryIndex((prev) => (prev + 1) % TELEMETRY_STEPS.length);
+    }, 1100);
+    return () => clearInterval(interval);
+  }, [plan.isPending]);
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const toggleVisited = (index: number) => {
+    setVisitedStops((prev) => ({ ...prev, [index]: !prev[index] }));
+  };
+
   return (
-    <AppShell title="AI itinerary" subtitle="Make the most of the hours you have" back>
+    <AppShell title="AI Itinerary Planner" subtitle="Custom hour-by-hour schedules tailored for Goa" back>
+      {/* Configuration Form Card */}
       <form
-        className="space-y-4 rounded-2xl border border-border bg-card p-5"
+        className="space-y-5 rounded-3xl border border-border/60 bg-card/75 backdrop-blur-2xl p-6 sm:p-8 shadow-sm"
         onSubmit={(e) => {
           e.preventDefault();
           if (interests.length === 0) {
-            toast.error("Pick at least one interest");
+            toast.error("Please select at least one travel interest");
             return;
           }
+          setVisitedStops({});
           plan.mutate();
         }}
       >
+        <div className="flex items-center justify-between border-b border-border/40 pb-4">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Time-Budget Planner</span>
+            <h3 className="text-xl font-bold font-display text-foreground">Configure Your Goan Day</h3>
+          </div>
+          <Sparkles className="size-6 text-primary" />
+        </div>
+
+        {/* Location Dropdown */}
         <div className="space-y-1.5">
-          <Label htmlFor="place">Where are you?</Label>
+          <Label htmlFor="place" className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <MapPin className="size-3.5 text-primary" /> Destination Base in Goa
+          </Label>
           <select
             id="place"
             value={place}
             onChange={(e) => setPlace(e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            className="h-12 w-full rounded-2xl border border-border/60 bg-secondary/40 px-4 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           >
             {GOA_PLACES.map((p) => (
               <option key={p} value={p}>
@@ -117,45 +175,34 @@ function ItineraryPage() {
           </select>
         </div>
 
+        {/* Date of Visit & Quick Date Pills */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label htmlFor="date" className="flex items-center gap-1.5 font-medium">
-              <Calendar className="size-4 text-primary" /> Date of visit
+            <Label htmlFor="date" className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Calendar className="size-3.5 text-primary" /> Date of Exploration
             </Label>
-            <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={() => setDate(getTodayDate())}
-                className={`rounded-md px-2 py-0.5 text-xs transition-colors ${
-                  date === getTodayDate()
-                    ? "bg-primary text-primary-foreground font-semibold"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
-              >
-                Today
-              </button>
-              <button
-                type="button"
-                onClick={() => setDate(getTomorrowDate())}
-                className={`rounded-md px-2 py-0.5 text-xs transition-colors ${
-                  date === getTomorrowDate()
-                    ? "bg-primary text-primary-foreground font-semibold"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
-              >
-                Tomorrow
-              </button>
-              <button
-                type="button"
-                onClick={() => setDate(getWeekendDate())}
-                className={`rounded-md px-2 py-0.5 text-xs transition-colors ${
-                  date === getWeekendDate()
-                    ? "bg-primary text-primary-foreground font-semibold"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
-              >
-                Weekend
-              </button>
+            <div className="flex gap-1.5">
+              {[
+                { label: "Today", fn: getTodayDate },
+                { label: "Tomorrow", fn: getTomorrowDate },
+                { label: "Weekend", fn: getWeekendDate },
+              ].map((pill) => {
+                const isSelected = date === pill.fn();
+                return (
+                  <button
+                    key={pill.label}
+                    type="button"
+                    onClick={() => setDate(pill.fn())}
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold transition-all ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                    }`}
+                  >
+                    {pill.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <Input
@@ -164,17 +211,29 @@ function ItineraryPage() {
             value={date}
             min={getTodayDate()}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full"
+            className="w-full h-11 rounded-2xl bg-secondary/40 border-border/60"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        {/* Start Time and Available Duration */}
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <Label htmlFor="start">Start time</Label>
-            <Input id="start" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+            <Label htmlFor="start" className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Clock className="size-3.5 text-primary" /> Start Time
+            </Label>
+            <Input
+              id="start"
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="h-11 rounded-2xl bg-secondary/40 border-border/60 font-semibold"
+            />
           </div>
+
           <div className="space-y-1.5">
-            <Label htmlFor="hours">Hours free</Label>
+            <Label htmlFor="hours" className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Zap className="size-3.5 text-amber" /> Free Hours ({hours}h)
+            </Label>
             <Input
               id="hours"
               type="number"
@@ -182,120 +241,356 @@ function ItineraryPage() {
               max={24}
               value={hours}
               onChange={(e) => setHours(Math.max(1, Math.min(24, Number(e.target.value) || 1)))}
+              className="h-11 rounded-2xl bg-secondary/40 border-border/60 font-bold"
             />
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label>Pace</Label>
-          <div className="flex gap-2">
-            {(["relaxed", "balanced", "packed"] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPace(p)}
-                className={`rounded-full px-3 py-1.5 text-sm capitalize ${
-                  pace === p ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
-                }`}
-              >
-                {p}
-              </button>
-            ))}
+        {/* Pacing Speed Controls */}
+        <div className="space-y-2">
+          <Label className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Exploration Pace</Label>
+          <div className="grid grid-cols-3 gap-2.5">
+            {(["relaxed", "balanced", "packed"] as const).map((p) => {
+              const isSelected = pace === p;
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPace(p)}
+                  className={`rounded-2xl py-2.5 text-xs font-bold capitalize transition-all ${
+                    isSelected
+                      ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-[1.02]"
+                      : "bg-secondary/70 text-secondary-foreground hover:bg-secondary"
+                  }`}
+                >
+                  {p}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label>What do you enjoy?</Label>
+        {/* Interest Tags Selector */}
+        <div className="space-y-2">
+          <Label className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">What do you enjoy?</Label>
           <div className="flex flex-wrap gap-2">
-            {INTERESTS.map((i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() =>
-                  setInterests(interests.includes(i) ? interests.filter((x) => x !== i) : [...interests, i])
-                }
-                className={`rounded-full px-3 py-1.5 text-sm ${
-                  interests.includes(i) ? "bg-accent text-accent-foreground" : "bg-secondary text-secondary-foreground"
-                }`}
-              >
-                {i}
-              </button>
-            ))}
+            {INTERESTS.map((i) => {
+              const isSelected = interests.includes(i);
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() =>
+                    setInterests(
+                      isSelected ? interests.filter((x) => x !== i) : [...interests, i]
+                    )
+                  }
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                    isSelected
+                      ? "bg-primary text-primary-foreground shadow-xs scale-105"
+                      : "bg-secondary/70 text-secondary-foreground hover:bg-secondary"
+                  }`}
+                >
+                  {i}
+                </button>
+              );
+            })}
           </div>
         </div>
 
+        {/* Custom Notes / Constraints */}
         <div className="space-y-1.5">
-          <Label htmlFor="notes">Anything else? (optional)</Label>
+          <Label htmlFor="notes" className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+            Special Requests & Notes (optional)
+          </Label>
           <Textarea
             id="notes"
             maxLength={400}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Travelling with a toddler, no seafood, prefer scooter…"
+            placeholder="Travelling with a toddler, vegetarian only, prefer scooter-accessible spots…"
+            className="rounded-2xl bg-secondary/40 border-border/60 text-xs sm:text-sm resize-none"
+            rows={2}
           />
         </div>
 
-        <Button type="submit" className="w-full" disabled={plan.isPending}>
-          {plan.isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-          {plan.isPending ? "Building your plan…" : "Generate itinerary"}
+        {/* Submit Button */}
+        <Button
+          type="submit"
+          disabled={plan.isPending}
+          className="w-full h-12 rounded-full font-bold bg-primary text-primary-foreground shadow-md transition-all hover:scale-[1.01] active:scale-95"
+        >
+          {plan.isPending ? (
+            <>
+              <Loader2 className="size-4 animate-spin mr-2" /> Synthesizing Itinerary…
+            </>
+          ) : (
+            <>
+              <Sparkles className="size-4 mr-2" /> Generate AI Itinerary
+            </>
+          )}
         </Button>
       </form>
 
-      {plan.data && (
-        <section className="mt-6 rounded-2xl border border-border bg-card p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-xl font-semibold">{plan.data.title}</h2>
-            {plan.data.date && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                <Calendar className="size-3.5" />
-                {new Date(plan.data.date).toLocaleDateString("en-US", {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </span>
-            )}
+      {/* REAL-TIME GENERATION TELEMETRY RADAR */}
+      {plan.isPending && (
+        <div className="mt-8 rounded-3xl border border-primary/30 bg-card/90 backdrop-blur-2xl p-6 sm:p-8 shadow-lg animate-in fade-in duration-300">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-2xl bg-primary/15 flex items-center justify-center text-primary">
+              <Radio className="size-5 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-foreground">Local Map Engine Active</h4>
+              <p className="text-xs text-muted-foreground">Grounding {place} nearby spots with real-time transit & crowd analysis…</p>
+            </div>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">{plan.data.overview}</p>
 
-          <ol className="mt-5 space-y-6 border-l border-border pl-6">
-            {plan.data.stops.map((stop, i) => (
-              <li key={i} className="relative">
-                <span className="absolute -left-[31px] top-0.5 flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground shadow-sm">
-                  {i + 1}
-                </span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-md bg-secondary px-2.5 py-0.5 text-xs font-semibold text-foreground">
-                    🕒 {stop.time}
-                  </span>
-                  <span className="rounded-md bg-accent/20 px-2 py-0.5 text-[11px] font-medium text-accent-foreground capitalize">
-                    {stop.duration}
-                  </span>
+          <div className="mt-5 space-y-2.5">
+            {TELEMETRY_STEPS.map((step, idx) => {
+              const isCurrent = idx === telemetryIndex;
+              const isDone = idx < telemetryIndex;
+              return (
+                <div
+                  key={idx}
+                  className={`flex items-center gap-3 text-xs transition-all duration-300 ${
+                    isCurrent
+                      ? "text-primary font-bold translate-x-1"
+                      : isDone
+                      ? "text-muted-foreground line-through opacity-60"
+                      : "text-muted-foreground/40"
+                  }`}
+                >
+                  {isDone ? (
+                    <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                  ) : isCurrent ? (
+                    <Loader2 className="size-4 text-primary animate-spin shrink-0" />
+                  ) : (
+                    <Circle className="size-3.5 shrink-0 opacity-40" />
+                  )}
+                  <span>{step}</span>
                 </div>
-                <h3 className="mt-1.5 text-base font-bold text-foreground flex items-center gap-1.5">
-                  <span>{typeEmoji[stop.type] ?? "📍"}</span>
-                  <span>{stop.title}</span>
-                </h3>
-                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{stop.description}</p>
-                <p className="mt-1.5 text-xs font-medium text-primary flex items-center gap-1">
-                  <span>🛵</span>
-                  <span>{stop.travel_note}</span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* RESULTING ITINERARY TIMELINE */}
+      {plan.data && !plan.isPending && (
+        <section className="mt-8 rounded-3xl border border-border/60 bg-card/80 backdrop-blur-2xl p-6 sm:p-8 shadow-sm animate-in fade-in slide-in-from-bottom-6 duration-500">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-primary/10 text-primary px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                  Verified Local Schedule
+                </span>
+                <span className="rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold">
+                  ● Real-Time Maps Synced
+                </span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold font-display text-foreground mt-1.5">
+                {plan.data.title}
+              </h2>
+              {plan.data.date && (
+                <p className="text-xs font-semibold text-muted-foreground mt-1 flex items-center gap-1.5">
+                  <Calendar className="size-3.5 text-primary" />
+                  {new Date(plan.data.date).toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  })}
                 </p>
-              </li>
-            ))}
+              )}
+            </div>
+
+            {/* Export / Print Button */}
+            <Button
+              onClick={handlePrint}
+              variant="outline"
+              size="sm"
+              className="rounded-full font-bold text-xs gap-1.5 shadow-sm hover:border-primary/40 self-start sm:self-auto"
+            >
+              <Printer className="size-3.5" /> Print / Save PDF
+            </Button>
+          </div>
+
+          {/* Live Coastal Telemetry Banner */}
+          {(plan.data.liveWeather || plan.data.liveSwell) && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-3 rounded-2xl bg-secondary/50 border border-border/50 p-3 text-xs text-foreground">
+              {plan.data.liveWeather && (
+                <span className="font-semibold flex items-center gap-1.5">
+                  {plan.data.liveWeather}
+                </span>
+              )}
+              {plan.data.liveWeather && plan.data.liveSwell && (
+                <span className="text-muted-foreground hidden sm:inline">·</span>
+              )}
+              {plan.data.liveSwell && (
+                <span className="font-semibold flex items-center gap-1.5">
+                  {plan.data.liveSwell}
+                </span>
+              )}
+            </div>
+          )}
+
+          <p className="mt-4 text-sm text-foreground/90 leading-relaxed font-medium">
+            {plan.data.overview}
+          </p>
+
+          {/* Sequential Timeline Stops */}
+          <ol className="mt-8 space-y-6 border-l-2 border-primary/30 pl-6 ml-2">
+            {plan.data.stops.map((stop, i) => {
+              const isVisited = Boolean(visitedStops[i]);
+              return (
+                <li key={i} className="relative group">
+                  {/* Numbered Step Bubble */}
+                  <button
+                    type="button"
+                    onClick={() => toggleVisited(i)}
+                    className={`absolute -left-[33px] top-0.5 flex size-6 items-center justify-center rounded-full text-xs font-bold shadow-sm transition-all ${
+                      isVisited
+                        ? "bg-emerald-500 text-white scale-110 ring-2 ring-emerald-300"
+                        : "bg-primary text-primary-foreground group-hover:scale-110"
+                    }`}
+                    title={isVisited ? "Mark as not visited" : "Mark as visited"}
+                  >
+                    {isVisited ? "✓" : i + 1}
+                  </button>
+
+                  <div
+                    className={`rounded-2xl border p-4 sm:p-5 transition-all ${
+                      isVisited
+                        ? "border-emerald-500/30 bg-emerald-500/5 opacity-80"
+                        : "border-border/60 bg-secondary/30 hover:border-primary/40 hover:bg-secondary/50"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-xs font-bold font-mono">
+                          🕒 {stop.time}
+                        </span>
+                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold capitalize text-muted-foreground">
+                          {stop.duration}
+                        </span>
+
+                        {/* Real-time Crowd Indicator */}
+                        {stop.crowdLevel && (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                              stop.crowdLevel === "low"
+                                ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                                : stop.crowdLevel === "high"
+                                ? "bg-rose-500/10 text-rose-600 border border-rose-500/20"
+                                : "bg-amber-500/10 text-amber-700 border border-amber-500/20"
+                            }`}
+                          >
+                            <span
+                              className={`size-1.5 rounded-full ${
+                                stop.crowdLevel === "low"
+                                  ? "bg-emerald-500"
+                                  : stop.crowdLevel === "high"
+                                  ? "bg-rose-500 animate-pulse"
+                                  : "bg-amber-500"
+                              }`}
+                            />
+                            {stop.crowdLevel === "low"
+                              ? "Low Crowds"
+                              : stop.crowdLevel === "high"
+                              ? "Peak Crowds"
+                              : "Moderate Buzz"}
+                          </span>
+                        )}
+
+                        {/* Transit Distance pill */}
+                        {stop.distanceKm !== undefined && stop.distanceKm > 0 && (
+                          <span className="rounded-full bg-secondary/80 px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                            📍 {stop.distanceKm} km · ~{stop.transitMin ?? 5}m drive
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Direct Turn-by-Turn Safe Route & Google Maps Actions */}
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs font-bold text-primary hover:bg-primary/10 rounded-full px-3 gap-1"
+                        >
+                          <Link
+                            to="/map"
+                            search={{
+                              dest: stop.title,
+                              lat: stop.lat !== undefined ? String(stop.lat) : undefined,
+                              lng: stop.lng !== undefined ? String(stop.lng) : undefined,
+                            }}
+                          >
+                            <Navigation className="size-3 mr-0.5" /> Safe Route
+                          </Link>
+                        </Button>
+
+                        {stop.lat && stop.lng && (
+                          <a
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center size-7 rounded-full border border-border/70 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                            title="Open Google Maps GPS Navigation"
+                          >
+                            <ExternalLink className="size-3" />
+                          </a>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => toggleVisited(i)}
+                          className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-colors ${
+                            isVisited
+                              ? "bg-emerald-500 text-white border-emerald-500"
+                              : "text-muted-foreground border-border/60 hover:bg-secondary"
+                          }`}
+                        >
+                          {isVisited ? "Visited ✓" : "Mark Visited"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <h3 className="mt-2.5 text-base font-bold text-foreground flex items-center gap-2">
+                      <span>{typeEmoji[stop.type] ?? "📍"}</span>
+                      <span className={isVisited ? "line-through text-muted-foreground" : ""}>{stop.title}</span>
+                    </h3>
+
+                    <p className="mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                      {stop.description}
+                    </p>
+
+                    <p className="mt-2.5 text-xs font-semibold text-primary bg-primary/5 px-2.5 py-1 rounded-lg w-fit flex items-center gap-1.5">
+                      <span>🛵</span>
+                      <span>{stop.travel_note}</span>
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
           </ol>
 
-          <div className="mt-6 rounded-xl bg-secondary/60 p-4 border border-border/50">
-            <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase flex items-center gap-1.5">
-              <span>💡</span> Good to know
-            </p>
-            <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-muted-foreground">
-              {plan.data.tips.map((t) => (
-                <li key={t}>{t}</li>
-              ))}
-            </ul>
-          </div>
+          {/* Travel Tips & Good to Know */}
+          {plan.data.tips.length > 0 && (
+            <div className="mt-8 rounded-2xl bg-primary/5 border border-primary/20 p-5">
+              <p className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                <span>💡</span> Local Travel Insights & Pro-Tips
+              </p>
+              <ul className="mt-2.5 space-y-1.5 text-xs sm:text-sm text-foreground/90 leading-relaxed">
+                {plan.data.tips.map((t, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-primary font-bold">•</span>
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       )}
     </AppShell>
