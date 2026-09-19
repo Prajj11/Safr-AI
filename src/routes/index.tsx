@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { GoogleTranslate } from "@/components/GoogleTranslate";
+import { SafrLogo } from "@/components/SafrLogo";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -194,9 +195,7 @@ function Landing() {
       <header className="sticky top-0 z-50 border-b border-orange-100/50 bg-[#fffdfa]/75 backdrop-blur-2xl transition-all shadow-[0_1px_12px_rgba(0,0,0,0.02)]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 via-rose-500 to-amber-500 shadow-md shadow-orange-500/20 transition-transform group-hover:scale-105">
-              <Compass className="size-5 text-white" />
-            </div>
+            <SafrLogo size={42} />
             <div>
               <span className="text-xl font-black tracking-tight font-display text-stone-900">
                 Safr

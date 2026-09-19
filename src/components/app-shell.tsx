@@ -18,6 +18,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { GoogleTranslate } from "@/components/GoogleTranslate";
+import { SafrLogo } from "@/components/SafrLogo";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -75,9 +76,10 @@ export function AppShell({
             ) : (
               <Link
                 to="/dashboard"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-cyan to-coral shadow-sm transition-transform hover:scale-105"
+                className="group shrink-0 transition-transform hover:scale-105 active:scale-95"
+                title="Safr Dashboard"
               >
-                <Compass className="size-5 text-primary-foreground" />
+                <SafrLogo size={42} />
               </Link>
             )}
 

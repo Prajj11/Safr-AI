@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { SafrLogo } from "@/components/SafrLogo";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (search: Record<string, unknown>): { mode?: "signin" | "signup" } => {
@@ -113,13 +114,11 @@ function AuthPage() {
         </Link>
 
         <div className="rounded-3xl border border-border/60 bg-card/85 backdrop-blur-2xl p-8 sm:p-10 shadow-2xl">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="size-10 rounded-2xl bg-gradient-to-br from-primary via-cyan to-coral flex items-center justify-center shadow-sm">
-              <Compass className="size-5 text-primary-foreground" />
-            </div>
+          <div className="flex items-center gap-3 mb-6">
+            <SafrLogo size={42} />
             <div>
               <span className="text-xl font-bold font-display tracking-tight">Safr</span>
-              <span className="ml-1 text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Goa</span>
+              <span className="ml-1.5 text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">Goa</span>
             </div>
           </div>
 
