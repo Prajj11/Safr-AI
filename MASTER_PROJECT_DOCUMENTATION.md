@@ -436,6 +436,28 @@ $$;
 GRANT EXECUTE ON FUNCTION public.notify_safety_tag(TEXT, TEXT, TEXT) TO anon, authenticated;
 ```
 
+### 4.5 Data Integrity & Age Category Validation Constraints
+Added via migration `20260919000000_age_category_validation.sql` and bundled in `supabase/schema.sql`:
+```sql
+-- Enforce category-age alignment on safety tags
+ALTER TABLE public.safety_tags ADD CONSTRAINT safety_tags_age_category_check CHECK (
+  person_age IS NOT NULL AND person_age BETWEEN 0 AND 120 AND (
+    (category = 'kid' AND person_age < 18) OR
+    (category IN ('adult', 'member') AND person_age >= 18 AND person_age < 60) OR
+    (category = 'senior' AND person_age >= 60)
+  )
+) NOT VALID;
+
+-- Enforce category-age alignment on trip travellers
+ALTER TABLE public.travellers ADD CONSTRAINT travellers_age_category_check CHECK (
+  age IS NOT NULL AND age BETWEEN 0 AND 120 AND (
+    (category = 'kid' AND age < 18) OR
+    (category = 'adult' AND age >= 18 AND age < 60) OR
+    (category = 'senior' AND age >= 60)
+  )
+) NOT VALID;
+```
+
 ---
 
 ## 5. Algorithms, Mathematical Formulations & Heuristics
@@ -815,34 +837,40 @@ Stored in [`goa.functions.ts`](file:///c:/Users/prajw/OneDrive/Documents/PCCE%20
 ## 10. Local Development, Setup, Environment & Deployment Manual
 
 ### 10.1 Prerequisites
-- **Node.js:** v18.0.0 or higher (v20+ recommended)
-- **NPM:** v9.0.0 or higher
+- **Node.js:** v24.0.0 or higher
+- **NPM:** v10.0.0 or higher
 - **Modern Web Browser:** Chrome, Firefox, Safari, or Edge
 
 ### 10.2 Environment Variable Configuration (`.env`)
-Create a `.env` file in `goa-guide-buddy-main/`:
+The `.env` file is maintained locally in `goa-guide-buddy-main/` (ignored from Git tracking):
 ```env
-# Supabase PostgreSQL & Auth Credentials
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-
-# Google Gemini AI API Key (For Dynamic Itinerary Generation)
-GEMINI_API_KEY=your-gemini-api-key
-VITE_GEMINI_API_KEY=your-gemini-api-key
+SUPABASE_PROJECT_ID="bfxtulimqxggjageyxrm"
+SUPABASE_PUBLISHABLE_KEY="sb_publishable_5cr0Y9aDxppRRlFqRuJCZg_f842cMe1"
+SUPABASE_URL="https://bfxtulimqxggjageyxrm.supabase.co"
+VITE_SUPABASE_PROJECT_ID="bfxtulimqxggjageyxrm"
+VITE_SUPABASE_PUBLISHABLE_KEY="sb_publishable_5cr0Y9aDxppRRlFqRuJCZg_f842cMe1"
+VITE_SUPABASE_URL="https://bfxtulimqxggjageyxrm.supabase.co"
+GEMINI_API_KEY="your-gemini-api-key"
 ```
 
-### 10.3 Installation & Local Execution
-```bash
-# 1. Navigate to the project directory
-cd "goa-guide-buddy-main"
+> [!NOTE]
+> `GEMINI_API_KEY` is loaded strictly on the server and is never exposed to the client bundle. The client connects to Supabase using only the publishable key with Row Level Security (RLS) enabled.
 
-# 2. Install dependencies
+### 10.3 Installation & Service Verification
+```bash
+# 1. Install dependencies
 npm install
 
-# 3. Verify TypeScript type safety
-npx tsc --noEmit
+# 2. Verify external service connections (Photon, OSRM, Supabase, Gemini)
+npm run check:services
 
-# 4. Start local development server
+# 3. Run automated regression test suite (14 tests)
+npm test
+
+# 4. Verify TypeScript type safety
+npm run typecheck
+
+# 5. Start local development server
 npm run dev
 ```
 The application will be live at `http://localhost:5173`.
@@ -855,8 +883,8 @@ npm run build
 # Preview production build locally
 npm run preview
 ```
-- **Deployment Platforms:** TanStack Start builds can be deployed to **Vercel**, **Netlify**, **Cloudflare Pages**, or **Node.js containers (Docker)** with zero configuration changes.
-- **Database Deployment:** Push the migration files in `supabase/migrations/` using the Supabase CLI (`supabase db push`) or execute them directly in the Supabase SQL Web Editor.
+- **Deployment Platforms:** TanStack Start builds can be deployed to **Vercel**, **Netlify**, **Cloudflare Pages**, or **Node.js containers (Docker)**.
+- **Database Schema Deployment:** The full database schema can be applied in one step using the consolidated script [`supabase/schema.sql`](./supabase/schema.sql) in the Supabase SQL Web Editor, or incrementally via the migration files in `supabase/migrations/`.
 
 ---
 

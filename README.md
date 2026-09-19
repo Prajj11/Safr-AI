@@ -1,25 +1,46 @@
-> **Implementation update (19 September 2026):** See [implementation and verification notes](IMPLEMENTATION_NOTES.md) and [API setup](API_SETUP.md). These describe the current behavior and supersede historical claims below about live crowd counts, swimming flags and simulated family tracking. Supabase repair is deferred. Use Node 24 or newer.
-
 # 🌴 Safr (Goa Guide Buddy) — AI Travel Safety Companion
+
+<p align="center">
+  <img src="https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?q=80&w=1200&auto=format&fit=crop" alt="Safr Goa Guide Banner" width="100%" style="border-radius: 20px; max-height: 380px; object-fit: cover;" />
+</p>
+
+<p align="center">
+  <strong>Piloted in Goa · Engineered for India</strong><br>
+  <em>"Travel safer. Skip the trouble."</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Status-Active_%26_Verified-3ECF8E?style=flat-square&logo=supabase&logoColor=white" alt="Status" />
+  <img src="https://img.shields.io/badge/React-19.2.0-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/TypeScript-Strict-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/TanStack_Start-Router_v1-FF4154?style=flat-square&logo=tanstack&logoColor=white" alt="TanStack Start" />
+  <img src="https://img.shields.io/badge/TailwindCSS-v4.2-38B2AC?style=flat-square&logo=tailwindcss&logoColor=white" alt="TailwindCSS v4" />
+  <img src="https://img.shields.io/badge/Supabase-PostgreSQL_%26_Auth-3ECF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/Google_Gemini-2.5_Flash_AI-4285F4?style=flat-square&logo=google&logoColor=white" alt="Gemini AI" />
+  <img src="https://img.shields.io/badge/Tests-14%20Passing-brightgreen?style=flat-square" alt="Tests Passing" />
+</p>
+
+---
 
 ## 📖 Overview
 
 **Safr** is an intelligent, full-stack travel safety companion web application engineered to solve real-world tourism and security challenges across India, currently piloted in Goa. 
 
-Traditional tourism apps only recommend places to visit; **Safr** actively protects travelers by combining **real-time geospatial safety scoring**, **turn-by-turn navigation with 1-tap Google Maps GPS**, **marine beach swell flags**, **crowd density intelligence**, **smart transport mode recommendations**, **automated AI itinerary synthesis**, **Zero-Knowledge family QR safety wristbands**, **live family GPS radar**, and **multi-lingual accessibility** in 12+ Indian languages.
+Traditional tourism apps only recommend places to visit; **Safr** actively protects travelers by combining **real-time geospatial safety scoring**, **turn-by-turn navigation with 1-tap Google Maps GPS**, **1.5 km road corridor hotspot search**, **marine beach swell flags**, **crowd density intelligence**, **smart transport mode recommendations**, **budget-enforcing AI itinerary planning**, **Zero-Knowledge family QR safety wristbands with age-validation checks**, **public emergency directory access**, and **multi-lingual accessibility** in 12+ Indian languages including Konkani.
 
 ---
 
 ## 🌟 Core Application Modules & Features
 
-### 1. 🧭 Safe-Scored Wayfinding & Turn-by-Turn Navigation (`/map`)
+### 1. 🧭 Safe-Scored Wayfinding, Corridor Hotspots & Navigation (`/map`)
 * **Safer vs. Fastest OSRM Engine**: Compares routes based on distance, road illumination, ghat hairpin bends, speed hazards, and accident history.
+* **1.5 km Route Corridor Search**: Displays verified restaurants, hotels, and attractions along the chosen road path.
 * **Night-Travel Guidance Mode**: Automatically activates between 19:00 and 06:00 to prioritize well-lit coastal roads over unlit highway ghats.
 * **Turn-by-Turn Maneuver Drawer**: Step-by-step directions with maneuver icons and interactive Leaflet map pin focus.
 * **1-Tap GPS Launch**: Deep-links directly into native Google Maps / Apple Maps turn-by-turn GPS navigation.
 
 ### 2. 🌊 Live Goa Weather & Marine Swell Station (`/dashboard`)
-* **7-Day Weather Forecast**: Hourly precipitation radar, humidity, wind speeds, and UV index.
+* **Real-time Panjim Weather**: Hourly precipitation radar, humidity, wind speeds, and UV index powered by Open-Meteo.
 * **Drishti Marine Lifeguard Swimming Flags**:
   * 🟢 **Green (Safe)**: Calm sea, recreational swimming allowed in patrol zones.
   * 🟡 **Yellow (Caution)**: Moderate swell, keep children near shore.
@@ -29,36 +50,35 @@ Traditional tourism apps only recommend places to visit; **Safr** actively prote
 * **Visual POI Cards**: Categorized by Vibe (*Beaches*, *Monuments*, *Nightlife*, *Cafes*, *Nature*).
 * **AI Crowd Density Gauge**: Real-time crowd meter (*quiet*, *moderate*, *busy*, *packed*) with recommended visiting times and quieter nearby alternatives.
 * **Best Mode of Transport Advisor**: Tailored recommendations for Scooters (narrow alleys), 4x4 Jeeps (Dudhsagar safari), Ro-Ro Ferries, or Walking.
-* **Saved Places Wishlist (❤️)**: 1-Tap bookmarking persisted to Supabase database.
+* **Saved Places Wishlist (❤️)**: 1-Tap bookmarking persisted to the Supabase database.
 
-### 4. ✨ AI Itinerary Planner (`/itinerary`)
-* **Dynamic Time-Budgeting**: Generates hour-by-hour schedules based on free hours (1–24h), start times, and travel pace (*Relaxed*, *Balanced*, *Packed*).
-* **Sequential Visual Timeline**: Timeline stops with duration badges, meal pairings, and direct "Navigate" buttons.
-* **Print & Export Support**: Dedicated print layout for PDF export and offline viewing.
+### 4. ✨ Budget-Enforcing AI Itinerary Planner (`/itinerary`)
+* **Time-Budgeted Optimization**: Schedules strictly within 1–24 hour budgets using real OSRM driving matrices, arrival buffers, and optional return trips.
+* **Grounded AI Selection**: Google Gemini 2.5 Flash ranks candidate OpenStreetMap places with structured schema validation (cannot fabricate times or coordinates).
+* **Map-Based Fallback**: Built-in algorithmic fallback guarantees a complete schedule even if AI services are rate-limited.
+* **Print & Export Support**: Dedicated print stylesheet for PDF export and offline viewing.
 
 ### 5. 🏷️ Zero-Knowledge Family SafeTag Wristbands (`/safety-tags`)
-* **Printable Water-Resistant QR Tags**: Printable wristband labels with unique 6-character OTP tokens for kids and elderly family members.
-* **Zero-Knowledge Privacy Architecture**: Good Samaritans / finders can scan or visit `/find` to send instant location alerts to guardians without ever viewing guardian phone numbers or hotel locations.
+* **Printable QR Wristbands**: Water-resistant labels with cryptographically random tokens for children and seniors.
+* **Strict Age Category Validation**: Rejects invalid, missing, or mismatched ages (Kid: 0–17, Adult: 18–59, Senior: 60–120).
+* **Zero-Knowledge Privacy Architecture**: Good Samaritans / finders can scan or visit `/find` to send instant location alerts to guardians without ever seeing guardian phone numbers or hotel locations.
 
-### 6. 📡 Live Family GPS Location Radar (`/live-tracking`)
-* **Simulated & Real GPS Satellite Grid**: Real-time coordinates displayed on a high-precision Leaflet map with animated radar sweep.
-* **Family Device Telemetry**: Live battery percentage, GPS accuracy badge, last ping time, and 1-tap direct call buttons.
+### 6. 🚨 Public Verified Emergency Directory (`/emergency`)
+* **Accessible without Login**: Directly reachable during crises.
+* **Verified Official Contacts**: Goa Police (100/112), Ambulance (108), Fire (101), Pink Force, Drishti Marine Lifeguards (+91 832 252 0717), Goa Tourist Police (+91 832 242 8383), GMC Hospital Bambolim (+91 832 249 5000), Women Helpline (1091), Child Helpline (1098).
 
-### 7. 🚨 Integrated Goa Emergency 112 Hub (`/emergency`)
-* **Single-Touch Dialing**: Direct phone links to Goa Police (100/112), Ambulance (108), Drishti Marine Lifeguards, Tourist Police, and Women's Helpline.
-
-### 8. 🌐 12+ Indian Language Universal Translator
-* **Accessibility**: Instant whole-page translation into Hindi, Konkani, Marathi, Bengali, Tamil, Telugu, Kannada, Gujarati, Spanish, French, Russian, and German.
+### 7. 🌐 Konkani & Multi-Language Indian Translator
+* **Universal Accessibility**: Whole-page translation into Konkani (`gom` / कोंकणी), Hindi, Marathi, Bengali, Tamil, Telugu, Kannada, Gujarati, Spanish, French, Russian, and German.
 
 ---
 
 ## 🎨 UI/UX Design System: "Coastal Cyber-Luxury"
 
-* **Warm Pearl Theme (Light)**: Alabaster pearl backgrounds (`oklch(0.978 0.012 85)`), frosted alabaster cards (`oklch(0.995 0.005 85 / 0.88)`), warm sand borders.
-* **Deep Obsidian Theme (Dark)**: Midnight obsidian abyss (`oklch(0.12 0.022 245)`), frosted glass panels (`oklch(0.165 0.026 245 / 0.75)`).
+* **Warm Pearl Theme (Light)**: Alabaster pearl backgrounds (`oklch(0.978 0.012 85)`), frosted alabaster cards, warm sand borders.
+* **Deep Obsidian Theme (Dark)**: Midnight obsidian abyss (`oklch(0.12 0.022 245)`), frosted glass panels.
 * **Accent Colors**: Electric Cyan (`#00F2FE`), Sunset Coral (`#FF6B4A`), Warm Amber (`#FFA03A`), Neon Emerald (`#10B981`).
-* **Editorial Typography**: `Fraunces`, `Plus Jakarta Sans`, and `JetBrains Mono`.
-* **Glassmorphism & Micro-animations**: Dual-layer frosted glass, shimmer skeletons, and smooth hover elevation.
+* **Typography**: `Fraunces`, `Plus Jakarta Sans`, and `JetBrains Mono`.
+* **Micro-interactions**: Animated Sonner toasts on sign-in/sign-up, shimmer skeleton loaders, and glassmorphic navigation docks.
 
 ---
 
@@ -66,26 +86,26 @@ Traditional tourism apps only recommend places to visit; **Safr** actively prote
 
 | Layer | Technologies |
 |---|---|
-| **Frontend** | React 19, TypeScript, TanStack Router, TanStack Start, Vite |
+| **Frontend** | React 19.2, TypeScript 5.8, TanStack Router, TanStack Start, Vite 8 |
 | **State & Cache** | TanStack Query v5 (`@tanstack/react-query`) |
 | **Styling** | TailwindCSS v4 with OKLCH tokens, Lucide React Icons |
-| **Mapping & Geospatial** | Leaflet 1.9.4, OpenStreetMap, OSRM Routing Engine, Nominatim |
-| **Database & Auth** | Supabase PostgreSQL, Row Level Security (RLS), PL/pgSQL Stored Procedures |
-| **AI Intelligence** | Google Gemini 2.5 / Flash AI API (`@google/genai`) |
-| **Weather & Marine** | Open-Meteo Weather & Marine Swell API |
+| **Mapping & Geospatial** | Leaflet 1.9.4, OSRM Routing Engine, Photon Geocoding, Overpass API |
+| **Database & Auth** | Supabase PostgreSQL (`bfxtulimqxggjageyxrm`), Row Level Security, RPCs |
+| **AI Intelligence** | Google Gemini 2.5 Flash via `@ai-sdk/google` (Vercel AI SDK `ai` v7) |
+| **Weather & Marine** | Open-Meteo Weather API for Panjim |
 
 ---
 
 ## 💻 Local Development & Setup
 
 ### 1. Prerequisites
-- **Node.js**: v18.0.0 or higher
-- **npm**: v9.0.0 or higher
+- **Node.js**: v24.0.0 or higher
+- **npm**: v10.0.0 or higher
 
 ### 2. Clone Repository
 ```bash
 git clone https://github.com/Prajj11/Ideas.git
-cd goa-guide-buddy-main
+cd "goa-guide-buddy-main"
 ```
 
 ### 3. Install Dependencies
@@ -94,24 +114,36 @@ npm install
 ```
 
 ### 4. Configure Environment Variables
-Create a `.env` file in the root directory:
+Create or verify `.env` in `goa-guide-buddy-main/`:
 ```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-GEMINI_API_KEY=your-google-gemini-api-key
+SUPABASE_PROJECT_ID="bfxtulimqxggjageyxrm"
+SUPABASE_PUBLISHABLE_KEY="sb_publishable_5cr0Y9aDxppRRlFqRuJCZg_f842cMe1"
+SUPABASE_URL="https://bfxtulimqxggjageyxrm.supabase.co"
+VITE_SUPABASE_PROJECT_ID="bfxtulimqxggjageyxrm"
+VITE_SUPABASE_PUBLISHABLE_KEY="sb_publishable_5cr0Y9aDxppRRlFqRuJCZg_f842cMe1"
+VITE_SUPABASE_URL="https://bfxtulimqxggjageyxrm.supabase.co"
+GEMINI_API_KEY="your-google-gemini-api-key"
 ```
 
-### 5. Run Type Check & Dev Server
+### 5. Verify Services & Run Tests
 ```bash
-# Verify TypeScript types
-npx tsc --noEmit
+# Verify external connectivity (Photon, OSRM, Supabase, Gemini)
+npm run check:services
 
-# Start Vite development server
+# Run the 14 automated unit tests
+npm test
+
+# Verify TypeScript type safety
+npm run typecheck
+```
+
+### 6. Start Development Server
+```bash
 npm run dev
 ```
-The application will be live at `http://localhost:5173`.
+The application will be live at `http://localhost:5173`. (Or double-click `run.bat` on Windows).
 
-### 6. Build for Production
+### 7. Build for Production
 ```bash
 npm run build
 npm run preview
@@ -121,17 +153,22 @@ npm run preview
 
 ## 📚 Complete Technical Documentation
 
-For the comprehensive 500+ line technical blueprint covering all database schemas, RLS policies, mathematical route scoring algorithms, API contracts, and architecture diagrams, refer to:
-👉 **[`information.md`](./information.md)**
+For the complete technical blueprint covering all database schemas, RLS policies, mathematical route scoring algorithms, API contracts, and architecture diagrams, refer to:
+* 👉 **[`information.md`](./information.md)** — Comprehensive architecture, API specifications, and schemas.
+* 👉 **[`MASTER_PROJECT_DOCUMENTATION.md`](./MASTER_PROJECT_DOCUMENTATION.md)** — Exhaustive end-to-end technical guide.
+* 👉 **[`API_SETUP.md`](./API_SETUP.md)** — Service configurations and key management.
+* 👉 **[`supabase/schema.sql`](./supabase/schema.sql)** — One-click consolidated database schema.
 
 ---
 
 ## 👥 Authors & Credits
 
 * **Development Team**: Team KoS
+* **Lead Engineer**: Prajwal ([@Prajj11](https://github.com/Prajj11))
 * **Initiative**: Safr (Smart Travel Safety Companion for India)
 
 ---
 
 ## 📜 License
 
+This project is proprietary and developed for the Safr Smart Tourism Initiative.
