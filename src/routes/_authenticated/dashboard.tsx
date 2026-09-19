@@ -35,7 +35,7 @@ const TILES = [
     title: "Map & Route Planning",
     text: "Driving directions, route hotspots, nearby restaurants and hotels.",
     color: "from-cyan/15 to-transparent text-cyan border-cyan/30 hover:border-cyan/60",
-    iconBg: "bg-cyan/10 text-cyan group-hover:bg-cyan group-hover:text-cyan-foreground",
+    iconBg: "bg-cyan/10 text-cyan group-hover:bg-cyan/20",
   },
   {
     to: "/explore",
@@ -44,7 +44,7 @@ const TILES = [
     title: "Explore & Bucket List",
     text: "Discover mapped attractions and restaurants and save places for your trip.",
     color: "from-coral/15 to-transparent text-coral border-coral/30 hover:border-coral/60",
-    iconBg: "bg-coral/10 text-coral group-hover:bg-coral group-hover:text-coral-foreground",
+    iconBg: "bg-coral/10 text-coral group-hover:bg-coral/20",
   },
   {
     to: "/itinerary",
@@ -53,7 +53,7 @@ const TILES = [
     title: "AI Itinerary Planner",
     text: "A tailored schedule for the free hours you have with export-ready stop directions.",
     color: "from-amber/15 to-transparent text-amber border-amber/30 hover:border-amber/60",
-    iconBg: "bg-amber/10 text-amber group-hover:bg-amber group-hover:text-amber-foreground",
+    iconBg: "bg-amber/10 text-amber group-hover:bg-amber/20",
   },
   {
     to: "/safety-tags",
@@ -62,7 +62,7 @@ const TILES = [
     title: "QR Safety Wristbands",
     text: "Printable QR wristbands and OTP codes for kids and seniors traveling with you.",
     color: "from-emerald/15 to-transparent text-emerald border-emerald/30 hover:border-emerald/60",
-    iconBg: "bg-emerald/10 text-emerald group-hover:bg-emerald group-hover:text-emerald-foreground",
+    iconBg: "bg-emerald/10 text-emerald group-hover:bg-emerald/20",
   },
   {
     to: "/live-tracking",
@@ -71,7 +71,7 @@ const TILES = [
     title: "Your Current Location",
     text: "View your device location. Family device sharing is not connected yet.",
     color: "from-primary/15 to-transparent text-primary border-primary/30 hover:border-primary/60",
-    iconBg: "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground",
+    iconBg: "bg-primary/10 text-primary group-hover:bg-primary/20",
   },
   {
     to: "/emergency",
@@ -82,7 +82,7 @@ const TILES = [
     color:
       "from-destructive/15 to-transparent text-destructive border-destructive/30 hover:border-destructive/60",
     iconBg:
-      "bg-destructive/10 text-destructive group-hover:bg-destructive group-hover:text-destructive-foreground",
+      "bg-destructive/10 text-destructive group-hover:bg-destructive/20",
   },
 ] as const;
 
@@ -247,7 +247,7 @@ function Dashboard() {
                   <div>
                     <div className="flex items-center justify-between">
                       <div
-                        className={`flex size-12 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-110 ${tile.iconBg}`}
+                        className={`flex size-12 items-center justify-center rounded-2xl transition-all duration-300 group-hover:scale-110 ${tile.iconBg}`}
                       >
                         <Icon className="size-6" />
                       </div>
