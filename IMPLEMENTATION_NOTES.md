@@ -59,3 +59,16 @@ Family-device sharing needs consent, device updates and a real backend; entering
 - [Goa Government helplines](https://www.goa.gov.in/)
 - [Goa Tourism 1364 helpline](https://goatourism.gov.in/blog-list/experience-goa-with-ease-with-a-dedicated-helpline/)
 - [Google language codes, including Konkani](https://docs.cloud.google.com/translate/docs/languages)
+
+
+## Route comparison follow-up
+
+Fastest, Shortest available and Safest (estimate) controls now appear before the hotspots. Distances and durations are compared in unrounded meters/seconds. Duplicate geometries are removed; multiple preferences can choose the same physical route. Shortest available means the least road distance among OSRM's returned candidates, not a global shortest-path guarantee.
+
+The old 0-100 road-name heuristic is removed. Consecutive route node pairs are matched to OpenStreetMap highway ways. Mapped surface, smoothness, posted speed and lighting are reported with coverage. The safety comparison requires 90% segment matching, 70% condition coverage and (at night) 70% lighting coverage on all candidates. Missing or ambiguous data is unknown. Single candidates and tied assessments cannot establish a safest winner.
+
+Safety preference minimizes total weighted mapped exposure: unpaved surface x3, poor smoothness x4, posted speed at least 80 km/h x1 and night-time unlit roads x3. These are planning weights, not calibrated accident probabilities. Crashes, crime, closures and live hazards are unavailable. Google Maps can recalculate a different route when launched; the route details explain this.
+
+Eight added regression tests cover precision, missing tags, lighting, node matching, missing annotations, ties, single routes, exposure and provider failure (22 total). Live Panjim-Baga verification returned one 16.3 km route, with 56% exact road matching and 7% usable condition coverage. Fastest and shortest therefore selected that same route; the safety preference correctly remained unavailable.
+
+A truly distance-optimal route requires a routing service/profile optimized for distance; OSRM's standard driving service is time/cost optimized. See https://project-osrm.org/docs/v5.24.0/api/ and https://github.com/Project-OSRM/osrm-backend/blob/master/docs/profiles.md .

@@ -1,3 +1,10 @@
+import { fetchJson } from "./places.server";
+import {
+  assessRoadConditions,
+  roadBounds,
+  routePreferences,
+  type SafetyEvidence,
+} from "./route-comparison";
 import { z } from "zod";
 export type PlaceHit = {
   id: string;
@@ -63,7 +70,11 @@ type OSRMRoute = {
   distance: number;
   duration: number;
   geometry: { coordinates: [number, number][] };
-  legs: Array<{ summary?: string; steps?: OSRMStep[] }>;
+  legs: Array<{
+    summary?: string;
+    steps?: OSRMStep[];
+    annotation?: { nodes: number[]; distance: number[] };
+  }>;
 };
 
 export type RouteStep = {
@@ -81,7 +92,12 @@ export type ScoredRoute = {
   kind: "fastest" | "safer" | "alt";
   distanceKm: number;
   durationMin: number;
-  safetyScore: number;
+  distanceMeters: number;
+  durationSeconds: number;
+  safety: SafetyEvidence;
+  isFastest: boolean;
+  isShortest: boolean;
+  isSafest: boolean;
   reasons: string[];
   polyline: string;
   summary: string;
@@ -125,79 +141,15 @@ function formatManeuverInstruction(step: OSRMStep): string {
   }
 }
 
-const RISKY_ROAD = /(NH ?\d+|national highway|bypass|ghat|hairpin)/i;
-const CALM_ROAD = /(village|market|town|road through|main road)/i;
-
 function scoreRoute(
   route: OSRMRoute,
-  fastestMin: number,
-  isNight: boolean,
   origin: { lat: number; lng: number },
   destination: { lat: number; lng: number },
-  isAlternative = false,
+  safety: SafetyEvidence,
 ) {
-  const durationMin = Math.round((route.duration ?? 0) / 60);
-  const distanceKm = Math.round(((route.distance ?? 0) / 1000) * 10) / 10;
-
-  const rawSteps = route.legs?.flatMap((l) => l.steps ?? []) ?? [];
-  const text = rawSteps
-    .map((s) => s.name)
-    .filter(Boolean)
-    .join(" ");
-
-  const reasons: string[] = [];
-  let score = 75;
-
-  const highwayHits = (text.match(RISKY_ROAD) ?? []).length;
-  if (highwayHits > 0) {
-    score -= 14;
-    reasons.push("Road names suggest highway or ghat sections; accident data is unavailable");
-  } else {
-    score += 10;
-    reasons.push("Stays on calmer town and coastal roads");
-  }
-
-  if (CALM_ROAD.test(text)) {
-    score += 6;
-    reasons.push("Road names suggest town sections; lighting and emergency access are unverified");
-  }
-
-  const detour = durationMin - fastestMin;
-  if (detour <= 0) {
-    reasons.push("Quickest route to destination");
-  } else if (detour <= 15) {
-    score += 8;
-    reasons.push(`Adds only ${detour} min detour for a calmer, lower-stress drive`);
-  } else {
-    score -= 5;
-    reasons.push(`Adds ${detour} min extra travel time`);
-  }
-
-  if (isNight) {
-    if (highwayHits > 0) {
-      score -= 10;
-      reasons.push("Use extra caution at night; lighting data is unavailable");
-    } else {
-      score += 5;
-      reasons.push("Town road names detected; lighting is unverified");
-    }
-  }
-
-  if (distanceKm > 0 && durationMin > 0) {
-    const avgSpeed = (distanceKm / durationMin) * 60;
-    if (avgSpeed > 55) {
-      score -= 8;
-      reasons.push("High average speed stretch (> 55 km/h)");
-    } else {
-      score += 5;
-      reasons.push("Modelled average speed at or below 55 km/h; not a speed limit");
-    }
-  }
-
-  if (isAlternative) {
-    score += 6;
-  }
-
+  const durationMin = Math.ceil(route.duration / 60);
+  const distanceKm = Math.round(route.distance / 100) / 10;
+  const rawSteps = route.legs.flatMap((l) => l.steps || []);
   // Format structured step-by-step instructions
   const steps: RouteStep[] = rawSteps.map((s) => ({
     instruction: formatManeuverInstruction(s),
@@ -214,8 +166,14 @@ function scoreRoute(
   return {
     durationMin,
     distanceKm,
-    safetyScore: Math.max(30, Math.min(98, Math.round(score))),
-    reasons,
+    distanceMeters: route.distance,
+    durationSeconds: route.duration,
+    safety,
+    reasons: [
+      ...safety.reasons,
+      "Distance and time are compared before rounding. Times exclude live traffic.",
+      "Google Maps may choose a different path; the displayed path and turn list are the route assessed here.",
+    ],
     summary: route.legs?.[0]?.summary || rawSteps.find((s) => s.name)?.name || "Local Road Route",
     polyline: JSON.stringify(route.geometry.coordinates.map((c) => [c[1], c[0]])),
     steps,
@@ -228,7 +186,7 @@ export async function computeSafeRoutes(
   destination: { lat: number; lng: number },
   isNight: boolean,
 ): Promise<ScoredRoute[]> {
-  const url = `${(process.env["OSRM_BASE_URL"] || "https://router.project-osrm.org").replace(/\/$/, "")}/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&alternatives=true&steps=true`;
+  const url = `${(process.env["OSRM_BASE_URL"] || "https://router.project-osrm.org").replace(/\/$/, "")}/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&alternatives=3&steps=true&annotations=nodes,distance`;
   const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
 
   if (!response.ok) {
@@ -237,62 +195,76 @@ export async function computeSafeRoutes(
     throw new Error("Could not work out routes for that trip. Please try again.");
   }
 
-  const json = (await response.json()) as { routes?: OSRMRoute[] };
-  const raw = json.routes ?? [];
+  const json = (await response.json()) as {
+    code?: string;
+    routes?: OSRMRoute[];
+    waypoints?: { distance: number }[];
+  };
+  if (json.waypoints?.some((point) => !Number.isFinite(point.distance) || point.distance > 1000)) {
+    throw new Error(
+      "A location is more than 1 km from a routable road. Choose its road entrance or a nearby accessible starting point.",
+    );
+  }
+  const raw = (json.routes ?? []).filter(
+    (route) =>
+      Number.isFinite(route.distance) &&
+      route.distance >= 0 &&
+      Number.isFinite(route.duration) &&
+      route.duration >= 0 &&
+      route.geometry?.coordinates?.length >= 2 &&
+      route.geometry.coordinates.every(
+        ([lng, lat]) =>
+          Number.isFinite(lat) &&
+          Number.isFinite(lng) &&
+          Math.abs(lat) <= 90 &&
+          Math.abs(lng) <= 180,
+      ),
+  );
   if (raw.length === 0) return [];
 
-  const durations = raw.map((r) => Math.round((r.duration ?? 0) / 60));
-  const fastestMin = Math.min(...durations);
-  const fastestIndex = durations.indexOf(fastestMin);
-
-  // Score all routes, identifying alternative routes
-  const scored = raw.map((r, i) =>
-    scoreRoute(r, fastestMin, isNight, origin, destination, i !== fastestIndex),
+  const unique = raw.filter(
+    (route, i) =>
+      raw.findIndex(
+        (r) =>
+          JSON.stringify(r.geometry.coordinates) === JSON.stringify(route.geometry.coordinates),
+      ) === i,
   );
-
-  // Pick the safer route from routes distinct from fastest
-  let saferIndex = -1;
-  let bestSaferScore = -1;
-
-  if (raw.length > 1) {
-    raw.forEach((_, i) => {
-      if (i !== fastestIndex) {
-        if (scored[i]!.safetyScore > bestSaferScore) {
-          bestSaferScore = scored[i]!.safetyScore;
-          saferIndex = i;
-        }
-      }
-    });
+  let ways: { nodes: number[]; tags: Record<string, string> }[] = [];
+  try {
+    const points = unique.flatMap((r) =>
+      r.geometry.coordinates.map(([lng, lat]) => ({ lat, lng })),
+    );
+    const bounds = roadBounds(points);
+    // Bound public-service work for very long trips; unknown coverage is explicit.
+    if (
+      Math.max(...points.map((p) => p.lat)) - Math.min(...points.map((p) => p.lat)) < 1 &&
+      Math.max(...points.map((p) => p.lng)) - Math.min(...points.map((p) => p.lng)) < 1
+    ) {
+      const overpass = new URL(
+        process.env["OVERPASS_URL"] || "https://overpass-api.de/api/interpreter",
+      );
+      overpass.searchParams.set("data", `[out:json][timeout:12];way(${bounds})[highway];out body;`);
+      const data = z
+        .object({
+          remark: z.string().optional(),
+          elements: z.array(z.object({ nodes: z.array(z.number()), tags: z.record(z.string()) })),
+        })
+        .parse(await fetchJson(overpass.toString(), {}, 16000));
+      if (!data.remark) ways = data.elements;
+    }
+  } catch {
+    /* Never substitute fabricated safety scores for missing map data. */
   }
-
-  // Pick the alternative route from routes distinct from fastest and safer
-  let altIndex = -1;
-  if (raw.length > 2) {
-    raw.forEach((_, i) => {
-      if (i !== fastestIndex && i !== saferIndex) {
-        if (altIndex === -1 || scored[i]!.safetyScore > scored[altIndex]!.safetyScore) {
-          altIndex = i;
-        }
-      }
-    });
-  }
-
-  const out: ScoredRoute[] = [];
-  out.push({ ...scored[fastestIndex]!, kind: "fastest", label: "Fastest route" });
-
-  if (saferIndex !== -1 && saferIndex !== fastestIndex) {
-    const saferRoute = {
-      ...scored[saferIndex]!,
-      kind: "safer" as const,
-      label: "Alternative road option",
-    };
-    out.push(saferRoute);
-  }
-
-  if (altIndex !== -1 && altIndex !== fastestIndex && altIndex !== saferIndex) {
-    const altRoute = { ...scored[altIndex]!, kind: "alt" as const, label: "Alternative route" };
-    out.push(altRoute);
-  }
-
-  return out;
+  const candidates = unique.map((r) =>
+    scoreRoute(r, origin, destination, assessRoadConditions(r.legs, ways, isNight)),
+  );
+  const best = routePreferences(candidates);
+  return candidates.map((r, i) => ({
+    ...r,
+    kind: i === best.fastest ? "fastest" : i === best.safest ? "safer" : "alt",
+    label: i === best.fastest ? "Fastest available route" : `Alternative ${i + 1}`,
+    isFastest: i === best.fastest,
+    isShortest: i === best.shortest,
+    isSafest: i === best.safest,
+  }));
 }

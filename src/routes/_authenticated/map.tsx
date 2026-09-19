@@ -48,18 +48,7 @@ export const Route = createFileRoute("/_authenticated/map")({
 });
 
 type Hit = { id: string; name: string; address: string; lat: number; lng: number };
-type Scored = {
-  label: string;
-  kind: "fastest" | "safer" | "alt";
-  distanceKm: number;
-  durationMin: number;
-  safetyScore: number;
-  reasons: string[];
-  polyline: string;
-  summary: string;
-  steps?: RouteStep[];
-  googleMapsUrl?: string;
-};
+type Scored = import("@/lib/maps.server").ScoredRoute;
 
 const DEFAULT_ORIGIN = { lat: 15.4989, lng: 73.8278 };
 
@@ -343,8 +332,9 @@ function MapPage() {
   return (
     <AppShell title="Safe Route Workspace" subtitle="Driving directions and nearby places" back>
       <p className="mb-3 text-xs text-muted-foreground">
-        Starting from: {originLabel}. OSRM times exclude live traffic. Route scores are rough
-        road-name heuristics, not verified safety ratings.
+        Starting from: {originLabel}. OSRM times exclude live traffic. Shortest means the least
+        distance among the returned routes. Safety preference requires sufficient mapped
+        road-condition evidence.
       </p>
       {/* Night Travel Safety Advisory Banner */}
       <div
@@ -449,74 +439,81 @@ function MapPage() {
         <div className="mt-6 flex items-center justify-center gap-3 rounded-3xl border border-primary/20 bg-primary/5 p-6 animate-pulse">
           <Loader2 className="size-6 animate-spin text-primary" />
           <span className="text-sm font-bold text-primary">
-            Calculating driving routes via OSRM…
+            Comparing driving routes and checking mapped road conditions…
           </span>
         </div>
       )}
 
       {/* ROUTE COMPARISON CARDS */}
-      {currentRoute && (
-        <NearbyPlaces center={origin} polyline={currentRoute.polyline} map={mapRef.current} />
-      )}
       {routes.length > 0 && currentRoute && (
         <div className="mt-6 space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
-          {/* Comparative Route Tabs */}
           <div className="grid gap-3 sm:grid-cols-3">
-            {routes.map((r, i) => {
-              const isSelected = i === selected;
+            {[
+              {
+                title: "Fastest route",
+                index: routes.findIndex((r) => r.isFastest),
+                detail: "Lowest estimated time among returned routes",
+              },
+              {
+                title: "Shortest available route",
+                index: routes.findIndex((r) => r.isShortest),
+                detail: `Least road distance among ${routes.length} returned route${routes.length === 1 ? "" : "s"}; not a global shortest-path guarantee`,
+              },
+              {
+                title: "Safest route (estimate)",
+                index: routes.findIndex((r) => r.isSafest),
+                detail: "Based on mapped road conditions; not a safety guarantee",
+              },
+            ].map((choice) => {
+              const r = routes[choice.index];
               return (
                 <button
-                  key={i}
+                  key={choice.title}
+                  disabled={!r}
+                  aria-pressed={Boolean(r && choice.index === selected)}
                   onClick={() => {
-                    setSelected(i);
+                    setSelected(choice.index);
                     setActiveStepIndex(null);
                   }}
-                  className={`group relative overflow-hidden rounded-3xl border p-5 text-left transition-all duration-300 hover:shadow-xl ${
-                    isSelected
-                      ? "border-primary bg-primary/10 shadow-lg shadow-primary/10 ring-2 ring-primary/30"
-                      : "border-border/60 bg-card/75 backdrop-blur-xl hover:border-primary/40"
-                  }`}
+                  className={`rounded-3xl border p-5 text-left ${r && choice.index === selected ? "border-primary bg-primary/10 ring-2 ring-primary/30" : "border-border bg-card"}`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={`flex items-center gap-1.5 text-sm font-bold font-display ${
-                        isSelected
-                          ? "text-primary"
-                          : "text-foreground group-hover:text-primary transition-colors"
-                      }`}
-                    >
-                      {r.kind === "safer" ? (
-                        <ShieldCheck className="size-4 text-emerald" />
-                      ) : r.kind === "alt" ? (
-                        <Compass className="size-4 text-cyan" />
-                      ) : (
-                        <Zap className="size-4 text-coral" />
-                      )}
-                      {r.label}
-                    </span>
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                        isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-primary/10 text-primary"
-                      }`}
-                    >
-                      Heuristic: {r.safetyScore}/100
-                    </span>
-                  </div>
-
-                  <p className="mt-2 text-base font-extrabold text-foreground">
-                    {r.durationMin} min ·{" "}
-                    <span className="text-muted-foreground font-normal text-sm">
-                      {r.distanceKm} km
-                    </span>
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground line-clamp-1">via {r.summary}</p>
+                  <span className="font-bold block">{choice.title}</span>
+                  <span className="block mt-2 font-semibold">
+                    {r ? `${r.durationMin} min · ${r.distanceKm} km` : "Cannot determine reliably"}
+                  </span>
+                  <span className="block mt-2 text-xs text-muted-foreground">
+                    {r
+                      ? choice.detail
+                      : routes.length === 1
+                        ? "Only one route returned; no safer alternative can be established."
+                        : "Missing condition tags or no clear safety difference between routes."}
+                  </span>
                 </button>
               );
             })}
           </div>
+          {routes.length === 1 && (
+            <p className="text-sm text-muted-foreground">
+              Fastest and shortest available refer to the same returned road route. No extra routes
+              have been invented.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {routes.map((r, i) => (
+              <Button
+                key={i}
+                variant={selected === i ? "default" : "outline"}
+                onClick={() => {
+                  setSelected(i);
+                  setActiveStepIndex(null);
+                }}
+              >
+                {r.label} · {r.distanceKm} km
+              </Button>
+            ))}
+          </div>
 
+          <NearbyPlaces center={origin} polyline={currentRoute.polyline} map={mapRef.current} />
           {/* Active Route Intelligence Card */}
           <div className="rounded-3xl border border-border/60 bg-card/80 backdrop-blur-2xl p-6 sm:p-8 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-5">

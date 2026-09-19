@@ -10,17 +10,16 @@ import {
   CloudLightning,
   CloudFog,
   ShieldCheck,
-  AlertTriangle,
   Waves,
   X,
   Calendar,
   Clock,
-  Sparkles,
   Info,
 } from "lucide-react";
 
 interface WeatherData {
   current: {
+    time: string;
     temperature_2m: number;
     relative_humidity_2m: number;
     wind_speed_10m: number;
@@ -49,28 +48,95 @@ export function WeatherWidget() {
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
 
+  const [retry, setRetry] = useState(0);
+  const [coordinates, setCoordinates] = useState("");
+
   useEffect(() => {
-    const fetchWeather = async () => {
-      try {
-        const response = await fetch(
-          "https://api.open-meteo.com/v1/forecast?latitude=15.4989&longitude=73.8278&current=temperature_2m,relative_humidity_2m,is_day,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max&timezone=Asia%2FKolkata",
-        );
-        const data = await response.json();
-
-        if (data.error) {
-          setError(data.reason || "Failed to fetch weather data");
-        } else {
-          setWeather(data);
+    let disposed = false;
+    let controller: AbortController | undefined;
+    let lastPosition: { latitude: number; longitude: number; time: number } | undefined;
+    setLoading(true);
+    setError(null);
+    setWeather(null);
+    if (!navigator.geolocation) {
+      setError("Your browser does not support location access. Local weather is unavailable.");
+      setLoading(false);
+      return;
+    }
+    const watch = navigator.geolocation.watchPosition(
+      async ({ coords }) => {
+        if (disposed) return;
+        const { latitude, longitude } = coords;
+        // Avoid repeat requests for GPS jitter; refresh on movement or after 15 minutes.
+        if (
+          lastPosition &&
+          Math.abs(latitude - lastPosition.latitude) < 0.005 &&
+          Math.abs(longitude - lastPosition.longitude) < 0.005 &&
+          Date.now() - lastPosition.time < 15 * 60 * 1000
+        )
+          return;
+        lastPosition = { latitude, longitude, time: Date.now() };
+        controller?.abort();
+        const request = new AbortController();
+        controller = request;
+        setLoading(true);
+        setWeather(null);
+        setError(null);
+        const timeout = window.setTimeout(() => request.abort(), 15000);
+        try {
+          const params = new URLSearchParams({
+            latitude: String(latitude),
+            longitude: String(longitude),
+            current: "temperature_2m,relative_humidity_2m,is_day,weather_code,wind_speed_10m",
+            hourly: "temperature_2m,precipitation_probability,weather_code",
+            daily:
+              "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max",
+            timezone: "auto",
+            forecast_days: "7",
+          });
+          const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
+            signal: request.signal,
+          });
+          if (!response.ok) throw new Error("Weather service unavailable");
+          const data = await response.json();
+          if (data.error || !data.current || !Number.isFinite(data.current.temperature_2m)) {
+            throw new Error("Invalid weather response");
+          }
+          if (!disposed && controller === request) {
+            setWeather(data);
+            setCoordinates(`${latitude.toFixed(3)}, ${longitude.toFixed(3)}`);
+          }
+        } catch {
+          if (!disposed && controller === request) {
+            lastPosition = undefined;
+            setError("Weather for your location is unavailable right now. Please try again.");
+          }
+        } finally {
+          window.clearTimeout(timeout);
+          if (!disposed && controller === request) setLoading(false);
         }
-      } catch (err) {
-        setError("Failed to fetch weather data");
-      } finally {
+      },
+      (failure) => {
+        if (disposed) return;
+        controller?.abort();
+        controller = undefined;
+        lastPosition = undefined;
+        setWeather(null);
+        setError(
+          failure.code === 1
+            ? "Allow location access in your browser settings to see weather where you are."
+            : "We couldn’t locate you. Check your device’s location settings and try again.",
+        );
         setLoading(false);
-      }
+      },
+      { enableHighAccuracy: true, maximumAge: 60000, timeout: 15000 },
+    );
+    return () => {
+      disposed = true;
+      navigator.geolocation.clearWatch(watch);
+      controller?.abort();
     };
-
-    fetchWeather();
-  }, []);
+  }, [retry]);
 
   const getWeatherDetails = (code: number, isDay: number) => {
     if (code === 0) return { text: "Clear Sky", icon: isDay ? Sun : Sun };
@@ -108,12 +174,19 @@ export function WeatherWidget() {
 
   if (error || !weather) {
     return (
-      <p
+      <div
         role="status"
         className="rounded-2xl border border-border p-4 text-sm text-muted-foreground"
       >
-        Weather is currently unavailable for Panjim.
-      </p>
+        <p>{error || "Weather for your location is unavailable."}</p>
+        <button
+          type="button"
+          onClick={() => setRetry((value) => value + 1)}
+          className="mt-3 font-semibold text-primary"
+        >
+          Try my location again
+        </button>
+      </div>
     );
   }
 
@@ -125,16 +198,18 @@ export function WeatherWidget() {
   const beachSafety = getBeachSafety(weather.current.wind_speed_10m, weather.current.weather_code);
 
   // Next 12 hours from now
-  const currentHour = new Date().getHours();
+  const currentHour = weather.current.time.slice(0, 13);
   const nextHourly = (weather.hourly?.time ?? [])
     .map((t, idx) => ({
+      timestamp: t,
       hour: new Date(t).getHours(),
       timeStr: new Date(t).toLocaleTimeString("en-US", { hour: "numeric", hour12: true }),
       temp: Math.round(weather.hourly?.temperature_2m[idx] ?? 0),
       rainProb: weather.hourly?.precipitation_probability[idx] ?? 0,
       code: weather.hourly?.weather_code[idx] ?? 0,
     }))
-    .slice(currentHour, currentHour + 12);
+    .filter((hour) => hour.timestamp.slice(0, 13) >= currentHour)
+    .slice(0, 12);
 
   // 7-day forecast
   const dailyForecast = (weather.daily?.time ?? []).map((dayStr, idx) => {
@@ -155,15 +230,15 @@ export function WeatherWidget() {
       <div
         onClick={() => setShowModal(true)}
         className="group relative h-full min-h-[160px] flex flex-col justify-between rounded-3xl border border-border/60 bg-card/80 p-6 shadow-sm backdrop-blur-2xl transition-all hover:shadow-lg hover:border-cyan/40 cursor-pointer"
-        title="Click to view full 7-day Goa weather & beach swimming advisory"
+        title="Click to view full 7-day local weather & beach swimming advisory"
       >
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
             <MapPin className="size-3.5 text-cyan" />
-            <span>Panjim Weather</span>
+            <span>Local Weather</span>
           </div>
           <span className="rounded-full bg-cyan/10 text-cyan px-2.5 py-0.5 text-[10px] font-bold">
-            7-Day Station
+            7-Day Forecast
           </span>
         </div>
 
@@ -182,7 +257,7 @@ export function WeatherWidget() {
               </span>
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Tap for 7-day weather forecast
+              Your location: {coordinates}. Tap for forecast
             </p>
           </div>
         </div>
@@ -210,7 +285,7 @@ export function WeatherWidget() {
             <div className="flex items-start justify-between border-b border-border/50 pb-4">
               <div>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-                  <MapPin className="size-3.5" /> Panjim, Goa · Weather Forecast
+                  <MapPin className="size-3.5" /> Your location ({coordinates}) · Weather Forecast
                 </span>
                 <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">
                   Overall Weather & Travel Advisory
@@ -306,7 +381,7 @@ export function WeatherWidget() {
             {/* 7-Day Weather Forecast */}
             <div className="mt-6">
               <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Calendar className="size-4 text-primary" /> 7-Day Panjim Weather Outlook
+                <Calendar className="size-4 text-primary" /> 7-Day Local Weather Outlook
               </h3>
               <div className="mt-3 space-y-2">
                 {dailyForecast.map((d, idx) => {

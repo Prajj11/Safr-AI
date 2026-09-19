@@ -366,8 +366,8 @@ function Landing() {
                 Weather & Beach Guidance
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed mt-2">
-                Weather, UV and rain forecasts for Panjim. Check posted beach flags and local
-                lifeguard advice for swimming conditions.
+                Weather, UV and rain forecasts for your current location. Check posted beach flags
+                and local lifeguard advice for swimming conditions.
               </p>
             </div>
             <Link
