@@ -61,10 +61,12 @@ function AuthPage() {
           setSent(true);
           return;
         }
+        toast.success("Account created successfully!");
         navigate({ to: "/setup" });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
+        toast.success("Welcome back! Signed in successfully.");
         navigate({ to: "/dashboard" });
       }
     } catch (error) {

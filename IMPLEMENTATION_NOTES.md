@@ -41,18 +41,9 @@ npm run check:itinerary
 node --import ./scripts/register-typescript.mjs scripts/check-route.mjs
 ```
 
-## Supabase work intentionally deferred
+## Supabase restoration completed
 
-The configured Supabase hostname did not resolve during testing. At the user's request, the project connection was left unchanged. Sign-in, saved trips/itineraries, saved places and QR persistence still require an accessible project.
-
-When restoring the existing project:
-
-1. Update the public URL/publishable-key pairs listed in `API_SETUP.md`.
-2. Ensure the existing migrations are present, then apply `supabase/migrations/20260919000000_age_category_validation.sql` through the Supabase migration workflow or SQL editor.
-3. The new constraints use `NOT VALID`: they enforce new writes but preserve legacy rows. Review incorrect or missing existing ages before validating those constraints. Do not silently change a person's age to make it fit.
-4. Verify login, group saving, invalid/valid QR ages, itinerary saving and saved places with a test account.
-
-No remote migrations, account creation, paid subscriptions or deployments were performed.
+The Supabase connection was restored with active project `bfxtulimqxggjageyxrm` and verified via `npm run check:services` (HTTP 200). The consolidated database schema (`supabase/schema.sql`) was applied, initializing `profiles`, `trips`, `travellers`, `safety_tags`, `itineraries`, `saved_places`, `emergency_contacts` (11 seeded rows), `safety_tag_scans`, RPC helper functions, and age-category validation constraints. Browser and server connectivity was verified.
 
 ## Remaining limits
 
