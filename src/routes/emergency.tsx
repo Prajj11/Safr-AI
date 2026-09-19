@@ -1,11 +1,21 @@
+import { EMERGENCY_CONTACTS, EMERGENCY_SOURCES } from "@/lib/emergency-contacts";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Phone, ShieldAlert, ShieldCheck, Siren, HeartPulse, Waves, Compass, ArrowUpRight } from "lucide-react";
+import {
+  Phone,
+  ShieldAlert,
+  ShieldCheck,
+  Siren,
+  HeartPulse,
+  Waves,
+  Compass,
+  ArrowUpRight,
+} from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/_authenticated/emergency")({
+export const Route = createFileRoute("/emergency")({
   component: Emergency,
 });
 
@@ -27,19 +37,9 @@ function getCategoryIcon(cat: string) {
 }
 
 function Emergency() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["emergency-contacts"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("emergency_contacts")
-        .select("*")
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const grouped = (data ?? []).reduce<Record<string, typeof data>>((acc, c) => {
+  const data = EMERGENCY_CONTACTS;
+  const isLoading = false;
+  const grouped = data.reduce<Record<string, typeof data>>((acc, c) => {
     (acc[c.category] ??= []).push(c);
     return acc;
   }, {});
@@ -51,7 +51,12 @@ function Emergency() {
   const categories = Object.keys(grouped).sort((a, b) => rank(a) - rank(b));
 
   return (
-    <AppShell title="Goa Emergency 112 Hub" subtitle="Official state helplines & instant direct dial" back>
+    <AppShell
+      publicPage
+      title="Goa Emergency 112 Hub"
+      subtitle="Official state helplines & instant direct dial"
+      back
+    >
       {/* Prime 112 Notice Card */}
       <div className="rounded-3xl border border-destructive/30 bg-card/85 backdrop-blur-2xl p-6 sm:p-7 shadow-sm">
         <div className="flex items-center gap-3">
@@ -63,7 +68,8 @@ function Emergency() {
               Dial 112 For Immediate Emergency
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              112 is India's single national emergency hotline — direct dispatch to Goa Police, Fire, and 108 Ambulances.
+              112 is India's single national emergency hotline — direct dispatch to Goa Police,
+              Fire, and 108 Ambulances.
             </p>
           </div>
         </div>
@@ -104,9 +110,13 @@ function Emergency() {
                     <Phone className="size-4" />
                   </div>
                   <div className="min-w-0">
-                    <span className="block text-sm font-bold text-foreground truncate">{c.name}</span>
+                    <span className="block text-sm font-bold text-foreground truncate">
+                      {c.name}
+                    </span>
                     {c.note && (
-                      <span className="block text-xs text-muted-foreground mt-0.5 line-clamp-1">{c.note}</span>
+                      <span className="block text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                        {c.note}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -122,6 +132,16 @@ function Emergency() {
           </div>
         </section>
       ))}
+      <p className="mt-6 text-xs text-muted-foreground">
+        Directory checked 19 September 2026. Short codes are intended for use in India.
+      </p>
+      <div className="flex flex-wrap gap-3 mt-2 text-xs text-primary">
+        {EMERGENCY_SOURCES.map((source) => (
+          <a key={source.url} href={source.url} target="_blank" rel="noreferrer">
+            {source.name}
+          </a>
+        ))}
+      </div>
     </AppShell>
   );
 }

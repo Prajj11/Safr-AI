@@ -12,9 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as EmergencyRouteImport } from './routes/emergency'
 import { Route as FindRouteImport } from './routes/find'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedEmergencyRouteImport } from './routes/_authenticated/emergency'
 import { Route as AuthenticatedExploreRouteImport } from './routes/_authenticated/explore'
 import { Route as AuthenticatedItineraryRouteImport } from './routes/_authenticated/itinerary'
 import { Route as AuthenticatedLiveTrackingRouteImport } from './routes/_authenticated/live-tracking'
@@ -37,6 +37,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EmergencyRoute = EmergencyRouteImport.update({
+  id: '/emergency',
+  path: '/emergency',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FindRoute = FindRouteImport.update({
   id: '/find',
   path: '/find',
@@ -45,11 +50,6 @@ const FindRoute = FindRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedEmergencyRoute = AuthenticatedEmergencyRouteImport.update({
-  id: '/emergency',
-  path: '/emergency',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedExploreRoute = AuthenticatedExploreRouteImport.update({
@@ -92,9 +92,9 @@ const TTokenRoute = TTokenRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/emergency': typeof EmergencyRoute
   '/find': typeof FindRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/emergency': typeof AuthenticatedEmergencyRoute
   '/explore': typeof AuthenticatedExploreRoute
   '/itinerary': typeof AuthenticatedItineraryRoute
   '/live-tracking': typeof AuthenticatedLiveTrackingRoute
@@ -106,9 +106,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/emergency': typeof EmergencyRoute
   '/find': typeof FindRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/emergency': typeof AuthenticatedEmergencyRoute
   '/explore': typeof AuthenticatedExploreRoute
   '/itinerary': typeof AuthenticatedItineraryRoute
   '/live-tracking': typeof AuthenticatedLiveTrackingRoute
@@ -122,9 +122,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/emergency': typeof EmergencyRoute
   '/find': typeof FindRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/emergency': typeof AuthenticatedEmergencyRoute
   '/_authenticated/explore': typeof AuthenticatedExploreRoute
   '/_authenticated/itinerary': typeof AuthenticatedItineraryRoute
   '/_authenticated/live-tracking': typeof AuthenticatedLiveTrackingRoute
@@ -138,9 +138,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/emergency'
     | '/find'
     | '/dashboard'
-    | '/emergency'
     | '/explore'
     | '/itinerary'
     | '/live-tracking'
@@ -152,9 +152,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/emergency'
     | '/find'
     | '/dashboard'
-    | '/emergency'
     | '/explore'
     | '/itinerary'
     | '/live-tracking'
@@ -167,9 +167,9 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/emergency'
     | '/find'
     | '/_authenticated/dashboard'
-    | '/_authenticated/emergency'
     | '/_authenticated/explore'
     | '/_authenticated/itinerary'
     | '/_authenticated/live-tracking'
@@ -183,6 +183,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  EmergencyRoute: typeof EmergencyRoute
   FindRoute: typeof FindRoute
   TTokenRoute: typeof TTokenRoute
 }
@@ -210,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/emergency': {
+      id: '/emergency'
+      path: '/emergency'
+      fullPath: '/emergency'
+      preLoaderRoute: typeof EmergencyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/find': {
       id: '/find'
       path: '/find'
@@ -222,13 +230,6 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/emergency': {
-      id: '/_authenticated/emergency'
-      path: '/emergency'
-      fullPath: '/emergency'
-      preLoaderRoute: typeof AuthenticatedEmergencyRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/explore': {
@@ -285,7 +286,6 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedEmergencyRoute: typeof AuthenticatedEmergencyRoute
   AuthenticatedExploreRoute: typeof AuthenticatedExploreRoute
   AuthenticatedItineraryRoute: typeof AuthenticatedItineraryRoute
   AuthenticatedLiveTrackingRoute: typeof AuthenticatedLiveTrackingRoute
@@ -296,7 +296,6 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedEmergencyRoute: AuthenticatedEmergencyRoute,
   AuthenticatedExploreRoute: AuthenticatedExploreRoute,
   AuthenticatedItineraryRoute: AuthenticatedItineraryRoute,
   AuthenticatedLiveTrackingRoute: AuthenticatedLiveTrackingRoute,
@@ -312,6 +311,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  EmergencyRoute: EmergencyRoute,
   FindRoute: FindRoute,
   TTokenRoute: TTokenRoute,
 }

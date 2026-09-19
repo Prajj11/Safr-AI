@@ -6,7 +6,17 @@ import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Navigation, Loader2, Phone, LocateFixed, ShieldCheck, Battery, Signal, Radio } from "lucide-react";
+import {
+  Plus,
+  Navigation,
+  Loader2,
+  Phone,
+  LocateFixed,
+  ShieldCheck,
+  Battery,
+  Signal,
+  Radio,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/live-tracking")({
@@ -25,10 +35,7 @@ interface TeamMember {
 
 const defaultCenter: [number, number] = [15.4989, 73.8278]; // Panaji, Goa
 
-const INITIAL_MEMBERS: TeamMember[] = [
-  { id: "m1", name: "Aarav (Child Tag)", phone: "+91 98231 44321", lat: 15.5553, lng: 73.7517, battery: 84, lastPing: "Just now" },
-  { id: "m2", name: "Dad (Senior Tag)", phone: "+91 98221 55432", lat: 15.4925, lng: 73.7736, battery: 92, lastPing: "1m ago" },
-];
+const INITIAL_MEMBERS: TeamMember[] = [];
 
 function LiveTrackingPage() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -50,7 +57,7 @@ function LiveTrackingPage() {
       const L = module.default;
       leafletRef.current = L;
 
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
         iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -108,7 +115,9 @@ function LiveTrackingPage() {
               iconSize: [28, 28],
               iconAnchor: [14, 14],
             });
-            markersRef.current["me"] = L.marker([latitude, longitude], { icon: myIcon }).addTo(mapInstanceRef.current);
+            markersRef.current["me"] = L.marker([latitude, longitude], { icon: myIcon }).addTo(
+              mapInstanceRef.current,
+            );
             markersRef.current["me"].bindPopup("<b>You (Guardian)</b>");
           } else {
             markersRef.current["me"].setLatLng([latitude, longitude]);
@@ -116,7 +125,7 @@ function LiveTrackingPage() {
         }
       },
       () => setLocationError("Unable to retrieve high-accuracy GPS coordinates"),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
@@ -126,40 +135,9 @@ function LiveTrackingPage() {
     e.preventDefault();
     if (!newName.trim() || !newPhone.trim()) return;
 
-    // Simulate location nearby
-    const offsetLat = (Math.random() - 0.5) * 0.08;
-    const offsetLng = (Math.random() - 0.5) * 0.08;
-    const baseLat = myLocation ? myLocation[0] : defaultCenter[0];
-    const baseLng = myLocation ? myLocation[1] : defaultCenter[1];
-
-    const newMember: TeamMember = {
-      id: Date.now().toString(),
-      name: newName.trim(),
-      phone: newPhone.trim(),
-      lat: baseLat + offsetLat,
-      lng: baseLng + offsetLng,
-      battery: Math.floor(Math.random() * 40) + 60,
-      lastPing: "Just now",
-    };
-
-    setMembers([...members, newMember]);
-    setNewName("");
-    setNewPhone("");
-    toast.success(`Connected ${newMember.name} to Live Radar`);
-
-    if (mapInstanceRef.current && leafletRef.current) {
-      const L = leafletRef.current;
-      const memberIcon = L.divIcon({
-        className: "custom-member-icon",
-        html: `<div style="background-color: #06b6d4; color: white; width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px;">${newMember.name.charAt(0)}</div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      });
-      const marker = L.marker([newMember.lat, newMember.lng], { icon: memberIcon }).addTo(mapInstanceRef.current);
-      marker.bindPopup(`<b>${newMember.name}</b><br>${newMember.phone}`);
-      markersRef.current[newMember.id] = marker;
-      mapInstanceRef.current.setView([newMember.lat, newMember.lng], 12);
-    }
+    toast.info(
+      "Family location sharing is not connected yet. Adding a phone number cannot locate a device.",
+    );
   };
 
   const focusMember = (m: TeamMember) => {
@@ -170,24 +148,30 @@ function LiveTrackingPage() {
   };
 
   return (
-    <AppShell title="Live Family GPS Radar" subtitle="Real-time location sharing & safety tracking across Goa" back>
+    <AppShell
+      title="Your Location"
+      subtitle="Your device location; family sharing is not connected"
+      back
+    >
       {/* Radar Header */}
       <div className="rounded-3xl border border-border/60 bg-card/80 backdrop-blur-2xl p-6 shadow-sm flex items-center justify-between gap-4">
         <div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan/10 px-3 py-0.5 text-xs font-bold text-cyan">
-            <Radio className="size-3.5 animate-pulse" /> Active Satellite Radar
+            <Radio className="size-3.5 animate-pulse" /> Device Location
           </span>
           <h2 className="text-xl sm:text-2xl font-bold font-display text-foreground mt-1.5">
-            Real-time Family Location Grid
+            Your Current Position
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {myLocation ? "🟢 GPS Connected (High-Accuracy Mode)" : "🟡 Acquiring GPS Satellite Lock…"}
+            {myLocation
+              ? "🟢 GPS Connected (High-Accuracy Mode)"
+              : "🟡 Acquiring GPS Satellite Lock…"}
           </p>
         </div>
 
         <div className="hidden sm:flex items-center gap-2">
           <span className="rounded-full bg-secondary/80 px-3 py-1 text-xs font-bold font-mono">
-            {members.length + 1} Active Signals
+            {myLocation ? 1 : 0} Connected Devices
           </span>
         </div>
       </div>
@@ -198,6 +182,15 @@ function LiveTrackingPage() {
         className="mt-6 h-80 sm:h-96 w-full overflow-hidden rounded-3xl border border-border/60 bg-secondary/40 shadow-inner z-0 relative"
       />
 
+      <p role="status" className="mt-4 rounded-2xl border border-border p-4 text-sm">
+        Family device sharing is not configured. No family locations or battery levels are
+        simulated. Each family device will need to consent and send its own location.
+      </p>
+      {locationError && (
+        <p role="alert" className="mt-3 text-sm text-destructive">
+          {locationError}
+        </p>
+      )}
       {/* Connect Member Form */}
       <div className="mt-6 rounded-3xl border border-border/60 bg-card/75 backdrop-blur-2xl p-6 shadow-sm">
         <h3 className="text-base font-bold font-display text-foreground mb-3 flex items-center gap-2">
@@ -220,9 +213,10 @@ function LiveTrackingPage() {
           />
           <Button
             type="submit"
+            disabled
             className="rounded-xl font-bold bg-primary text-primary-foreground shadow-sm hover:scale-102 transition-all"
           >
-            Add to Radar
+            Sharing not configured
           </Button>
         </form>
       </div>

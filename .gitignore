@@ -66,3 +66,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# All environment variants may contain private credentials
+.env.*
+!.env.example

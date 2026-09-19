@@ -1,3 +1,4 @@
+import { validateAge } from "@/lib/age-validation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import QRCode from "qrcode";
@@ -50,7 +51,9 @@ function TagCard({ tag, onDelete }: { tag: TagRow; onDelete: (id: string) => voi
 
   useEffect(() => {
     if (!url) return;
-    QRCode.toDataURL(url, { width: 480, margin: 1 }).then(setQr).catch(() => setQr(""));
+    QRCode.toDataURL(url, { width: 480, margin: 1 })
+      .then(setQr)
+      .catch(() => setQr(""));
   }, [url]);
 
   return (
@@ -79,7 +82,11 @@ function TagCard({ tag, onDelete }: { tag: TagRow; onDelete: (id: string) => voi
         <div className="min-w-0 flex-1 w-full">
           <div className="flex items-center justify-between gap-2">
             <span className="rounded-full bg-emerald/10 text-emerald border border-emerald/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider">
-              {tag.category === "kid" ? "Child Tag" : tag.category === "senior" ? "Elderly Tag" : "Member Tag"}
+              {tag.category === "kid"
+                ? "Child Tag"
+                : tag.category === "senior"
+                  ? "Elderly Tag"
+                  : "Member Tag"}
             </span>
             <span className="text-[11px] text-muted-foreground font-medium">
               Created {new Date(tag.created_at).toLocaleDateString()}
@@ -88,12 +95,15 @@ function TagCard({ tag, onDelete }: { tag: TagRow; onDelete: (id: string) => voi
 
           <h3 className="mt-2 text-xl font-bold font-display text-foreground">{tag.person_name}</h3>
           {tag.person_age != null && (
-            <p className="text-xs font-semibold text-muted-foreground">Age: {tag.person_age} years</p>
+            <p className="text-xs font-semibold text-muted-foreground">
+              Age: {tag.person_age} years
+            </p>
           )}
 
           <div className="mt-3 space-y-1 text-xs text-foreground/90">
             <p className="font-medium">
-              <span className="text-muted-foreground">Guardian:</span> {tag.guardian_name} ({tag.guardian_phone})
+              <span className="text-muted-foreground">Guardian:</span> {tag.guardian_name} (
+              {tag.guardian_phone})
             </p>
             {tag.alt_phone && (
               <p>
@@ -115,7 +125,8 @@ function TagCard({ tag, onDelete }: { tag: TagRow; onDelete: (id: string) => voi
           {/* Wristband Instructions */}
           <div className="mt-4 rounded-2xl bg-amber/10 border border-amber/20 p-3 text-xs leading-relaxed text-amber-900 dark:text-amber-200">
             <p className="font-bold mb-0.5">Printed Wristband Message:</p>
-            "If lost, scan QR or visit <strong>safr.in/find</strong> & enter OTP: <strong>{tag.token}</strong>"
+            "If lost, scan QR or visit <strong>safr.in/find</strong> & enter OTP:{" "}
+            <strong>{tag.token}</strong>"
           </div>
         </div>
       </div>
@@ -172,11 +183,16 @@ function SafetyTags() {
 
   const createTag = useMutation({
     mutationFn: async () => {
+      const ageError = validateAge(form.person_age, form.category);
+      if (ageError) throw new Error(ageError);
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("Not signed in");
 
       // Generate a random 6-character alphanumeric OTP token
-      const token = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const token = Array.from(
+        crypto.getRandomValues(new Uint8Array(6)),
+        (value) => "0123456789ABCDEFGHJKMNPQRSTVWXYZ"[value % 32],
+      ).join("");
 
       const { data, error } = await supabase.from("safety_tags").insert({
         user_id: userData.user.id,
@@ -227,7 +243,11 @@ function SafetyTags() {
   });
 
   return (
-    <AppShell title="Family SafeTag Studio" subtitle="Printable QR wristbands with Zero-Knowledge privacy" back>
+    <AppShell
+      title="Family SafeTag Studio"
+      subtitle="Printable QR wristbands with Zero-Knowledge privacy"
+      back
+    >
       {/* Privacy Guarantee Header Card */}
       <div className="rounded-3xl border border-border/60 bg-card/75 backdrop-blur-2xl p-6 sm:p-8 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -239,7 +259,9 @@ function SafetyTags() {
               Protect Kids & Senior Travelers
             </h2>
             <p className="mt-1.5 text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-xl">
-              Generate water-resistant QR wristbands or short 6-digit OTP tags. If a member gets separated in crowded markets or beaches, finders can notify you instantly without ever seeing your private phone number or hotel address.
+              Generate water-resistant QR wristbands or short 6-digit OTP tags. If a member gets
+              separated in crowded markets or beaches, finders can notify you instantly without ever
+              seeing your private phone number or hotel address.
             </p>
           </div>
 
@@ -275,7 +297,10 @@ function SafetyTags() {
             >
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="person_name" className="text-xs font-bold uppercase text-muted-foreground">
+                  <Label
+                    htmlFor="person_name"
+                    className="text-xs font-bold uppercase text-muted-foreground"
+                  >
                     Member Name *
                   </Label>
                   <Input
@@ -289,13 +314,22 @@ function SafetyTags() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="person_age" className="text-xs font-bold uppercase text-muted-foreground">
-                    Age (Optional)
+                  <Label
+                    htmlFor="person_age"
+                    className="text-xs font-bold uppercase text-muted-foreground"
+                  >
+                    Age *
                   </Label>
                   <Input
                     id="person_age"
                     type="number"
-                    min={1}
+                    min={0}
+                    step={1}
+                    required
+                    aria-invalid={Boolean(
+                      form.person_age && validateAge(form.person_age, form.category),
+                    )}
+                    aria-describedby="age-error"
                     max={120}
                     value={form.person_age}
                     onChange={(e) => setForm({ ...form, person_age: e.target.value })}
@@ -305,8 +339,16 @@ function SafetyTags() {
                 </div>
               </div>
 
+              <p id="age-error" role="alert" className="text-sm text-destructive">
+                {form.person_age ? validateAge(form.person_age, form.category) : ""}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Child: 0–17 · Adult: 18–59 · Senior: 60–120
+              </p>
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase text-muted-foreground">Category</Label>
+                <Label className="text-xs font-bold uppercase text-muted-foreground">
+                  Category
+                </Label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { id: "kid", label: "Child" },
@@ -331,7 +373,10 @@ function SafetyTags() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="guardian_name" className="text-xs font-bold uppercase text-muted-foreground">
+                  <Label
+                    htmlFor="guardian_name"
+                    className="text-xs font-bold uppercase text-muted-foreground"
+                  >
                     Guardian Name *
                   </Label>
                   <Input
@@ -345,7 +390,10 @@ function SafetyTags() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="guardian_phone" className="text-xs font-bold uppercase text-muted-foreground">
+                  <Label
+                    htmlFor="guardian_phone"
+                    className="text-xs font-bold uppercase text-muted-foreground"
+                  >
                     Phone Number *
                   </Label>
                   <Input
@@ -361,7 +409,10 @@ function SafetyTags() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="staying_at" className="text-xs font-bold uppercase text-muted-foreground">
+                <Label
+                  htmlFor="staying_at"
+                  className="text-xs font-bold uppercase text-muted-foreground"
+                >
                   Goa Hotel / Resort (Kept Private)
                 </Label>
                 <Input
@@ -374,7 +425,10 @@ function SafetyTags() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="medical_notes" className="text-xs font-bold uppercase text-muted-foreground">
+                <Label
+                  htmlFor="medical_notes"
+                  className="text-xs font-bold uppercase text-muted-foreground"
+                >
                   Medical Notes / Allergies (Optional)
                 </Label>
                 <Input
@@ -391,7 +445,11 @@ function SafetyTags() {
                 disabled={createTag.isPending}
                 className="w-full h-12 rounded-full font-bold bg-primary text-primary-foreground shadow-md transition-all mt-4"
               >
-                {createTag.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : <QrCode className="size-4 mr-2" />}
+                {createTag.isPending ? (
+                  <Loader2 className="size-4 animate-spin mr-2" />
+                ) : (
+                  <QrCode className="size-4 mr-2" />
+                )}
                 Generate Printable SafeTag
               </Button>
             </form>
@@ -408,7 +466,8 @@ function SafetyTags() {
             <QrCode className="size-12 mx-auto text-muted-foreground/40 mb-3" />
             <h4 className="text-base font-bold text-foreground">No SafeTags generated yet</h4>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-              Create printable QR wristbands for your children or elders before heading to busy Goa beaches.
+              Create printable QR wristbands for your children or elders before heading to busy Goa
+              beaches.
             </p>
             <Button
               onClick={() => setShowForm(true)}

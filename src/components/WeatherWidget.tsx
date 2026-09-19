@@ -53,7 +53,7 @@ export function WeatherWidget() {
     const fetchWeather = async () => {
       try {
         const response = await fetch(
-          "https://api.open-meteo.com/v1/forecast?latitude=15.2993&longitude=74.1240&current=temperature_2m,relative_humidity_2m,is_day,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max&timezone=Asia%2FKolkata"
+          "https://api.open-meteo.com/v1/forecast?latitude=15.4989&longitude=73.8278&current=temperature_2m,relative_humidity_2m,is_day,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max&timezone=Asia%2FKolkata",
         );
         const data = await response.json();
 
@@ -84,33 +84,14 @@ export function WeatherWidget() {
     return { text: "Pleasant", icon: Cloud };
   };
 
-  const getBeachSafety = (windSpeed: number, weatherCode: number) => {
-    if (weatherCode >= 95 || windSpeed >= 30) {
-      return {
-        flag: "red",
-        label: "Red Flag — Dangerous Surf & High Tides",
-        description: "Strictly no swimming or sea activities. Strong undertows and rip currents active.",
-        color: "bg-red-500/10 text-red-600 border-red-500/30",
-        badge: "🔴 Dangerous / No Swimming",
-      };
-    }
-    if (windSpeed >= 18 || (weatherCode >= 51 && weatherCode <= 82)) {
-      return {
-        flag: "yellow",
-        label: "Yellow Flag — Caution Advised",
-        description: "Moderate sea chop. Swim only in designated zones between red-and-yellow flags patrolled by Drishti lifeguards.",
-        color: "bg-amber-500/10 text-amber-600 border-amber-500/30",
-        badge: "🟡 Moderate / Lifeguard Zone Only",
-      };
-    }
-    return {
-      flag: "green",
-      label: "Green Flag — Safe Swimming & Water Sports",
-      description: "Calm Arabian Sea waters with safe wave swell. Ideal for parasailing, kayaking, and beach walks.",
-      color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
-      badge: "🟢 Safe for Swimming",
-    };
-  };
+  const getBeachSafety = (_windSpeed: number, _weatherCode: number) => ({
+    flag: "unknown",
+    label: "Beach conditions not verified",
+    description:
+      "Weather forecasts cannot determine tides, rip currents or swimming safety. Follow posted flags and ask the lifeguard before entering the water.",
+    color: "bg-amber-500/10 text-amber-700 border-amber-500/30",
+    badge: "Check local beach flags",
+  });
 
   if (loading) {
     return (
@@ -126,18 +107,22 @@ export function WeatherWidget() {
   }
 
   if (error || !weather) {
-    return null;
+    return (
+      <p
+        role="status"
+        className="rounded-2xl border border-border p-4 text-sm text-muted-foreground"
+      >
+        Weather is currently unavailable for Panjim.
+      </p>
+    );
   }
 
   const { text: weatherText, icon: WeatherIcon } = getWeatherDetails(
     weather.current.weather_code,
-    weather.current.is_day
+    weather.current.is_day,
   );
 
-  const beachSafety = getBeachSafety(
-    weather.current.wind_speed_10m,
-    weather.current.weather_code
-  );
+  const beachSafety = getBeachSafety(weather.current.wind_speed_10m, weather.current.weather_code);
 
   // Next 12 hours from now
   const currentHour = new Date().getHours();
@@ -175,7 +160,7 @@ export function WeatherWidget() {
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
             <MapPin className="size-3.5 text-cyan" />
-            <span>Goa Weather & Marine</span>
+            <span>Panjim Weather</span>
           </div>
           <span className="rounded-full bg-cyan/10 text-cyan px-2.5 py-0.5 text-[10px] font-bold">
             7-Day Station
@@ -196,7 +181,9 @@ export function WeatherWidget() {
                 {weatherText}
               </span>
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Tap for 7-day swell forecast</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Tap for 7-day weather forecast
+            </p>
           </div>
         </div>
 
@@ -210,7 +197,7 @@ export function WeatherWidget() {
             {weather.current.wind_speed_10m} km/h
           </span>
           <span className="rounded-full bg-emerald/10 text-emerald font-bold px-2 py-0.5 text-[10px] border border-emerald/20 ml-auto">
-            {beachSafety.flag === "green" ? "🟢 Calm Sea" : beachSafety.flag === "yellow" ? "🟡 Caution" : "🔴 Rough Swell"}
+            Beach status unavailable
           </span>
         </div>
       </div>
@@ -223,7 +210,7 @@ export function WeatherWidget() {
             <div className="flex items-start justify-between border-b border-border/50 pb-4">
               <div>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-                  <MapPin className="size-3.5" /> Goa, India · Live Marine & Weather Forecast
+                  <MapPin className="size-3.5" /> Panjim, Goa · Weather Forecast
                 </span>
                 <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">
                   Overall Weather & Travel Advisory
@@ -240,7 +227,9 @@ export function WeatherWidget() {
             {/* Current Conditions & Marine Swimming Flag */}
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl border border-border/50 bg-primary/5 p-5">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Current Temperature</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Current Temperature
+                </p>
                 <div className="mt-2 flex items-center justify-between">
                   <div>
                     <span className="text-4xl font-black text-foreground">
@@ -252,10 +241,12 @@ export function WeatherWidget() {
                 </div>
                 <div className="mt-4 flex items-center gap-4 text-xs font-medium text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <Droplets className="size-3.5 text-blue-500" /> Humidity {weather.current.relative_humidity_2m}%
+                    <Droplets className="size-3.5 text-blue-500" /> Humidity{" "}
+                    {weather.current.relative_humidity_2m}%
                   </span>
                   <span className="flex items-center gap-1">
-                    <Wind className="size-3.5 text-teal-500" /> Wind {weather.current.wind_speed_10m} km/h
+                    <Wind className="size-3.5 text-teal-500" /> Wind{" "}
+                    {weather.current.wind_speed_10m} km/h
                   </span>
                 </div>
               </div>
@@ -264,12 +255,14 @@ export function WeatherWidget() {
               <div className={`rounded-2xl border p-5 ${beachSafety.color}`}>
                 <div className="flex items-center gap-2">
                   <Waves className="size-5" />
-                  <p className="text-xs font-bold uppercase tracking-wider">Beach & Marine Safety Flag</p>
+                  <p className="text-xs font-bold uppercase tracking-wider">
+                    Beach Safety Guidance
+                  </p>
                 </div>
                 <h4 className="mt-2 text-base font-bold">{beachSafety.label}</h4>
                 <p className="mt-1 text-xs leading-relaxed opacity-90">{beachSafety.description}</p>
                 <div className="mt-3 flex items-center gap-1.5 text-xs font-bold">
-                  <ShieldCheck className="size-4" /> Drishti Marine Lifeguards on duty: 7 AM - 6:30 PM
+                  <ShieldCheck className="size-4" /> Check local lifeguard coverage and posted flags
                 </div>
               </div>
             </div>
@@ -282,13 +275,18 @@ export function WeatherWidget() {
                 </h3>
                 <div className="mt-3 flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
                   {nextHourly.map((h, idx) => {
-                    const HourIcon = getWeatherDetails(h.code, h.hour >= 6 && h.hour <= 18 ? 1 : 0).icon;
+                    const HourIcon = getWeatherDetails(
+                      h.code,
+                      h.hour >= 6 && h.hour <= 18 ? 1 : 0,
+                    ).icon;
                     return (
                       <div
                         key={idx}
                         className="flex flex-col items-center justify-between rounded-xl border border-border/40 bg-secondary/30 p-3 min-w-[70px] text-center shrink-0"
                       >
-                        <span className="text-xs font-medium text-muted-foreground">{h.timeStr}</span>
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {h.timeStr}
+                        </span>
                         <HourIcon className="size-5 my-2 text-primary" />
                         <span className="text-sm font-bold text-foreground">{h.temp}°</span>
                         {h.rainProb > 0 ? (
@@ -308,7 +306,7 @@ export function WeatherWidget() {
             {/* 7-Day Weather Forecast */}
             <div className="mt-6">
               <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Calendar className="size-4 text-primary" /> 7-Day Goa Weather Outlook
+                <Calendar className="size-4 text-primary" /> 7-Day Panjim Weather Outlook
               </h3>
               <div className="mt-3 space-y-2">
                 {dailyForecast.map((d, idx) => {
@@ -335,7 +333,8 @@ export function WeatherWidget() {
                           UV {d.uvMax}
                         </span>
                         <span className="font-bold text-foreground min-w-[70px]">
-                          {d.maxT}° <span className="text-muted-foreground font-normal">/ {d.minT}°</span>
+                          {d.maxT}°{" "}
+                          <span className="text-muted-foreground font-normal">/ {d.minT}°</span>
                         </span>
                       </div>
                     </div>
@@ -350,9 +349,10 @@ export function WeatherWidget() {
               <div>
                 <p className="font-semibold text-foreground">Best Outdoor Exploration Hours</p>
                 <p className="mt-0.5">
-                  Early mornings (<strong>6:30 AM – 10:30 AM</strong>) and late afternoons (<strong>4:00 PM – 7:00 PM</strong>)
-                  offer the best ocean breezes and comfortable temperatures for beach hopping, fort treks, and scooter rides.
-                  Carry hydration and wear SPF 50+ sunscreen during peak midday heat.
+                  Early mornings (<strong>6:30 AM – 10:30 AM</strong>) and late afternoons (
+                  <strong>4:00 PM – 7:00 PM</strong>) offer the best ocean breezes and comfortable
+                  temperatures for beach hopping, fort treks, and scooter rides. Carry hydration and
+                  wear SPF 50+ sunscreen during peak midday heat.
                 </p>
               </div>
             </div>
@@ -372,4 +372,3 @@ export function WeatherWidget() {
     </>
   );
 }
-

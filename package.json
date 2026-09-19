@@ -11,7 +11,11 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test": "node --import ./scripts/register-typescript.mjs --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "check:services": "node scripts/check-services.mjs",
+    "check:itinerary": "node --import ./scripts/register-typescript.mjs scripts/check-itinerary.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.44",
@@ -92,5 +96,8 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.2.0"
+  },
+  "engines": {
+    "node": ">=24.0.0"
   }
 }

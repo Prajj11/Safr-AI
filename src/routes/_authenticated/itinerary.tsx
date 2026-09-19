@@ -24,10 +24,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { GOA_PLACES, type Itinerary } from "@/lib/goa-schemas";
-import { generateItinerary } from "@/lib/goa.functions";
+import { generateItinerary, getCurrentArea } from "@/lib/goa.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/itinerary")({
+  validateSearch: (search: Record<string, unknown>): { place?: string; state?: string } => ({
+    place: typeof search["place"] === "string" ? search["place"] : "",
+    state: typeof search["state"] === "string" ? search["state"] : "Goa",
+  }),
   component: ItineraryPage,
 });
 
@@ -52,13 +56,13 @@ const typeEmoji: Record<string, string> = {
 };
 
 function getTodayDate(): string {
-  return new Date().toISOString().split("T")[0] || "";
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
 
 function getTomorrowDate(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().split("T")[0] || "";
+  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
 
 function getWeekendDate(): string {
@@ -66,20 +70,60 @@ function getWeekendDate(): string {
   const day = d.getDay();
   const diff = day <= 5 ? 6 - day : 0;
   d.setDate(d.getDate() + diff);
-  return d.toISOString().split("T")[0] || "";
+  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
 
-const TELEMETRY_STEPS = [
-  "Connecting to Goan local map engine & GPS network…",
-  "Pinpointing verified nearby spots within destination radius…",
-  "Gemini 2.5 Flash reasoning through travel pacing & preferences…",
-  "Syncing live marine swell & coastal daylight window…",
-  "Calculating transit road distances & safe buffer intervals…",
-  "Finalizing personalized hour-by-hour Goan schedule…",
-];
-
 function ItineraryPage() {
-  const [place, setPlace] = useState<string>("Anjuna Beach");
+  const searchParams = Route.useSearch();
+  const [place, setPlace] = useState<string>(searchParams.place || "Anjuna Beach");
+  const [state, setState] = useState(searchParams.state || "Goa");
+  const [origin, setOrigin] = useState<{ lat: number; lng: number } | undefined>();
+  const [returnToStart, setReturnToStart] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const currentArea = useServerFn(getCurrentArea);
+  const handleCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Location is unavailable in this browser");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const result = await currentArea({
+            data: { lat: position.coords.latitude, lng: position.coords.longitude },
+          });
+          setPlace(result.name);
+          setState(result.state);
+          setOrigin({ lat: result.lat, lng: result.lng });
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Could not detect your area");
+        } finally {
+          setLocating(false);
+        }
+      },
+      () => {
+        setLocating(false);
+        toast.error("Location permission unavailable. Enter a destination and state instead.");
+      },
+      { timeout: 10000 },
+    );
+  };
+  const handleTripDestination = async () => {
+    const { data, error } = await supabase
+      .from("trips")
+      .select("destination")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) {
+      toast.error("Save a trip destination in Trip setup first.");
+      return;
+    }
+    setPlace(data.destination);
+    setState("Goa");
+    setOrigin(undefined);
+  };
   const [date, setDate] = useState<string>(getTodayDate());
   const [hours, setHours] = useState(6);
   const [startTime, setStartTime] = useState("09:00");
@@ -87,7 +131,6 @@ function ItineraryPage() {
   const [interests, setInterests] = useState<string[]>(["Local food", "Beaches & sunsets"]);
   const [notes, setNotes] = useState("");
 
-  const [telemetryIndex, setTelemetryIndex] = useState(0);
   const [visitedStops, setVisitedStops] = useState<Record<number, boolean>>({});
 
   const generate = useServerFn(generateItinerary);
@@ -95,11 +138,22 @@ function ItineraryPage() {
   const plan = useMutation({
     mutationFn: async () => {
       const result = (await generate({
-        data: { place, date, hours, interests, pace, startTime, notes: notes.trim() || undefined },
+        data: {
+          place,
+          state,
+          date,
+          hours,
+          interests,
+          pace,
+          startTime,
+          notes: notes.trim() || undefined,
+          origin,
+          returnToStart,
+        },
       })) as Itinerary;
       const { data: userData } = await supabase.auth.getUser();
       if (userData.user) {
-        await supabase.from("itineraries").insert({
+        const { error } = await supabase.from("itineraries").insert({
           user_id: userData.user.id,
           place,
           hours,
@@ -107,23 +161,13 @@ function ItineraryPage() {
           interests,
           plan: result as unknown as never,
         });
+        if (error)
+          toast.warning("Your plan is ready, but could not be saved. Print it to keep a copy.");
       }
       return result;
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not build itinerary"),
   });
-
-  // Cycle telemetry steps during generation
-  useEffect(() => {
-    if (!plan.isPending) {
-      setTelemetryIndex(0);
-      return;
-    }
-    const interval = setInterval(() => {
-      setTelemetryIndex((prev) => (prev + 1) % TELEMETRY_STEPS.length);
-    }, 1100);
-    return () => clearInterval(interval);
-  }, [plan.isPending]);
 
   const handlePrint = () => {
     window.print();
@@ -134,7 +178,11 @@ function ItineraryPage() {
   };
 
   return (
-    <AppShell title="AI Itinerary Planner" subtitle="Custom hour-by-hour schedules tailored for Goa" back>
+    <AppShell
+      title="AI Itinerary Planner"
+      subtitle="Map-based schedules for your destination and current location"
+      back
+    >
       {/* Configuration Form Card */}
       <form
         className="space-y-5 rounded-3xl border border-border/60 bg-card/75 backdrop-blur-2xl p-6 sm:p-8 shadow-sm"
@@ -150,35 +198,85 @@ function ItineraryPage() {
       >
         <div className="flex items-center justify-between border-b border-border/40 pb-4">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Time-Budget Planner</span>
-            <h3 className="text-xl font-bold font-display text-foreground">Configure Your Goan Day</h3>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+              Time-Budget Planner
+            </span>
+            <h3 className="text-xl font-bold font-display text-foreground">Plan Your Day</h3>
           </div>
           <Sparkles className="size-6 text-primary" />
         </div>
 
         {/* Location Dropdown */}
         <div className="space-y-1.5">
-          <Label htmlFor="place" className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <MapPin className="size-3.5 text-primary" /> Destination Base in Goa
-          </Label>
-          <select
-            id="place"
-            value={place}
-            onChange={(e) => setPlace(e.target.value)}
-            className="h-12 w-full rounded-2xl border border-border/60 bg-secondary/40 px-4 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+          <Label
+            htmlFor="place"
+            className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"
           >
+            <MapPin className="size-3.5 text-primary" /> Destination or Starting Area
+          </Label>
+          <Input
+            id="place"
+            list="goa-destinations"
+            required
+            maxLength={120}
+            value={place}
+            onChange={(e) => {
+              setPlace(e.target.value);
+              setOrigin(undefined);
+            }}
+          />
+          <datalist id="goa-destinations">
             {GOA_PLACES.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
+              <option key={p} value={p} />
             ))}
-          </select>
+          </datalist>
+          <Label htmlFor="state">State in India</Label>
+          <Input
+            id="state"
+            required
+            maxLength={80}
+            value={state}
+            onChange={(e) => {
+              setState(e.target.value);
+              setOrigin(undefined);
+            }}
+          />
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={locating}
+              onClick={handleCurrentLocation}
+            >
+              {locating ? "Finding your area…" : "Use my current location & state"}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => void handleTripDestination()}>
+              Use saved trip destination
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {origin
+              ? "The initial drive starts at your GPS location."
+              : "The initial drive starts at the mapped destination center."}{" "}
+            Times use the India time zone and driving routes.
+          </p>
+          <label className="flex gap-2 text-sm pt-2">
+            <input
+              type="checkbox"
+              checked={returnToStart}
+              onChange={(e) => setReturnToStart(e.target.checked)}
+            />{" "}
+            Include the drive back to my starting point
+          </label>
         </div>
 
         {/* Date of Visit & Quick Date Pills */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label htmlFor="date" className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Label
+              htmlFor="date"
+              className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"
+            >
               <Calendar className="size-3.5 text-primary" /> Date of Exploration
             </Label>
             <div className="flex gap-1.5">
@@ -208,6 +306,7 @@ function ItineraryPage() {
           <Input
             id="date"
             type="date"
+            required
             value={date}
             min={getTodayDate()}
             onChange={(e) => setDate(e.target.value)}
@@ -218,12 +317,16 @@ function ItineraryPage() {
         {/* Start Time and Available Duration */}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <Label htmlFor="start" className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Label
+              htmlFor="start"
+              className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"
+            >
               <Clock className="size-3.5 text-primary" /> Start Time
             </Label>
             <Input
               id="start"
               type="time"
+              required
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
               className="h-11 rounded-2xl bg-secondary/40 border-border/60 font-semibold"
@@ -231,7 +334,10 @@ function ItineraryPage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="hours" className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Label
+              htmlFor="hours"
+              className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"
+            >
               <Zap className="size-3.5 text-amber" /> Free Hours ({hours}h)
             </Label>
             <Input
@@ -248,7 +354,9 @@ function ItineraryPage() {
 
         {/* Pacing Speed Controls */}
         <div className="space-y-2">
-          <Label className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Exploration Pace</Label>
+          <Label className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+            Exploration Pace
+          </Label>
           <div className="grid grid-cols-3 gap-2.5">
             {(["relaxed", "balanced", "packed"] as const).map((p) => {
               const isSelected = pace === p;
@@ -272,7 +380,9 @@ function ItineraryPage() {
 
         {/* Interest Tags Selector */}
         <div className="space-y-2">
-          <Label className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">What do you enjoy?</Label>
+          <Label className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+            What do you enjoy?
+          </Label>
           <div className="flex flex-wrap gap-2">
             {INTERESTS.map((i) => {
               const isSelected = interests.includes(i);
@@ -281,9 +391,7 @@ function ItineraryPage() {
                   key={i}
                   type="button"
                   onClick={() =>
-                    setInterests(
-                      isSelected ? interests.filter((x) => x !== i) : [...interests, i]
-                    )
+                    setInterests(isSelected ? interests.filter((x) => x !== i) : [...interests, i])
                   }
                   className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
                     isSelected
@@ -300,7 +408,10 @@ function ItineraryPage() {
 
         {/* Custom Notes / Constraints */}
         <div className="space-y-1.5">
-          <Label htmlFor="notes" className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+          <Label
+            htmlFor="notes"
+            className="font-semibold text-xs uppercase tracking-wider text-muted-foreground"
+          >
             Special Requests & Notes (optional)
           </Label>
           <Textarea
@@ -317,7 +428,7 @@ function ItineraryPage() {
         {/* Submit Button */}
         <Button
           type="submit"
-          disabled={plan.isPending}
+          disabled={plan.isPending || locating}
           className="w-full h-12 rounded-full font-bold bg-primary text-primary-foreground shadow-md transition-all hover:scale-[1.01] active:scale-95"
         >
           {plan.isPending ? (
@@ -332,47 +443,11 @@ function ItineraryPage() {
         </Button>
       </form>
 
-      {/* REAL-TIME GENERATION TELEMETRY RADAR */}
       {plan.isPending && (
-        <div className="mt-8 rounded-3xl border border-primary/30 bg-card/90 backdrop-blur-2xl p-6 sm:p-8 shadow-lg animate-in fade-in duration-300">
-          <div className="flex items-center gap-3">
-            <div className="size-10 rounded-2xl bg-primary/15 flex items-center justify-center text-primary">
-              <Radio className="size-5 animate-pulse" />
-            </div>
-            <div>
-              <h4 className="font-bold text-sm text-foreground">Local Map Engine Active</h4>
-              <p className="text-xs text-muted-foreground">Grounding {place} nearby spots with real-time transit & crowd analysis…</p>
-            </div>
-          </div>
-
-          <div className="mt-5 space-y-2.5">
-            {TELEMETRY_STEPS.map((step, idx) => {
-              const isCurrent = idx === telemetryIndex;
-              const isDone = idx < telemetryIndex;
-              return (
-                <div
-                  key={idx}
-                  className={`flex items-center gap-3 text-xs transition-all duration-300 ${
-                    isCurrent
-                      ? "text-primary font-bold translate-x-1"
-                      : isDone
-                      ? "text-muted-foreground line-through opacity-60"
-                      : "text-muted-foreground/40"
-                  }`}
-                >
-                  {isDone ? (
-                    <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                  ) : isCurrent ? (
-                    <Loader2 className="size-4 text-primary animate-spin shrink-0" />
-                  ) : (
-                    <Circle className="size-3.5 shrink-0 opacity-40" />
-                  )}
-                  <span>{step}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <p role="status" className="my-6 flex items-center gap-2 text-sm">
+          <Loader2 className="size-4 animate-spin" /> Finding mapped places and checking road travel
+          times against your time budget…
+        </p>
       )}
 
       {/* RESULTING ITINERARY TIMELINE */}
@@ -383,10 +458,10 @@ function ItineraryPage() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-primary/10 text-primary px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                  Verified Local Schedule
+                  Time-Budgeted Schedule
                 </span>
                 <span className="rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold">
-                  ● Real-Time Maps Synced
+                  {plan.data.aiStatus === "used" ? "AI + OSRM" : "Map-based fallback"}
                 </span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold font-display text-foreground mt-1.5">
@@ -481,8 +556,8 @@ function ItineraryPage() {
                               stop.crowdLevel === "low"
                                 ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
                                 : stop.crowdLevel === "high"
-                                ? "bg-rose-500/10 text-rose-600 border border-rose-500/20"
-                                : "bg-amber-500/10 text-amber-700 border border-amber-500/20"
+                                  ? "bg-rose-500/10 text-rose-600 border border-rose-500/20"
+                                  : "bg-amber-500/10 text-amber-700 border border-amber-500/20"
                             }`}
                           >
                             <span
@@ -490,22 +565,22 @@ function ItineraryPage() {
                                 stop.crowdLevel === "low"
                                   ? "bg-emerald-500"
                                   : stop.crowdLevel === "high"
-                                  ? "bg-rose-500 animate-pulse"
-                                  : "bg-amber-500"
+                                    ? "bg-rose-500 animate-pulse"
+                                    : "bg-amber-500"
                               }`}
                             />
                             {stop.crowdLevel === "low"
                               ? "Low Crowds"
                               : stop.crowdLevel === "high"
-                              ? "Peak Crowds"
-                              : "Moderate Buzz"}
+                                ? "Peak Crowds"
+                                : "Moderate Buzz"}
                           </span>
                         )}
 
                         {/* Transit Distance pill */}
                         {stop.distanceKm !== undefined && stop.distanceKm > 0 && (
                           <span className="rounded-full bg-secondary/80 px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
-                            📍 {stop.distanceKm} km · ~{stop.transitMin ?? 5}m drive
+                            📍 {stop.distanceKm} km · ~{stop.transitMin}m travel + buffer
                           </span>
                         )}
                       </div>
@@ -522,8 +597,9 @@ function ItineraryPage() {
                             to="/map"
                             search={{
                               dest: stop.title,
-                              lat: stop.lat !== undefined ? String(stop.lat) : undefined,
-                              lng: stop.lng !== undefined ? String(stop.lng) : undefined,
+                              ...(stop.lat != null && stop.lng != null
+                                ? { lat: String(stop.lat), lng: String(stop.lng) }
+                                : {}),
                             }}
                           >
                             <Navigation className="size-3 mr-0.5" /> Safe Route
@@ -558,7 +634,9 @@ function ItineraryPage() {
 
                     <h3 className="mt-2.5 text-base font-bold text-foreground flex items-center gap-2">
                       <span>{typeEmoji[stop.type] ?? "📍"}</span>
-                      <span className={isVisited ? "line-through text-muted-foreground" : ""}>{stop.title}</span>
+                      <span className={isVisited ? "line-through text-muted-foreground" : ""}>
+                        {stop.title}
+                      </span>
                     </h3>
 
                     <p className="mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">

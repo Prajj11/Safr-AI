@@ -1,3 +1,4 @@
+import { validateAge } from "@/lib/age-validation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, User, Users } from "lucide-react";
@@ -49,14 +50,29 @@ function Setup() {
     setDestination(existing.destination);
     setStartDate(existing.start_date ?? "");
     setDays(existing.days);
-    const t = (existing.travellers ?? []) as Array<{ name: string; age: number | null; category: string }>;
+    const t = (existing.travellers ?? []) as Array<{
+      name: string;
+      age: number | null;
+      category: string;
+    }>;
     if (t.length > 0) {
-      setPeople(t.map((p) => ({ name: p.name, age: p.age ? String(p.age) : "", category: p.category as Person["category"] })));
+      setPeople(
+        t.map((p) => ({
+          name: p.name,
+          age: p.age != null ? String(p.age) : "",
+          category: p.category as Person["category"],
+        })),
+      );
     }
   }, [existing]);
 
   const save = useMutation({
     mutationFn: async () => {
+      if (style === "group")
+        for (const person of people.filter((p) => p.name.trim())) {
+          const error = validateAge(person.age, person.category);
+          if (error) throw new Error(`${person.name}: ${error}`);
+        }
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       if (!userId) throw new Error("Not signed in");
@@ -74,7 +90,11 @@ function Setup() {
       if (tripId) {
         const { error } = await supabase.from("trips").update(payload).eq("id", tripId);
         if (error) throw error;
-        await supabase.from("travellers").delete().eq("trip_id", tripId);
+        const { error: deleteError } = await supabase
+          .from("travellers")
+          .delete()
+          .eq("trip_id", tripId);
+        if (deleteError) throw deleteError;
       } else {
         const { data, error } = await supabase.from("trips").insert(payload).select("id").single();
         if (error) throw error;
@@ -114,7 +134,12 @@ function Setup() {
           {(
             [
               { value: "solo", icon: User, title: "Solo", text: "Just me exploring" },
-              { value: "group", icon: Users, title: "In a group", text: "Family or friends travelling together" },
+              {
+                value: "group",
+                icon: Users,
+                title: "In a group",
+                text: "Family or friends travelling together",
+              },
             ] as const
           ).map((opt) => (
             <button
@@ -124,7 +149,9 @@ function Setup() {
                 setStep(1);
               }}
               className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-colors ${
-                style === opt.value ? "border-primary bg-secondary" : "border-border bg-card hover:border-primary"
+                style === opt.value
+                  ? "border-primary bg-secondary"
+                  : "border-border bg-card hover:border-primary"
               }`}
             >
               <opt.icon className="size-6 text-primary" />
@@ -153,7 +180,13 @@ function Setup() {
           <h2 className="text-xl font-semibold">Your trip details</h2>
           <div className="space-y-1.5">
             <Label htmlFor="tname">Your name</Label>
-            <Input id="tname" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} required />
+            <Input
+              id="tname"
+              value={name}
+              maxLength={60}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="dest">Which city are you based in?</Label>
@@ -173,7 +206,12 @@ function Setup() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="start">Arriving on</Label>
-              <Input id="start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <Input
+                id="start"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="days">Number of days</Label>
@@ -192,7 +230,11 @@ function Setup() {
               Back
             </Button>
             <Button type="submit" className="flex-1" disabled={save.isPending}>
-              {style === "group" ? "Next: who's travelling" : save.isPending ? "Saving…" : "Save trip"}
+              {style === "group"
+                ? "Next: who's travelling"
+                : save.isPending
+                  ? "Saving…"
+                  : "Save trip"}
             </Button>
           </div>
         </form>
@@ -213,7 +255,9 @@ function Setup() {
                     value={p.name}
                     maxLength={60}
                     onChange={(e) =>
-                      setPeople(people.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
+                      setPeople(
+                        people.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                      )
                     }
                   />
                   <Input
@@ -222,7 +266,9 @@ function Setup() {
                     min={0}
                     max={120}
                     value={p.age}
-                    onChange={(e) => setPeople(people.map((x, j) => (j === i ? { ...x, age: e.target.value } : x)))}
+                    onChange={(e) =>
+                      setPeople(people.map((x, j) => (j === i ? { ...x, age: e.target.value } : x)))
+                    }
                   />
                 </div>
                 <div className="mt-2 flex gap-2">
@@ -230,9 +276,13 @@ function Setup() {
                     <button
                       key={c}
                       type="button"
-                      onClick={() => setPeople(people.map((x, j) => (j === i ? { ...x, category: c } : x)))}
+                      onClick={() =>
+                        setPeople(people.map((x, j) => (j === i ? { ...x, category: c } : x)))
+                      }
                       className={`rounded-full px-3 py-1 text-xs capitalize ${
-                        p.category === c ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                        p.category === c
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-secondary-foreground"
                       }`}
                     >
                       {c}

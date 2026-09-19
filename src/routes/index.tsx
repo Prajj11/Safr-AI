@@ -1,12 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  Compass,
-  ShieldCheck,
-  ChevronRight,
-  Sparkles,
-  QrCode,
-  Waves,
-} from "lucide-react";
+import { Compass, ShieldCheck, ChevronRight, Sparkles, QrCode, Waves } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -20,12 +13,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Plan safer trips across India: safe-route maps, live crowd estimates, local rules and warnings, QR safety tags for kids and elders, and AI itineraries. Currently piloted in Goa.",
+          "Plan safer trips across India: road maps, nearby places, visitor guidance, QR safety tags for kids and elders, and AI itineraries. Currently piloted in Goa.",
       },
       { property: "og:title", content: "Safr — AI Travel Safety Companion" },
       {
         property: "og:description",
-        content: "Safe routes, crowd estimates, local rules, QR safety tags and AI itineraries — piloted in Goa, built for India.",
+        content:
+          "Road routes, nearby places, visitor guidance, QR safety tags and AI itineraries — piloted in Goa, built for India.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -60,11 +54,7 @@ function UmbrellaDoodle({ className }: { className?: string }) {
         strokeWidth="2.8"
         strokeLinejoin="round"
       />
-      <path
-        d="M32 30 L32 46 C32 51 36.5 53 40 50"
-        strokeWidth="2.8"
-        strokeLinecap="round"
-      />
+      <path d="M32 30 L32 46 C32 51 36.5 53 40 50" strokeWidth="2.8" strokeLinecap="round" />
     </svg>
   );
 }
@@ -72,11 +62,7 @@ function UmbrellaDoodle({ className }: { className?: string }) {
 function PalmTreeDoodle({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 64 64" fill="none" className={className} stroke="currentColor">
-      <path
-        d="M32 58 C31 46 29 36 26 26"
-        strokeWidth="3.2"
-        strokeLinecap="round"
-      />
+      <path d="M32 58 C31 46 29 36 26 26" strokeWidth="3.2" strokeLinecap="round" />
       <path
         d="M26 26 C16 22 8 28 6 38 C10 32 18 30 26 28"
         strokeWidth="2.8"
@@ -259,7 +245,9 @@ function Landing() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-base sm:text-lg text-stone-600 leading-relaxed font-normal">
-            Safer routes, honest crowd estimates, local do's and don'ts, printable QR safety tags for your family, and an AI plan for every free hour you have — built for travel across India, currently piloted in Goa.
+            Road routes, nearby attractions and restaurants, local do's and don'ts, printable QR
+            safety tags for your family, and an AI plan for every free hour you have — built for
+            travel across India, currently piloted in Goa.
           </p>
 
           {/* Action CTAs: Matching the 3 buttons in the screenshot */}
@@ -291,9 +279,7 @@ function Landing() {
               variant="outline"
               className="w-full sm:w-auto h-12 sm:h-13 px-7 rounded-full text-sm sm:text-base font-bold btn-warm-teal"
             >
-              <Link to="/find">
-                Found someone? Enter OTP
-              </Link>
+              <Link to="/find">Found someone? Enter OTP</Link>
             </Button>
           </div>
 
@@ -308,12 +294,16 @@ function Landing() {
               <p className="text-xs font-semibold text-stone-600 mt-0.5">Goa Police & Ambulance</p>
             </div>
             <div className="bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-stone-200/70 shadow-sm hover:shadow-md hover:border-teal-200 hover:-translate-y-0.5 transition-all duration-300">
-              <p className="text-2xl font-black font-display text-teal-600">Live Flags</p>
-              <p className="text-xs font-semibold text-stone-600 mt-0.5">Drishti Marine Station</p>
+              <p className="text-2xl font-black font-display text-teal-600">Weather</p>
+              <p className="text-xs font-semibold text-stone-600 mt-0.5">
+                Forecast & Beach Guidance
+              </p>
             </div>
             <div className="bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-stone-200/70 shadow-sm hover:shadow-md hover:border-emerald-200 hover:-translate-y-0.5 transition-all duration-300">
-              <p className="text-2xl font-black font-display text-emerald-600">12+ Langs</p>
-              <p className="text-xs font-semibold text-stone-600 mt-0.5">Indian Languages Support</p>
+              <p className="text-2xl font-black font-display text-emerald-600">10 Languages</p>
+              <p className="text-xs font-semibold text-stone-600 mt-0.5">
+                Indian Languages Support
+              </p>
             </div>
           </div>
         </div>
@@ -329,7 +319,8 @@ function Landing() {
             Designed for carefree Goan adventures
           </h2>
           <p className="text-stone-600 text-sm sm:text-base mt-2 max-w-xl mx-auto">
-            Everything you need for peace of mind while exploring coastal roads, bustling markets, and serene beaches.
+            Everything you need for peace of mind while exploring coastal roads, bustling markets,
+            and serene beaches.
           </p>
         </div>
 
@@ -345,17 +336,19 @@ function Landing() {
                 OSRM Routing Engine
               </span>
               <h3 className="text-lg font-bold font-display text-stone-900 mt-1">
-                Safe vs. Fast Wayfinding
+                Road Routes & Nearby Hotspots
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed mt-2">
-                Evaluates road lighting, ghat hairpin bends, speed hazards, and populates turn-by-turn navigation with 1-tap Google Maps GPS launch.
+                Find OSRM driving routes, places to visit, restaurants and hotels along the way,
+                with distances that update as you move.
               </p>
             </div>
             <Link
               to="/map"
               className="mt-5 inline-flex items-center text-xs font-bold text-orange-600 group-hover:text-orange-700"
             >
-              Test Route Engine <ChevronRight className="size-3.5 ml-0.5 transition-transform group-hover:translate-x-1" />
+              Test Route Engine{" "}
+              <ChevronRight className="size-3.5 ml-0.5 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
 
@@ -370,17 +363,19 @@ function Landing() {
                 7-Day Station
               </span>
               <h3 className="text-lg font-bold font-display text-stone-900 mt-1">
-                Marine & Beach Swimming Flags
+                Weather & Beach Guidance
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed mt-2">
-                Real-time Drishti lifeguard swimming status (🟢 Safe, 🟡 Caution, 🔴 No Swimming), UV index forecast, and hourly rain probability radar.
+                Weather, UV and rain forecasts for Panjim. Check posted beach flags and local
+                lifeguard advice for swimming conditions.
               </p>
             </div>
             <Link
               to="/dashboard"
               className="mt-5 inline-flex items-center text-xs font-bold text-teal-600 group-hover:text-teal-700"
             >
-              View Live Station <ChevronRight className="size-3.5 ml-0.5 transition-transform group-hover:translate-x-1" />
+              View Weather{" "}
+              <ChevronRight className="size-3.5 ml-0.5 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
 
@@ -398,14 +393,16 @@ function Landing() {
                 Family QR Safety Wristbands
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed mt-2">
-                Printable QR tags & 6-character OTP codes for kids and seniors. Strangers can notify guardians without ever seeing phone numbers or private details.
+                Printable QR tags & 6-character OTP codes for kids and seniors. Strangers can notify
+                guardians without ever seeing phone numbers or private details.
               </p>
             </div>
             <Link
               to="/safety-tags"
               className="mt-5 inline-flex items-center text-xs font-bold text-rose-600 group-hover:text-rose-700"
             >
-              Generate SafeTag <ChevronRight className="size-3.5 ml-0.5 transition-transform group-hover:translate-x-1" />
+              Generate SafeTag{" "}
+              <ChevronRight className="size-3.5 ml-0.5 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
 
@@ -423,14 +420,16 @@ function Landing() {
                 AI Hour-by-Hour Schedules
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed mt-2">
-                Have 4 or 8 free hours? Instantly build a personalized Goan itinerary matching your pace, interests, and transit notes with 1-click stop navigation.
+                Have 4 or 8 free hours? Instantly build a personalized Goan itinerary matching your
+                pace, interests, and transit notes with 1-click stop navigation.
               </p>
             </div>
             <Link
               to="/itinerary"
               className="mt-5 inline-flex items-center text-xs font-bold text-amber-700 group-hover:text-amber-800"
             >
-              Build Itinerary <ChevronRight className="size-3.5 ml-0.5 transition-transform group-hover:translate-x-1" />
+              Build Itinerary{" "}
+              <ChevronRight className="size-3.5 ml-0.5 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
         </div>

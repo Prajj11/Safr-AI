@@ -31,11 +31,13 @@ export function AppShell({
   title,
   subtitle,
   back,
+  publicPage = false,
   children,
 }: {
   title: string;
   subtitle?: string;
   back?: boolean;
+  publicPage?: boolean;
   children: ReactNode;
 }) {
   const navigate = useNavigate();
@@ -71,7 +73,10 @@ export function AppShell({
                 <ChevronLeft className="size-5 text-muted-foreground group-hover:text-primary transition-colors" />
               </button>
             ) : (
-              <Link to="/dashboard" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-cyan to-coral shadow-sm transition-transform hover:scale-105">
+              <Link
+                to="/dashboard"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-cyan to-coral shadow-sm transition-transform hover:scale-105"
+              >
                 <Compass className="size-5 text-primary-foreground" />
               </Link>
             )}
@@ -104,16 +109,18 @@ export function AppShell({
               </Link>
             </Button>
 
-            <Button
-              size="icon"
-              variant="ghost"
-              className="rounded-2xl text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-all hover:scale-105"
-              aria-label="Sign out"
-              title="Sign out of Safr"
-              onClick={signOut}
-            >
-              <LogOut className="size-4" />
-            </Button>
+            {!publicPage && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="rounded-2xl text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-all hover:scale-105"
+                aria-label="Sign out"
+                title="Sign out of Safr"
+                onClick={signOut}
+              >
+                <LogOut className="size-4" />
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -126,7 +133,9 @@ export function AppShell({
         <div className="flex items-center justify-around rounded-3xl border border-border/60 bg-card/80 p-2 shadow-2xl backdrop-blur-2xl">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
-            const isActive = currentPath === item.to || (item.to !== "/dashboard" && currentPath.startsWith(item.to));
+            const isActive =
+              currentPath === item.to ||
+              (item.to !== "/dashboard" && currentPath.startsWith(item.to));
             return (
               <Link
                 key={item.to}
@@ -137,7 +146,9 @@ export function AppShell({
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                 }`}
               >
-                <Icon className={`size-4 transition-transform group-hover:scale-110 ${isActive ? "text-primary-foreground" : ""}`} />
+                <Icon
+                  className={`size-4 transition-transform group-hover:scale-110 ${isActive ? "text-primary-foreground" : ""}`}
+                />
                 <span className="text-[10px] tracking-tight">{item.label}</span>
               </Link>
             );

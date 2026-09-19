@@ -32,17 +32,17 @@ const TILES = [
     to: "/map",
     icon: MapPinned,
     badge: "OSRM Engine",
-    title: "Map & Safe Routing",
-    text: "Turn-by-turn directions, fastest vs. safer routes, and 1-tap Google Maps GPS navigation.",
+    title: "Map & Route Planning",
+    text: "Driving directions, route hotspots, nearby restaurants and hotels.",
     color: "from-cyan/15 to-transparent text-cyan border-cyan/30 hover:border-cyan/60",
     iconBg: "bg-cyan/10 text-cyan group-hover:bg-cyan group-hover:text-cyan-foreground",
   },
   {
     to: "/explore",
     icon: Sparkles,
-    badge: "Crowd & Transit",
+    badge: "Nearby Places",
     title: "Explore & Bucket List",
-    text: "Live crowd levels, recommended visiting times, best mode of transport & saved places.",
+    text: "Discover mapped attractions and restaurants and save places for your trip.",
     color: "from-coral/15 to-transparent text-coral border-coral/30 hover:border-coral/60",
     iconBg: "bg-coral/10 text-coral group-hover:bg-coral group-hover:text-coral-foreground",
   },
@@ -67,9 +67,9 @@ const TILES = [
   {
     to: "/live-tracking",
     icon: LocateFixed,
-    badge: "Live Radar",
-    title: "Live GPS Family Radar",
-    text: "Track family member locations on an interactive live radar with one-touch calling.",
+    badge: "Device GPS",
+    title: "Your Current Location",
+    text: "View your device location. Family device sharing is not connected yet.",
     color: "from-primary/15 to-transparent text-primary border-primary/30 hover:border-primary/60",
     iconBg: "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground",
   },
@@ -78,9 +78,11 @@ const TILES = [
     icon: Phone,
     badge: "24/7 Helpline",
     title: "Goa Emergency 112 Hub",
-    text: "Instant dial to Police (100/112), Ambulance (108), Drishti Marine Lifeguards & Tourist Police.",
-    color: "from-destructive/15 to-transparent text-destructive border-destructive/30 hover:border-destructive/60",
-    iconBg: "bg-destructive/10 text-destructive group-hover:bg-destructive group-hover:text-destructive-foreground",
+    text: "Call 112, Pink Force, ambulance, tourist assistance and other official Goa contacts.",
+    color:
+      "from-destructive/15 to-transparent text-destructive border-destructive/30 hover:border-destructive/60",
+    iconBg:
+      "bg-destructive/10 text-destructive group-hover:bg-destructive group-hover:text-destructive-foreground",
   },
 ] as const;
 
@@ -104,7 +106,11 @@ function Dashboard() {
   return (
     <AppShell
       title="Trip Command Center"
-      subtitle={trip ? `${trip.destination} · ${trip.days} Day Trip` : "Personalized Goan Safety Intelligence"}
+      subtitle={
+        trip
+          ? `${trip.destination} · ${trip.days} Day Trip`
+          : "Personalized Goan Safety Intelligence"
+      }
     >
       <div className="space-y-8 animate-in fade-in duration-500">
         {/* Top Bento Row: Separated Trip Overview Box & Standalone Weather Station Box */}
@@ -135,9 +141,17 @@ function Dashboard() {
                   </h2>
 
                   <p className="mt-1 text-sm font-semibold text-muted-foreground">
-                    Lead Traveler: <span className="text-foreground font-bold">{trip.traveller_name}</span>
+                    Lead Traveler:{" "}
+                    <span className="text-foreground font-bold">{trip.traveller_name}</span>
                     {trip.start_date && (
-                      <span> · Starts {new Date(trip.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                      <span>
+                        {" "}
+                        · Starts{" "}
+                        {new Date(trip.start_date).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
                     )}
                   </p>
 
@@ -187,7 +201,8 @@ function Dashboard() {
                   Ready to explore Goa safely?
                 </h2>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed max-w-lg">
-                  Tell us who's travelling (solo, friends, kids, seniors) and where you're heading so we can calculate personalized safety routes and crowd tips.
+                  Tell us who's travelling (solo, friends, kids, seniors) and where you're heading
+                  so we can calculate personalized safety routes and crowd tips.
                 </p>
                 <Button
                   asChild
@@ -210,7 +225,9 @@ function Dashboard() {
             <h3 className="text-lg font-bold font-display tracking-tight text-foreground flex items-center gap-2">
               <Compass className="size-5 text-primary" /> Safety & Navigation Modules
             </h3>
-            <span className="text-xs text-muted-foreground font-medium">Select a tool to launch</span>
+            <span className="text-xs text-muted-foreground font-medium">
+              Select a tool to launch
+            </span>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
@@ -229,7 +246,9 @@ function Dashboard() {
 
                   <div>
                     <div className="flex items-center justify-between">
-                      <div className={`flex size-12 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-110 ${tile.iconBg}`}>
+                      <div
+                        className={`flex size-12 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-110 ${tile.iconBg}`}
+                      >
                         <Icon className="size-6" />
                       </div>
                       <span className="text-[10px] font-extrabold uppercase tracking-wider rounded-full bg-secondary/80 px-2.5 py-0.5 text-muted-foreground group-hover:text-foreground transition-colors">

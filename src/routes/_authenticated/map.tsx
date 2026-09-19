@@ -24,7 +24,8 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import L from "leaflet";
+import type L from "leaflet";
+import { NearbyPlaces } from "@/components/NearbyPlaces";
 import "leaflet/dist/leaflet.css";
 
 import { AppShell } from "@/components/app-shell";
@@ -34,7 +35,9 @@ import { getRoutes, searchPlaces } from "@/lib/maps.functions";
 import type { RouteStep } from "@/lib/goa-schemas";
 
 export const Route = createFileRoute("/_authenticated/map")({
-  validateSearch: (search: Record<string, unknown>): { dest?: string; lat?: string; lng?: string } => {
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { dest?: string; lat?: string; lng?: string } => {
     const params: { dest?: string; lat?: string; lng?: string } = {};
     if (typeof search["dest"] === "string" && search["dest"]) params.dest = search["dest"];
     if (typeof search["lat"] === "string" && search["lat"]) params.lat = search["lat"];
@@ -63,14 +66,15 @@ const DEFAULT_ORIGIN = { lat: 15.4989, lng: 73.8278 };
 const QUICK_DESTINATIONS: Hit[] = [
   { id: "q1", name: "Baga Beach", address: "North Goa", lat: 15.5553, lng: 73.7517 },
   { id: "q2", name: "Fort Aguada", address: "Candolim, Goa", lat: 15.4925, lng: 73.7736 },
-  { id: "q3", name: "Palolem Beach", address: "Canacona, South Goa", lat: 15.0100, lng: 74.0232 },
+  { id: "q3", name: "Palolem Beach", address: "Canacona, South Goa", lat: 15.01, lng: 74.0232 },
   { id: "q4", name: "Dudhsagar Falls", address: "Sanguem, Goa", lat: 15.3144, lng: 74.3144 },
   { id: "q5", name: "Panjim Church", address: "Fontainhas, Panaji", lat: 15.4989, lng: 73.8278 },
 ];
 
 function getManeuverIcon(type: string, modifier?: string) {
   if (type === "arrive") return <Flag className="size-4 text-emerald" />;
-  if (type === "roundabout" || type === "rotary") return <RotateCcw className="size-4 text-amber" />;
+  if (type === "roundabout" || type === "rotary")
+    return <RotateCcw className="size-4 text-amber" />;
   if (type === "fork" || type === "merge") return <Split className="size-4 text-cyan" />;
   if (modifier?.includes("left")) return <CornerUpLeft className="size-4 text-primary" />;
   if (modifier?.includes("right")) return <CornerUpRight className="size-4 text-coral" />;
@@ -86,10 +90,14 @@ function formatDistance(meters: number): string {
 
 function MapPage() {
   const searchParams = Route.useSearch();
+  const requestedTarget = useRef("");
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const linesRef = useRef<L.Polyline[]>([]);
   const markersRef = useRef<L.Marker[]>([]);
+  const leafletRef = useRef<typeof import("leaflet") | null>(null);
+  const [originLabel, setOriginLabel] = useState("Panjim (default starting point)");
+  const [locationReady, setLocationReady] = useState(false);
   const stepMarkerRef = useRef<L.Marker | null>(null);
 
   const [ready, setReady] = useState(false);
@@ -102,7 +110,13 @@ function MapPage() {
   const [showDirections, setShowDirections] = useState(true);
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
 
-  const currentHour = new Date().getHours();
+  const currentHour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date()),
+  );
   const isNightTime = currentHour >= 19 || currentHour < 6;
 
   const search = useServerFn(searchPlaces);
@@ -110,35 +124,51 @@ function MapPage() {
 
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
-    mapRef.current = L.map(mapEl.current, {
-      center: [DEFAULT_ORIGIN.lat, DEFAULT_ORIGIN.lng],
-      zoom: 11,
-      zoomControl: true,
-    });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors",
-    }).addTo(mapRef.current);
+    let cancelled = false;
+    void import("leaflet").then((L) => {
+      if (cancelled || !mapEl.current) return;
+      leafletRef.current = L;
+      mapRef.current = L.map(mapEl.current, {
+        center: [DEFAULT_ORIGIN.lat, DEFAULT_ORIGIN.lng],
+        zoom: 11,
+        zoomControl: true,
+      });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+      }).addTo(mapRef.current);
 
-    delete (L.Icon.Default.prototype as any)._getIconUrl;
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-      iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-      shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-    });
+      delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+      });
 
-    setReady(true);
+      setReady(true);
+    });
 
     return () => {
+      cancelled = true;
       mapRef.current?.remove();
       mapRef.current = null;
     };
   }, []);
 
   useEffect(() => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setLocationReady(true);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
-      (pos) => setOrigin({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => undefined,
+      (pos) => {
+        setOrigin({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setOriginLabel("Your GPS location");
+        setLocationReady(true);
+      },
+      () => {
+        setLocationReady(true);
+        toast.info("Location unavailable. Routes start in Panjim.");
+      },
       { timeout: 8000 },
     );
   }, []);
@@ -169,16 +199,27 @@ function MapPage() {
       setHits([]);
       setActiveStepIndex(null);
       if (data.length === 0) toast.info("No driving route found.");
-      else toast.success(`Safety routes calculated for ${dest.name}`);
+      else toast.success(`Driving routes calculated for ${dest.name}`);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not calculate routes"),
   });
 
   useEffect(() => {
-    if (searchParams.dest && searchParams.lat && searchParams.lng && ready) {
+    if (!ready || !locationReady || !searchParams.dest) return;
+    const key = JSON.stringify([searchParams.dest, searchParams.lat, searchParams.lng]);
+    if (requestedTarget.current === key) return;
+    requestedTarget.current = key;
+    if (searchParams.dest && !searchParams.lat && ready && locationReady)
+      searchMutation.mutate(searchParams.dest);
+    if (searchParams.dest && searchParams.lat && searchParams.lng && ready && locationReady) {
       const parsedLat = parseFloat(searchParams.lat);
       const parsedLng = parseFloat(searchParams.lng);
-      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+      if (
+        Number.isFinite(parsedLat) &&
+        Number.isFinite(parsedLng) &&
+        Math.abs(parsedLat) <= 90 &&
+        Math.abs(parsedLng) <= 180
+      ) {
         const destHit: Hit = {
           id: "prefill",
           name: searchParams.dest,
@@ -189,11 +230,21 @@ function MapPage() {
         routeMutation.mutate(destHit);
       }
     }
-  }, [searchParams.dest, searchParams.lat, searchParams.lng, ready]);
+  }, [
+    searchParams.dest,
+    searchParams.lat,
+    searchParams.lng,
+    ready,
+    locationReady,
+    routeMutation,
+    searchMutation,
+  ]);
 
   useEffect(() => {
     if (!ready || !mapRef.current) return;
     const map = mapRef.current;
+    const L = leafletRef.current;
+    if (!L) return;
 
     linesRef.current.forEach((l) => map.removeLayer(l));
     markersRef.current.forEach((m) => map.removeLayer(m));
@@ -215,9 +266,14 @@ function MapPage() {
         if (!pathCoords || pathCoords.length === 0) return;
 
         // Color coding: Safer (Emerald/Teal), Alt (Cyan/Purple), Fastest (Coral)
-        const lineColor = i === selected
-          ? (r.kind === "safer" ? "#10b981" : r.kind === "alt" ? "#06b6d4" : "#f97316")
-          : "#94a3b8";
+        const lineColor =
+          i === selected
+            ? r.kind === "safer"
+              ? "#10b981"
+              : r.kind === "alt"
+                ? "#06b6d4"
+                : "#f97316"
+            : "#94a3b8";
 
         const line = L.polyline(pathCoords, {
           color: lineColor,
@@ -236,19 +292,21 @@ function MapPage() {
       }
     });
 
-    markersRef.current.push(
-      L.marker([origin.lat, origin.lng]).addTo(map).bindPopup("<b>Your Location</b>")
-    );
+    markersRef.current.push(L.marker([origin.lat, origin.lng]).addTo(map).bindPopup(originLabel));
     if (destination) {
       markersRef.current.push(
-        L.marker([destination.lat, destination.lng]).addTo(map).bindPopup(`<b>${destination.name}</b>`)
+        L.marker([destination.lat, destination.lng])
+          .addTo(map)
+          .bindPopup(
+            Object.assign(document.createElement("span"), { textContent: destination.name }),
+          ),
       );
     }
 
     if (bounds.isValid()) {
       map.fitBounds(bounds, { padding: [48, 48] });
     }
-  }, [routes, selected, ready, origin, destination]);
+  }, [routes, selected, ready, origin, destination, originLabel]);
 
   const handleStepClick = (step: RouteStep, idx: number) => {
     setActiveStepIndex(idx);
@@ -261,6 +319,8 @@ function MapPage() {
       mapRef.current.removeLayer(stepMarkerRef.current);
     }
 
+    const L = leafletRef.current;
+    if (!L) return;
     const stepIcon = L.divIcon({
       className: "custom-step-marker",
       html: `<div style="background:#0f766e;color:white;width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 4px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;">${idx + 1}</div>`,
@@ -270,26 +330,40 @@ function MapPage() {
 
     stepMarkerRef.current = L.marker([lat, lng], { icon: stepIcon })
       .addTo(mapRef.current)
-      .bindPopup(`<b>Step ${idx + 1}</b><br>${step.instruction}`)
+      .bindPopup(
+        Object.assign(document.createElement("span"), {
+          textContent: `Step ${idx + 1}: ${step.instruction}`,
+        }),
+      )
       .openPopup();
   };
 
   const currentRoute = routes[selected];
 
   return (
-    <AppShell title="Safe Route Workspace" subtitle="Turn-by-turn navigation & route safety analysis" back>
+    <AppShell title="Safe Route Workspace" subtitle="Driving directions and nearby places" back>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Starting from: {originLabel}. OSRM times exclude live traffic. Route scores are rough
+        road-name heuristics, not verified safety ratings.
+      </p>
       {/* Night Travel Safety Advisory Banner */}
-      <div className={`mb-4 flex items-center justify-between rounded-2xl border px-4 py-3 text-xs font-semibold backdrop-blur-xl ${
-        isNightTime
-          ? "border-amber/30 bg-amber/10 text-amber"
-          : "border-primary/20 bg-primary/5 text-primary"
-      }`}>
+      <div
+        className={`mb-4 flex items-center justify-between rounded-2xl border px-4 py-3 text-xs font-semibold backdrop-blur-xl ${
+          isNightTime
+            ? "border-amber/30 bg-amber/10 text-amber"
+            : "border-primary/20 bg-primary/5 text-primary"
+        }`}
+      >
         <div className="flex items-center gap-2">
-          {isNightTime ? <Moon className="size-4 shrink-0 animate-pulse" /> : <Sun className="size-4 shrink-0" />}
+          {isNightTime ? (
+            <Moon className="size-4 shrink-0 animate-pulse" />
+          ) : (
+            <Sun className="size-4 shrink-0" />
+          )}
           <span>
             {isNightTime
-              ? "Nighttime Mode Active · Routes prioritize well-lit coastal and village roads over unlit highway ghats."
-              : "Daytime Routing · Safety scores incorporate speed limits, pedestrian densities, and road conditions."}
+              ? "Night travel: confirm lighting and road conditions locally; these are not measured by the route service."
+              : "Road routes use OpenStreetMap. Live traffic, crowd density and road safety conditions are unavailable."}
           </span>
         </div>
         <span className="rounded-full bg-card/80 px-2 py-0.5 text-[10px] font-bold">
@@ -321,7 +395,11 @@ function MapPage() {
           disabled={searchMutation.isPending}
           className="h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-md transition-transform hover:scale-105 active:scale-95 shrink-0"
         >
-          {searchMutation.isPending ? <Loader2 className="size-5 animate-spin" /> : <Navigation className="size-5" />}
+          {searchMutation.isPending ? (
+            <Loader2 className="size-5 animate-spin" />
+          ) : (
+            <Navigation className="size-5" />
+          )}
         </Button>
       </form>
 
@@ -331,6 +409,7 @@ function MapPage() {
         {QUICK_DESTINATIONS.map((qd) => (
           <button
             key={qd.id}
+            disabled={!locationReady || routeMutation.isPending}
             type="button"
             onClick={() => {
               setQuery(qd.name);
@@ -349,6 +428,7 @@ function MapPage() {
           {hits.map((h) => (
             <button
               key={h.id}
+              disabled={!locationReady || routeMutation.isPending}
               onClick={() => routeMutation.mutate(h)}
               className="block w-full border-b border-border/40 px-6 py-4 text-left last:border-0 hover:bg-primary/5 transition-colors focus:bg-primary/5 focus:outline-none"
             >
@@ -368,11 +448,16 @@ function MapPage() {
       {routeMutation.isPending && (
         <div className="mt-6 flex items-center justify-center gap-3 rounded-3xl border border-primary/20 bg-primary/5 p-6 animate-pulse">
           <Loader2 className="size-6 animate-spin text-primary" />
-          <span className="text-sm font-bold text-primary">Calculating safest vs. fastest routes via OSRM…</span>
+          <span className="text-sm font-bold text-primary">
+            Calculating driving routes via OSRM…
+          </span>
         </div>
       )}
 
       {/* ROUTE COMPARISON CARDS */}
+      {currentRoute && (
+        <NearbyPlaces center={origin} polyline={currentRoute.polyline} map={mapRef.current} />
+      )}
       {routes.length > 0 && currentRoute && (
         <div className="mt-6 space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
           {/* Comparative Route Tabs */}
@@ -395,7 +480,9 @@ function MapPage() {
                   <div className="flex items-center justify-between gap-2">
                     <span
                       className={`flex items-center gap-1.5 text-sm font-bold font-display ${
-                        isSelected ? "text-primary" : "text-foreground group-hover:text-primary transition-colors"
+                        isSelected
+                          ? "text-primary"
+                          : "text-foreground group-hover:text-primary transition-colors"
                       }`}
                     >
                       {r.kind === "safer" ? (
@@ -414,12 +501,15 @@ function MapPage() {
                           : "bg-primary/10 text-primary"
                       }`}
                     >
-                      {r.safetyScore}/100
+                      Heuristic: {r.safetyScore}/100
                     </span>
                   </div>
 
                   <p className="mt-2 text-base font-extrabold text-foreground">
-                    {r.durationMin} min · <span className="text-muted-foreground font-normal text-sm">{r.distanceKm} km</span>
+                    {r.durationMin} min ·{" "}
+                    <span className="text-muted-foreground font-normal text-sm">
+                      {r.distanceKm} km
+                    </span>
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground line-clamp-1">via {r.summary}</p>
                 </button>
@@ -439,7 +529,8 @@ function MapPage() {
                   {currentRoute.summary}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Total Distance: <strong>{currentRoute.distanceKm} km</strong> · Travel Time: <strong>{currentRoute.durationMin} mins</strong>
+                  Total Distance: <strong>{currentRoute.distanceKm} km</strong> · Travel Time:{" "}
+                  <strong>{currentRoute.durationMin} mins</strong>
                 </p>
               </div>
 
@@ -469,10 +560,15 @@ function MapPage() {
 
             {/* Safety Score Reasoning */}
             <div className="mt-5">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Safety Analysis & Warnings</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Route Characteristics (Estimated)
+              </p>
               <ul className="mt-2 space-y-1.5">
                 {currentRoute.reasons.map((reason, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-foreground/90 leading-relaxed">
+                  <li
+                    key={idx}
+                    className="flex items-start gap-2 text-xs sm:text-sm text-foreground/90 leading-relaxed"
+                  >
                     <span className="text-primary font-bold mt-0.5">•</span>
                     <span>{reason}</span>
                   </li>
@@ -485,9 +581,12 @@ function MapPage() {
               <div className="mt-6 border-t border-border/40 pt-5">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-                    <ListOrdered className="size-4" /> Turn-by-Turn Maneuvers ({currentRoute.steps.length} steps)
+                    <ListOrdered className="size-4" /> Turn-by-Turn Maneuvers (
+                    {currentRoute.steps.length} steps)
                   </h4>
-                  <span className="text-[11px] text-muted-foreground">Tap any step to focus on map</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Tap any step to focus on map
+                  </span>
                 </div>
 
                 <div className="max-h-80 overflow-y-auto pr-1 space-y-2 rounded-2xl border border-border/40 bg-secondary/30 p-2">
@@ -507,12 +606,15 @@ function MapPage() {
                           {getManeuverIcon(step.maneuverType, step.maneuverModifier)}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className={`text-xs sm:text-sm font-bold leading-tight ${isActive ? "text-primary" : "text-foreground"}`}>
+                          <p
+                            className={`text-xs sm:text-sm font-bold leading-tight ${isActive ? "text-primary" : "text-foreground"}`}
+                          >
                             {step.instruction}
                           </p>
                           <p className="text-[11px] text-muted-foreground mt-0.5">
                             {formatDistance(step.distanceMeters)}
-                            {step.durationSeconds > 0 && ` · ~${Math.ceil(step.durationSeconds / 60)} min`}
+                            {step.durationSeconds > 0 &&
+                              ` · ~${Math.ceil(step.durationSeconds / 60)} min`}
                           </p>
                         </div>
                         <span className="text-[10px] font-mono font-bold text-muted-foreground/70 px-1.5 py-0.5 rounded bg-card border border-border/40">

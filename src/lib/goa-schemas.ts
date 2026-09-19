@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const crowdBand = z.enum(["quiet", "moderate", "busy", "packed"]);
+export const crowdBand = z.enum(["quiet", "moderate", "busy", "packed", "unknown"]);
 
 export const alternativeSchema = z.object({
   name: z.string(),
@@ -9,6 +9,9 @@ export const alternativeSchema = z.object({
 });
 
 export const recommendationSchema = z.object({
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  sourceUrl: z.string().url().optional(),
   name: z.string(),
   description: z.string(),
   tip: z.string(),
@@ -31,20 +34,20 @@ export type TransportAdvice = z.infer<typeof transportAdviceSchema>;
 export const placeInsightsSchema = z.object({
   place: z.string(),
   summary: z.string(),
-  eat: z.array(recommendationSchema).min(3).max(6),
-  activities: z.array(recommendationSchema).min(3).max(6),
-  sights: z.array(recommendationSchema).min(3).max(6),
+  eat: z.array(recommendationSchema).max(6),
+  activities: z.array(recommendationSchema).max(6),
+  sights: z.array(recommendationSchema).max(6),
   transport_advice: transportAdviceSchema.optional(),
   crowd: z.object({
-    percent: z.number().min(0).max(100),
+    percent: z.number().min(0).max(100).nullable(),
     band: crowdBand,
     reason: z.string(),
     best_time_today: z.string(),
-    alternatives: z.array(alternativeSchema).min(2).max(4),
+    alternatives: z.array(alternativeSchema).max(4),
   }),
   rules: z.object({
-    allowed: z.array(z.string()).min(3).max(8),
-    not_allowed: z.array(z.string()).min(3).max(8),
+    allowed: z.array(z.string()).max(8),
+    not_allowed: z.array(z.string()).max(8),
   }),
   warnings: z
     .array(
@@ -54,19 +57,31 @@ export const placeInsightsSchema = z.object({
         severity: z.enum(["low", "medium", "high"]),
       }),
     )
-    .min(2)
+    .min(1)
     .max(6),
 });
 
 export type PlaceInsights = z.infer<typeof placeInsightsSchema>;
 
 export const itinerarySchema = z.object({
+  totalMinutes: z.number().optional(),
+  unusedMinutes: z.number().optional(),
+  returnMinutes: z.number().optional(),
+  budgetMinutes: z.number().optional(),
+  endTime: z.string().optional(),
+  aiStatus: z.enum(["used", "unavailable", "not_configured"]).optional(),
+  routingSource: z.string().optional(),
+  origin: z.object({ lat: z.number(), lng: z.number() }).optional(),
   title: z.string(),
   overview: z.string(),
   date: z.string().optional(),
   stops: z
     .array(
       z.object({
+        durationMin: z.number().optional(),
+        arrivalMinute: z.number().optional(),
+        departureMinute: z.number().optional(),
+        sourceUrl: z.string().url().optional(),
         time: z.string(),
         title: z.string(),
         type: z.enum(["food", "sight", "activity", "beach", "rest", "travel"]),
@@ -80,7 +95,7 @@ export const itinerarySchema = z.object({
         transitMin: z.number().optional(),
       }),
     )
-    .min(2)
+    .min(1)
     .max(12),
   tips: z.array(z.string()).min(2).max(6),
   liveWeather: z.string().optional(),

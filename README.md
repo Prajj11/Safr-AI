@@ -1,3 +1,5 @@
+> **Implementation update (19 September 2026):** See [implementation and verification notes](IMPLEMENTATION_NOTES.md) and [API setup](API_SETUP.md). These describe the current behavior and supersede historical claims below about live crowd counts, swimming flags and simulated family tracking. Supabase repair is deferred. Use Node 24 or newer.
+
 # 🌴 Safr (Goa Guide Buddy) — AI Travel Safety Companion
 
 ## 📖 Overview
