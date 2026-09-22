@@ -1,0 +1,7 @@
+{
+  "applicationId": "36ac17c1-8e09-4e20-a2a1-0a7624eb26c5",
+  "name": "safr-goa",
+  "subdomain": "safr-goa",
+  "note": "Deploy to it with POST /api/v1/deploy and this applicationId.",
+  "dashboard": "https://antideploy.com/app/36ac17c1-8e09-4e20-a2a1-0a7624eb26c5"
+}
