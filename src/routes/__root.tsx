@@ -11,6 +11,8 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "../components/ui/sonner";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 function NotFoundComponent() {
   return (
@@ -118,6 +120,44 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Intercept auth hash errors from Supabase anywhere in the app
+    if (typeof window !== "undefined" && window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const errorDesc = hashParams.get("error_description");
+      if (errorDesc) {
+        toast.error(decodeURIComponent(errorDesc.replace(/\+/g, " ")));
+      }
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // If user landed on root page or any route from an email confirmation link
+      if (event === "SIGNED_IN" && session?.user) {
+        if (typeof window !== "undefined") {
+          const hash = window.location.hash;
+          const searchParams = new URLSearchParams(window.location.search);
+          if (
+            hash.includes("type=signup") ||
+            hash.includes("type=email_change") ||
+            searchParams.get("verified") === "true"
+          ) {
+            toast.success("Email verified successfully! Welcome to Safr.");
+            if (window.location.pathname === "/") {
+              router.navigate({ to: "/setup" });
+            }
+          }
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   return (
     <QueryClientProvider client={queryClient}>

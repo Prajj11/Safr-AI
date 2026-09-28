@@ -10,9 +10,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { SafrLogo } from "@/components/SafrLogo";
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (search: Record<string, unknown>): { mode?: "signin" | "signup" } => {
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { mode?: "signin" | "signup"; verified?: boolean } => {
     return {
       mode: search["mode"] === "signup" ? "signup" : "signin",
+      verified: search["verified"] === true || search["verified"] === "true",
     };
   },
   head: () => ({
@@ -35,10 +38,41 @@ function AuthPage() {
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/dashboard", replace: true });
+    // 1. Intercept hash errors returned by Supabase (e.g., expired verification links)
+    if (typeof window !== "undefined" && window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const errorDesc = hashParams.get("error_description");
+      if (errorDesc) {
+        toast.error(decodeURIComponent(errorDesc.replace(/\+/g, " ")));
+      }
+    }
+
+    // 2. React to auth state changes (e.g., when Supabase validates the verification token)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" || (event === "USER_UPDATED" && session?.user)) {
+        if (search.verified) {
+          toast.success("Email verified successfully! Welcome to Safr.");
+        }
+        navigate({ to: "/setup", replace: true });
+      }
     });
-  }, [navigate]);
+
+    // 3. If already authenticated
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        if (search.verified) {
+          toast.success("Email verified successfully! Welcome to Safr.");
+        }
+        navigate({ to: "/setup", replace: true });
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [navigate, search.verified]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,11 +83,12 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
+        const redirectUrl = `${window.location.origin}/auth?verified=true`;
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: redirectUrl,
             data: { display_name: name.trim() || email.split("@")[0] },
           },
         });
