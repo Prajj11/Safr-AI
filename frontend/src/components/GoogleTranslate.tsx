@@ -15,10 +15,61 @@ declare global {
   }
 }
 
+/**
+ * Temporarily block every way JavaScript can trigger a full page reload.
+ * Google Translate's internal `el_main.js` calls `location.reload()` after
+ * setting the `googtrans` cookie.  We intercept that so the inline DOM
+ * translation still applies but the page never actually refreshes.
+ *
+ * Returns a `restore` function that puts everything back.
+ */
+function blockPageReloads(): () => void {
+  const origReload = Location.prototype.reload;
+  const origAssign = Location.prototype.assign;
+  const origReplace = Location.prototype.replace;
+  const origHistoryGo = History.prototype.go;
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  Location.prototype.reload = function () {};
+
+  Location.prototype.assign = function (url: string) {
+    try {
+      if (new URL(url, window.location.href).href === window.location.href) return;
+    } catch {
+      /* allow */
+    }
+    origAssign.call(this, url);
+  };
+
+  Location.prototype.replace = function (url: string) {
+    try {
+      if (new URL(url, window.location.href).href === window.location.href) return;
+    } catch {
+      /* allow */
+    }
+    origReplace.call(this, url);
+  };
+
+  History.prototype.go = function (delta?: number) {
+    if (!delta) return; // go(0) is a reload
+    origHistoryGo.call(this, delta);
+  };
+
+  return () => {
+    Location.prototype.reload = origReload;
+    Location.prototype.assign = origAssign;
+    Location.prototype.replace = origReplace;
+    History.prototype.go = origHistoryGo;
+  };
+}
+
+const INCLUDED_LANGUAGES = "en,hi,gom,kok,mr,gu,bn,te,ta,kn,ml,pa,ur,or,as";
+
 export function GoogleTranslate() {
   const [lang, setLang] = useState("en");
   const [isTranslating, setIsTranslating] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const restoreReloadsRef = useRef<(() => void) | null>(null);
 
   // Helper to read cookie
   const getCookie = (name: string) => {
@@ -54,8 +105,18 @@ export function GoogleTranslate() {
     }
   };
 
-  // Read initial language from Google Translate cookie if it exists
+  // Read initial language from local storage or Google Translate cookie if it exists
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem("safr_selected_lang");
+      if (saved) {
+        setLang(saved);
+        return;
+      }
+    } catch {
+      // ignore
+    }
+
     const googtrans = getCookie("googtrans");
     if (googtrans) {
       const langCode = googtrans.split("/").pop();
@@ -92,7 +153,7 @@ export function GoogleTranslate() {
           new window.google.translate.TranslateElement(
             {
               pageLanguage: "en",
-              includedLanguages: "en,hi,gom,mr,gu,bn,te,ta,kn,ml,pa,ur,or,as",
+              includedLanguages: INCLUDED_LANGUAGES,
               autoDisplay: false,
             },
             "google_translate_element",
@@ -117,6 +178,11 @@ export function GoogleTranslate() {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
       }
+      // Ensure reloads are restored on unmount
+      if (restoreReloadsRef.current) {
+        restoreReloadsRef.current();
+        restoreReloadsRef.current = null;
+      }
     };
   }, []);
 
@@ -127,21 +193,63 @@ export function GoogleTranslate() {
     }
 
     setLang(targetLang);
+    try {
+      localStorage.setItem("safr_selected_lang", targetLang);
+    } catch {
+      // ignore
+    }
+
+    // ── Block every form of page reload BEFORE touching Google's widget ──
+    // Restore any previous block first
+    if (restoreReloadsRef.current) {
+      restoreReloadsRef.current();
+    }
+    const restoreReloads = blockPageReloads();
+    restoreReloadsRef.current = restoreReloads;
+
+    // Automatically restore after 10 s so we never leave reloads permanently blocked
+    setTimeout(() => {
+      restoreReloads();
+      if (restoreReloadsRef.current === restoreReloads) {
+        restoreReloadsRef.current = null;
+      }
+    }, 10_000);
+
+    // Set the cookie ourselves
     setGoogTransCookie(targetLang);
 
+    // ── Switching back to English: restore original content ──
+    if (targetLang === "en") {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const svc = (window as any).google?.translate?.TranslateService;
+        if (svc) svc.getInstance().restore();
+      } catch {
+        // ignore – service may not be available
+      }
+
+      const select = document.querySelector(".goog-te-combo") as HTMLSelectElement | null;
+      if (select) {
+        select.value = "";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      setIsTranslating(false);
+      return;
+    }
+
+    // ── Apply translation for non-English languages ──
     const tryApply = (): boolean => {
       const select = document.querySelector(".goog-te-combo") as HTMLSelectElement | null;
       if (!select || select.options.length === 0) return false;
 
       const options = Array.from(select.options);
-      // For English, Google Translate uses value "" ("Select Language") or "en"
-      const matched = options.find((opt) =>
-        targetLang === "en" ? opt.value === "" || opt.value === "en" : opt.value === targetLang,
-      );
+      // Build candidate list: for Konkani try gom → kok
+      const candidates = targetLang === "gom" ? ["gom", "kok"] : [targetLang];
+      const matched = options.find((opt) => candidates.includes(opt.value));
 
       if (matched) {
         select.value = matched.value;
-        select.dispatchEvent(new Event("change"));
+        select.dispatchEvent(new Event("change", { bubbles: true }));
         return true;
       }
       return false;
@@ -153,22 +261,27 @@ export function GoogleTranslate() {
       return;
     }
 
-    // Otherwise, poll for up to 3.5 seconds while Google Translate fetches options asynchronously
+    // Otherwise, poll while Google Translate fetches options asynchronously
     setIsTranslating(true);
     let attempts = 0;
     pollIntervalRef.current = setInterval(() => {
       attempts++;
       if (tryApply()) {
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
         setIsTranslating(false);
         return;
       }
 
-      if (attempts >= 35) {
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      // After 50 attempts (5 s), stop gracefully
+      if (attempts >= 50) {
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
         setIsTranslating(false);
-        // Fallback: the googtrans cookie is already set, reload applies the translation on boot
-        window.location.reload();
       }
     }, 100);
   };
@@ -213,10 +326,10 @@ export function GoogleTranslate() {
       {/* Global CSS to hide Google Translate top bar and popups */}
       <style>{`
         body { top: 0 !important; position: static !important; }
-        .skiptranslate iframe { display: none !important; }
-        #goog-gt-tt { display: none !important; }
-        .goog-te-spinner-pos { display: none !important; }
-        .goog-te-spinner-animation { display: none !important; }
+        .goog-te-banner-frame, iframe.goog-te-banner-frame { display: none !important; }
+        .skiptranslate iframe, iframe.skiptranslate { display: none !important; }
+        #goog-gt-tt, .goog-te-balloon-frame { display: none !important; }
+        .goog-te-spinner-pos, .goog-te-spinner-animation { display: none !important; }
       `}</style>
     </div>
   );
