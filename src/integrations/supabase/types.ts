@@ -220,6 +220,7 @@ export type Database = {
           days: number
           destination: string
           id: string
+          phone_number: string | null
           start_date: string | null
           travel_style: string
           traveller_name: string
@@ -230,6 +231,7 @@ export type Database = {
           days?: number
           destination: string
           id?: string
+          phone_number?: string | null
           start_date?: string | null
           travel_style?: string
           traveller_name: string
@@ -240,6 +242,7 @@ export type Database = {
           days?: number
           destination?: string
           id?: string
+          phone_number?: string | null
           start_date?: string | null
           travel_style?: string
           traveller_name?: string
