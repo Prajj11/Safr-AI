@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { scheduleItinerary, formatPlanTime } from "../src/lib/itinerary-planner.ts";
 import { validateAge } from "../src/lib/age-validation.ts";
+import { validatePhone } from "../src/lib/phone-validation.ts";
 import { distanceToRoute } from "../src/lib/geo.ts";
 import { itineraryInputSchema } from "../src/lib/travel-schemas.ts";
 import type { NearbyPlace } from "../src/lib/geo.ts";
@@ -116,4 +117,17 @@ test("rejects invalid dates, times, coordinates and fractional hour budgets", ()
     { interests: [] },
   ])
     assert.equal(itineraryInputSchema.safeParse({ ...valid, ...bad }).success, false);
+});
+test("phone number validation rules (required, digits only, sensible length)", () => {
+  assert.equal(validatePhone("9876543210"), null);
+  assert.equal(validatePhone("1234567"), null);
+  assert.equal(validatePhone("123456789012345"), null);
+
+  assert.ok(validatePhone(""));
+  assert.ok(validatePhone("   "));
+  assert.ok(validatePhone("abc"));
+  assert.ok(validatePhone("12345a6789"));
+  assert.ok(validatePhone("+123456789"));
+  assert.ok(validatePhone("123456"));
+  assert.ok(validatePhone("1234567890123456"));
 });

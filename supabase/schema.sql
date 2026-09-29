@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS public.trips (
   user_id UUID NOT NULL REFERENCES auth.users ON DELETE CASCADE,
   travel_style TEXT NOT NULL DEFAULT 'solo',
   traveller_name TEXT NOT NULL,
+  phone_number TEXT,
   destination TEXT NOT NULL,
   start_date DATE,
   days INTEGER NOT NULL DEFAULT 1,

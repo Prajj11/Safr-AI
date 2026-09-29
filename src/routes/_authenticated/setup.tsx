@@ -1,4 +1,5 @@
 import { validateAge } from "@/lib/age-validation";
+import { validatePhone } from "@/lib/phone-validation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, User, Users } from "lucide-react";
@@ -24,6 +25,7 @@ function Setup() {
   const [step, setStep] = useState(0);
   const [style, setStyle] = useState<"solo" | "group">("solo");
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [destination, setDestination] = useState("Panjim");
   const [startDate, setStartDate] = useState("");
   const [days, setDays] = useState(3);
@@ -47,6 +49,7 @@ function Setup() {
     if (!existing) return;
     setStyle(existing.travel_style === "group" ? "group" : "solo");
     setName(existing.traveller_name);
+    setPhone(existing.phone_number ?? "");
     setDestination(existing.destination);
     setStartDate(existing.start_date ?? "");
     setDays(existing.days);
@@ -68,6 +71,9 @@ function Setup() {
 
   const save = useMutation({
     mutationFn: async () => {
+      const phoneError = validatePhone(phone);
+      if (phoneError) throw new Error(phoneError);
+
       if (style === "group")
         for (const person of people.filter((p) => p.name.trim())) {
           const error = validateAge(person.age, person.category);
@@ -81,6 +87,7 @@ function Setup() {
         user_id: userId,
         travel_style: style,
         traveller_name: name.trim(),
+        phone_number: phone.trim(),
         destination,
         start_date: startDate || null,
         days,
@@ -173,6 +180,11 @@ function Setup() {
               toast.error("Please add your name");
               return;
             }
+            const phoneError = validatePhone(phone);
+            if (phoneError) {
+              toast.error(phoneError);
+              return;
+            }
             if (style === "group") setStep(2);
             else save.mutate();
           }}
@@ -185,6 +197,18 @@ function Setup() {
               value={name}
               maxLength={60}
               onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="phone">Phone number</Label>
+            <Input
+              id="phone"
+              type="tel"
+              value={phone}
+              placeholder="e.g. 9876543210"
+              maxLength={15}
+              onChange={(e) => setPhone(e.target.value)}
               required
             />
           </div>
