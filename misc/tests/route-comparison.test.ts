@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assessRoadConditions, routePreferences } from "../src/lib/route-comparison.ts";
-import { computeSafeRoutes } from "../src/lib/maps.server.ts";
+import { assessRoadConditions, routePreferences } from "../../frontend/src/lib/route-comparison.ts";
+import { computeSafeRoutes } from "../../frontend/src/lib/maps.server.ts";
 const legs = [{ annotation: { nodes: [1, 2, 3], distance: [100, 100] } }];
 const paved = assessRoadConditions(
   legs,

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildItinerary } from "../src/lib/travel.server.ts";
-import { locatePlace, nearbyPlaces, drivingMatrix } from "../src/lib/places.server.ts";
+import { buildItinerary } from "../../frontend/src/lib/travel.server.ts";
+import { locatePlace, nearbyPlaces, drivingMatrix } from "../../frontend/src/lib/places.server.ts";
 
 const input = {
   place: "Panjim",

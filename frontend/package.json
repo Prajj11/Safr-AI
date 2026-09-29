@@ -11,14 +11,14 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "start": "node server.mjs",
-    "deploy": "node scripts/deploy-antideploy.mjs",
+    "deploy": "node ../misc/scripts/deploy-antideploy.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "node --import ./scripts/register-typescript.mjs --test tests/*.test.ts",
+    "test": "node --import ../misc/scripts/register-typescript.mjs --test ../misc/tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "check:services": "node scripts/check-services.mjs",
-    "check:itinerary": "node --import ./scripts/register-typescript.mjs scripts/check-itinerary.mjs",
-    "check:rls": "node scripts/check-rls.mjs"
+    "check:services": "node ../backend/scripts/check-services.mjs",
+    "check:itinerary": "node --import ../misc/scripts/register-typescript.mjs ../backend/scripts/check-itinerary.mjs",
+    "check:rls": "node ../backend/scripts/check-rls.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.44",

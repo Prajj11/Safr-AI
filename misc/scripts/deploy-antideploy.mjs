@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, '..');
+const projectRoot = fs.existsSync(path.resolve(__dirname, '../../frontend'))
+  ? path.resolve(__dirname, '../../frontend')
+  : path.resolve(__dirname, '..');
 
 const API_BASE = 'https://antideploy.com/api/v1';
 
@@ -56,7 +58,9 @@ function getEnvSecrets() {
 
 // 3. Application setup or link
 async function getOrCreateApplication(token, name = 'safr-goa', subdomain = 'safr-goa') {
-  const appConfigPath = path.join(projectRoot, '.antideploy.json');
+  const appConfigPath = fs.existsSync(path.join(projectRoot, '.antideploy.json'))
+    ? path.join(projectRoot, '.antideploy.json')
+    : path.resolve(__dirname, '../.antideploy.json');
   if (fs.existsSync(appConfigPath)) {
     try {
       const existing = JSON.parse(fs.readFileSync(appConfigPath, 'utf8'));

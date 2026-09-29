@@ -7,8 +7,13 @@ import { toNodeHandler } from 'srvx/node';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const clientDir = path.resolve(__dirname, 'dist/client');
-const serverEntry = path.resolve(__dirname, 'dist/server/server.js');
+const clientDir = fs.existsSync(path.resolve(__dirname, 'dist/client'))
+  ? path.resolve(__dirname, 'dist/client')
+  : path.resolve(__dirname, '../frontend/dist/client');
+
+const serverEntry = fs.existsSync(path.resolve(__dirname, 'dist/server/server.js'))
+  ? path.resolve(__dirname, 'dist/server/server.js')
+  : path.resolve(__dirname, '../frontend/dist/server/server.js');
 
 if (!fs.existsSync(serverEntry)) {
   console.error('Server build not found at', serverEntry, '- run "npm run build" first.');

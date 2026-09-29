@@ -92,50 +92,77 @@ npm install
 ```
 
 ### 4. Configure Environment Variables
-Create or verify `.env` in `goa-guide-buddy-main/`:
-```env
-SUPABASE_PROJECT_ID="bfxtulimqxggjageyxrm"
-SUPABASE_PUBLISHABLE_KEY="sb_publishable_5cr0Y9aDxppRRlFqRuJCZg_f842cMe1"
-SUPABASE_URL="https://bfxtulimqxggjageyxrm.supabase.co"
-VITE_SUPABASE_PROJECT_ID="bfxtulimqxggjageyxrm"
-VITE_SUPABASE_PUBLISHABLE_KEY="sb_publishable_5cr0Y9aDxppRRlFqRuJCZg_f842cMe1"
-VITE_SUPABASE_URL="https://bfxtulimqxggjageyxrm.supabase.co"
-GEMINI_API_KEY="your-google-gemini-api-key"
+## 📁 Project Architecture & Organization
+
+The codebase is organized into 3 modular directories with the root `README.md` as the primary entry point:
+
+```
+Tourism Guide/
+├── README.md                      # Primary project overview & guide (this file)
+│
+├── frontend/                      # Client UI, React components & routing
+│   ├── src/                       # Components, routes (/map, /explore, etc.), and styles
+│   ├── public/                    # Static branding & vector assets
+│   ├── package.json               # Frontend dependencies & run scripts
+│   ├── tsconfig.json              # TypeScript strict configuration
+│   ├── vite.config.ts             # Vite build & TanStack Start setup
+│   └── README.md                  # Frontend module documentation
+│
+├── backend/                       # Database, server functions & APIs
+│   ├── supabase/                  # PostgreSQL schema, migrations, and RLS policies
+│   ├── scripts/                   # Backend verification (RLS, services, itinerary)
+│   ├── server.mjs                 # Production Node.js SSR server with CSP
+│   ├── API_SETUP.md               # API keys (Gemini, Supabase, OSRM) configuration
+│   └── README.md                  # Backend architecture documentation
+│
+└── misc/                          # Technical docs, test suites & deployment tools
+    ├── MASTER_PROJECT_DOCUMENTATION.md # Full 50KB+ technical architecture guide
+    ├── information.md             # API specifications & algorithms breakdown
+    ├── tests/                     # 23 automated tests (travel, services, route comparison)
+    ├── scripts/                   # Deployment scripts (Antideploy runner)
+    ├── .agents/                   # Supabase agent skills & configurations
+    ├── LICENSE                    # MIT License
+    └── README.md                  # Misc module documentation
 ```
 
-### 5. Verify Services & Run Tests
+---
+
+## ⚡ Quick Start
+
+### 1. Start Development Server
 ```bash
-# Verify external connectivity (Photon, OSRM, Supabase, Gemini)
-npm run check:services
+# Navigate to the frontend directory
+cd frontend
 
-# Run the 14 automated unit tests
-npm test
-
-# Verify TypeScript type safety
-npm run typecheck
-```
-
-### 6. Start Development Server
-```bash
+# Launch local dev server (live at http://localhost:5173)
 npm run dev
 ```
-The application will be live at `http://localhost:5173`. (Or double-click `run.bat` on Windows).
 
-### 7. Build for Production
+### 2. Run Automated Test Suite (23 Tests)
 ```bash
-npm run build
-npm run preview
+# From project root:
+node --import ./misc/scripts/register-typescript.mjs --test misc/tests/*.test.ts
+
+# Or from frontend folder:
+cd frontend
+npm test
+```
+
+### 3. Deploy to Antideploy
+```bash
+cd frontend
+npm run deploy
 ```
 
 ---
 
 ## 📚 Complete Technical Documentation
 
-For the complete technical blueprint covering all database schemas, RLS policies, mathematical route scoring algorithms, API contracts, and architecture diagrams, refer to:
-* 👉 **[`information.md`](./information.md)** — Comprehensive architecture, API specifications, and schemas.
-* 👉 **[`MASTER_PROJECT_DOCUMENTATION.md`](./MASTER_PROJECT_DOCUMENTATION.md)** — Exhaustive end-to-end technical guide.
-* 👉 **[`API_SETUP.md`](./API_SETUP.md)** — Service configurations and key management.
-* 👉 **[`supabase/schema.sql`](./supabase/schema.sql)** — One-click consolidated database schema.
+For in-depth blueprints covering database architecture, RLS security policies, mathematical route scoring algorithms, and API contracts:
+* 👉 **[`misc/information.md`](./misc/information.md)** — Comprehensive architecture, API specifications, and schemas.
+* 👉 **[`misc/MASTER_PROJECT_DOCUMENTATION.md`](./misc/MASTER_PROJECT_DOCUMENTATION.md)** — Exhaustive end-to-end technical guide.
+* 👉 **[`backend/API_SETUP.md`](./backend/API_SETUP.md)** — Service configurations and key management.
+* 👉 **[`backend/supabase/schema.sql`](./backend/supabase/schema.sql)** — One-click consolidated database schema.
 
 ---
 

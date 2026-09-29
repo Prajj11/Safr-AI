@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { scheduleItinerary, formatPlanTime } from "../src/lib/itinerary-planner.ts";
-import { validateAge } from "../src/lib/age-validation.ts";
-import { validatePhone } from "../src/lib/phone-validation.ts";
-import { distanceToRoute } from "../src/lib/geo.ts";
-import { itineraryInputSchema } from "../src/lib/travel-schemas.ts";
-import type { NearbyPlace } from "../src/lib/geo.ts";
+import { scheduleItinerary, formatPlanTime } from "../../frontend/src/lib/itinerary-planner.ts";
+import { validateAge } from "../../frontend/src/lib/age-validation.ts";
+import { validatePhone } from "../../frontend/src/lib/phone-validation.ts";
+import { distanceToRoute } from "../../frontend/src/lib/geo.ts";
+import { itineraryInputSchema } from "../../frontend/src/lib/travel-schemas.ts";
+import type { NearbyPlace } from "../../frontend/src/lib/geo.ts";
 
 const candidates: NearbyPlace[] = Array.from({ length: 12 }, (_, i) => ({
   id: `node/${i}`,
