@@ -69,8 +69,16 @@ export async function sendTwilioMessage(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-    const to = isWhatsapp ? `whatsapp:${toPhone}` : toPhone;
-    const from = isWhatsapp ? `whatsapp:${fromPhone}` : fromPhone;
+    const to = isWhatsapp
+      ? toPhone.startsWith("whatsapp:")
+        ? toPhone
+        : `whatsapp:${toPhone}`
+      : toPhone;
+    const from = isWhatsapp
+      ? fromPhone.startsWith("whatsapp:")
+        ? fromPhone
+        : `whatsapp:${fromPhone}`
+      : fromPhone;
 
     const formData = new URLSearchParams();
     formData.append("To", to);
@@ -176,9 +184,9 @@ export async function sendSafeTagAlert(params: SafeTagAlertParams): Promise<Noti
 
   if (activeChannels.includes("sms")) {
     if (!smsFrom) {
+      console.log("SMS skipped: TWILIO_SMS_FROM not set");
       results.sms = {
-        status: "failed",
-        error: "TWILIO_SMS_FROM missing",
+        status: "skipped",
         timestamp: new Date().toISOString(),
       };
     } else {
