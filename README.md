@@ -131,11 +131,13 @@ Tourism Guide/
 
 ### 1. Start Development Server
 ```bash
-# Navigate to the frontend directory
-cd frontend
+# Option A: 1-Click Windows Launcher (Auto-installs dependencies & launches Firefox)
+Double-click run.bat in the project root (or misc/run.bat)
 
-# Launch local dev server (live at http://localhost:5173)
+# Option B: Terminal Command
+cd frontend
 npm run dev
+# Live at http://localhost:5173
 ```
 
 ### 2. Run Automated Test Suite (23 Tests)
