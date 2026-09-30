@@ -115,11 +115,11 @@ Tourism Guide/
 │   ├── API_SETUP.md               # API keys (Gemini, Supabase, OSRM) configuration
 │   └── README.md                  # Backend architecture documentation
 │
-└── misc/                          # Technical docs, test suites & deployment tools
+└── misc/                          # Technical docs, test suites & developer tools
     ├── MASTER_PROJECT_DOCUMENTATION.md # Full 50KB+ technical architecture guide
     ├── information.md             # API specifications & algorithms breakdown
     ├── tests/                     # 23 automated tests (travel, services, route comparison)
-    ├── scripts/                   # Deployment scripts (Antideploy runner)
+    ├── scripts/                   # Test utilities and TypeScript register runners
     ├── .agents/                   # Supabase agent skills & configurations
     ├── LICENSE                    # MIT License
     └── README.md                  # Misc module documentation
@@ -148,12 +148,6 @@ node --import ./misc/scripts/register-typescript.mjs --test misc/tests/*.test.ts
 # Or from frontend folder:
 cd frontend
 npm test
-```
-
-### 3. Deploy to Antideploy
-```bash
-cd frontend
-npm run deploy
 ```
 
 ---

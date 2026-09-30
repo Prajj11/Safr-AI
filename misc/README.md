@@ -1,6 +1,6 @@
 # 📦 Safr — Documentation, Tests & Tools (Misc)
 
-This folder contains project-wide technical documentation, test suites, developer tools, and deployment scripts.
+This folder contains project-wide technical documentation, test suites, and developer tools.
 
 ---
 
@@ -14,12 +14,10 @@ misc/
 │   ├── travel.test.ts                # Schedule budgeting, phone validation & route tests
 │   ├── services.test.ts              # External provider fallbacks & itinerary generation tests
 │   └── route-comparison.test.ts      # Road surface, illumination & safety score tests
-├── scripts/                          # Utility & deployment scripts
-│   ├── deploy-antideploy.mjs         # Production deployment runner for Antideploy
+├── scripts/                          # Utility & test helper scripts
 │   └── register-typescript.mjs       # TypeScript import loader for native Node tests
 ├── .agents/                          # Supabase Postgres agent skills and custom instructions
 ├── skills-lock.json                  # Skill dependency lockfile
-├── .antideploy.json                  # Antideploy application link configuration
 ├── GEMINI.md                         # Workspace rules (Firefox preview launcher)
 ├── eslint.config.js                  # Linter configuration
 ├── .prettierrc                       # Code formatting rules
