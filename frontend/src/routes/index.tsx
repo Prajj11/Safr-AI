@@ -14,13 +14,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Plan safer trips across India: road maps, nearby places, visitor guidance, QR safety tags for kids and elders, and AI itineraries. Currently piloted in Goa.",
+          "Plan safer trips across India: road maps, visitor guidance, QR safety tags for kids and elders, and AI itineraries. Currently piloted in Goa.",
       },
       { property: "og:title", content: "Safr — AI Travel Safety Companion" },
       {
         property: "og:description",
         content:
-          "Road routes, nearby places, visitor guidance, QR safety tags and AI itineraries — piloted in Goa, built for India.",
+          "Road routes, visitor guidance, QR safety tags and AI itineraries — piloted in Goa, built for India.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -244,9 +244,9 @@ function Landing() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-base sm:text-lg text-stone-600 leading-relaxed font-normal">
-            Road routes, nearby attractions and restaurants, local do's and don'ts, printable QR
-            safety tags for your family, and an AI plan for every free hour you have — built for
-            travel across India, currently piloted in Goa.
+            Road routes, local do's and don'ts, printable QR safety tags for your family, and an
+            AI plan for every free hour you have — built for travel across India, currently piloted
+            in Goa.
           </p>
 
           {/* Action CTAs: Matching the 3 buttons in the screenshot */}
@@ -335,11 +335,10 @@ function Landing() {
                 OSRM Routing Engine
               </span>
               <h3 className="text-lg font-bold font-display text-stone-900 mt-1">
-                Road Routes & Nearby Hotspots
+                Road Routes & Navigation
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed mt-2">
-                Find OSRM driving routes, places to visit, restaurants and hotels along the way,
-                with distances that update as you move.
+                Find OSRM driving routes with turn-by-turn steps and compare route options before you set off.
               </p>
             </div>
             <Link

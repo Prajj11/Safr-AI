@@ -29,17 +29,3 @@ export const getCurrentArea = createServerFn({ method: "POST" })
     return reverseLocation(data);
   });
 
-export const getNearbyPlaces = createServerFn({ method: "POST" })
-  .validator((input: unknown) =>
-    z
-      .object({
-        center: coordinateSchema,
-        radiusKm: z.number().min(1).max(15).default(5),
-        path: z.array(coordinateSchema).max(200).default([]),
-      })
-      .parse(input),
-  )
-  .handler(async ({ data }) => {
-    const { nearbyPlaces } = await import("./places.server");
-    return nearbyPlaces(data.center, data.radiusKm, data.path);
-  });

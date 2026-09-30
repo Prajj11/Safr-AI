@@ -1,6 +1,14 @@
 import type { Coordinate } from "./geo";
-export type RoadWay = { nodes: number[]; tags: Record<string, string> };
-export type RoadLeg = { annotation?: { nodes: number[]; distance: number[] } | undefined };
+export type RoadWay = { id?: number | undefined; nodes: number[]; tags: Record<string, string> };
+export type RoadLeg = {
+  annotation?:
+    | {
+        nodes?: number[] | undefined;
+        wayIds?: number[] | undefined;
+        distance: number[];
+      }
+    | undefined;
+};
 export type SafetyEvidence = {
   coveragePercent: number;
   conditionCoveragePercent: number;
@@ -16,35 +24,55 @@ export function assessRoadConditions(
   isNight: boolean,
 ): SafetyEvidence {
   const edges = new Map<string, Record<string, string>[]>();
+  const wayMap = new Map<number, Record<string, string>>();
   const pair = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
-  for (const way of ways)
+  for (const way of ways) {
+    if (typeof way.id === "number") {
+      wayMap.set(way.id, way.tags);
+    }
     for (let i = 1; i < way.nodes.length; i++) {
       const key = pair(way.nodes[i - 1]!, way.nodes[i]!);
       edges.set(key, [...(edges.get(key) || []), way.tags]);
     }
+  }
   let total = 0,
     mapped = 0,
     known = 0,
     lighting = 0,
-    penalty = 0,
+    basePenalty = 0,
     unpaved = 0,
     rough = 0,
     unlit = 0,
-    highSpeed = 0;
+    highSpeed = 0,
+    standardRoads = 0,
+    minorRoads = 0;
   for (const leg of legs) {
     const a = leg.annotation;
-    if (!a || a.nodes.length !== a.distance.length + 1) continue;
+    if (!a) continue;
+    const hasWayIds = Array.isArray(a.wayIds) && a.wayIds.length === a.distance.length;
+    const hasNodes = Array.isArray(a.nodes) && a.nodes.length === a.distance.length + 1;
+    if (!hasWayIds && !hasNodes) continue;
+
     for (let i = 0; i < a.distance.length; i++) {
       const meters = a.distance[i]!;
       total += meters;
-      const matches = edges.get(pair(a.nodes[i]!, a.nodes[i + 1]!));
-      // Ambiguous segments remain unknown instead of borrowing a neighbouring road's tags.
-      if (!matches || matches.length !== 1) continue;
-      const tags = matches[0]!;
+      let tags: Record<string, string> | undefined;
+      if (hasWayIds) {
+        const wayId = a.wayIds![i]!;
+        tags = wayMap.get(wayId);
+      } else {
+        const matches = edges.get(pair(a.nodes![i]!, a.nodes![i + 1]!));
+        // Ambiguous segments remain unknown instead of borrowing a neighbouring road's tags.
+        if (matches && matches.length === 1) {
+          tags = matches[0]!;
+        }
+      }
+      if (!tags) continue;
       mapped += meters;
       const surface = tags["surface"] || "",
         smoothness = tags["smoothness"] || "",
-        lit = tags["lit"] || "";
+        lit = tags["lit"] || "",
+        highway = tags["highway"] || "";
       const speedTag = tags["maxspeed"] || "";
       const speed = /^\d+(?:\.\d+)?(?: mph)?$/.test(speedTag)
         ? parseFloat(speedTag) * (speedTag.endsWith("mph") ? 1.609344 : 1)
@@ -61,47 +89,81 @@ export function assessRoadConditions(
       if (lit === "yes" || lit === "no") lighting += meters;
       if (/^(unpaved|gravel|dirt|ground|sand|mud|cobblestone)$/.test(surface)) {
         unpaved += meters;
-        penalty += meters * 3;
+        basePenalty += meters * 3;
       }
       if (/^(bad|very_bad|horrible|very_horrible|impassable)$/.test(smoothness)) {
         rough += meters;
-        penalty += meters * 4;
+        basePenalty += meters * 4;
       }
       if (speed != null && speed >= 80) {
         highSpeed += meters;
-        penalty += meters;
+        basePenalty += meters;
       }
-      if (isNight && lit === "no") {
+      if (lit === "no") {
         unlit += meters;
-        penalty += meters * 3;
+      }
+
+      // Clearly separated road-class component
+      if (
+        /^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|residential|living_street)$/.test(
+          highway,
+        )
+      ) {
+        standardRoads += meters;
+        basePenalty += meters * 0.5;
+      } else if (/^(unclassified|track|path|service|pedestrian|footway)$/.test(highway)) {
+        minorRoads += meters;
+        basePenalty += meters * 2.5;
       }
     }
   }
+
   const percent = (n: number) => (total ? Math.round((n / total) * 100) : 0);
   const completeAnnotations =
     legs.length > 0 &&
-    legs.every(
-      (leg) => leg.annotation && leg.annotation.nodes.length === leg.annotation.distance.length + 1,
-    );
+    legs.every((leg) => {
+      const a = leg.annotation;
+      if (!a) return false;
+      const hasWayIds = Array.isArray(a.wayIds) && a.wayIds.length === a.distance.length;
+      const hasNodes = Array.isArray(a.nodes) && a.nodes.length === a.distance.length + 1;
+      return Boolean(hasWayIds || hasNodes);
+    });
+
+  // Lighting coverage is required >= 70% only for the night lighting part of the estimate
+  const hasLightingCoverage = total > 0 && lighting / total >= 0.7;
+  let penalty = basePenalty;
+  if (isNight && hasLightingCoverage) {
+    penalty += unlit * 3;
+  }
+
   const sufficient =
     completeAnnotations &&
     total > 0 &&
     mapped / total >= 0.9 &&
-    known / total >= 0.7 &&
-    (!isNight || lighting / total >= 0.7);
+    known / total >= 0.7;
+
+  const reasons: string[] = [
+    `Road segment matching: ${percent(mapped)}%; usable condition tags: ${percent(known)}%${isNight ? `; lighting tags: ${percent(lighting)}%` : ""}.`,
+    `Mapped exposure: ${(unpaved / 1000).toFixed(1)} km rough/unpaved surface, ${(rough / 1000).toFixed(1)} km poor smoothness, ${(highSpeed / 1000).toFixed(1)} km posted speed ≥80 km/h, ${(minorRoads / 1000).toFixed(1)} km minor/unclassified roads${isNight && hasLightingCoverage ? `, ${(unlit / 1000).toFixed(1)} km unlit` : ""}. Missing tags are unknown, not safe.`,
+  ];
+
+  if (isNight && !hasLightingCoverage) {
+    reasons.push("Lighting data is incomplete, so night-time lighting was not counted.");
+  }
+
+  reasons.push(
+    sufficient
+      ? "Safety preference estimates mapped surface, smoothness, road class, posted speeds and night lighting. It does not measure crashes, crime, traffic or current hazards."
+      : "Insufficient mapped conditions to identify a safest route. No safety score is assigned.",
+  );
+
   return {
     coveragePercent: percent(mapped),
     conditionCoveragePercent: percent(known),
     lightingCoveragePercent: percent(lighting),
     sufficient,
     mappedRiskExposure: sufficient ? penalty / 1000 : null,
-    reasons: [
-      `Road segment matching: ${percent(mapped)}%; usable condition tags: ${percent(known)}%${isNight ? `; lighting tags: ${percent(lighting)}%` : ""}.`,
-      `Mapped exposure: ${(unpaved / 1000).toFixed(1)} km rough/unpaved surface, ${(rough / 1000).toFixed(1)} km poor smoothness, ${(highSpeed / 1000).toFixed(1)} km posted speed ≥80 km/h${isNight ? `, ${(unlit / 1000).toFixed(1)} km unlit` : ""}. Missing tags are unknown, not safe.`,
-      sufficient
-        ? "Safety preference estimates mapped surface, smoothness, posted speeds and night lighting. It does not measure crashes, crime, traffic or current hazards."
-        : "Insufficient mapped conditions to identify a safest route. No safety score is assigned.",
-    ],
+    reasons,
   };
 }
 

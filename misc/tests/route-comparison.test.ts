@@ -39,10 +39,18 @@ test("missing road tags never become a perfect safety score", () => {
     -1,
   );
 });
-test("night comparison needs actual lighting tags", () => {
+test("night comparison allows estimate when lighting tags are incomplete but notes it in reasons", () => {
   const ways = [{ nodes: [1, 2, 3], tags: { surface: "asphalt" } }];
-  assert.equal(assessRoadConditions(legs, ways, false).sufficient, true);
-  assert.equal(assessRoadConditions(legs, ways, true).sufficient, false);
+  const day = assessRoadConditions(legs, ways, false);
+  const night = assessRoadConditions(legs, ways, true);
+  assert.equal(day.sufficient, true);
+  assert.equal(night.sufficient, true);
+  assert.ok(
+    night.reasons.some((r) =>
+      r.includes("Lighting data is incomplete, so night-time lighting was not counted"),
+    ),
+  );
+  assert.equal(night.mappedRiskExposure, day.mappedRiskExposure);
 });
 test("unrelated nearby roads cannot contribute safety evidence", () => {
   const evidence = assessRoadConditions(
@@ -103,3 +111,41 @@ test("live-route adapter deduplicates geometry and retains route when safety ser
   assert.equal(result[0]!.isSafest, false);
   assert.equal(result[0]!.safety.sufficient, false);
 });
+
+test("routePreferences handles two routes where fastest and shortest are the same", () => {
+  const best = routePreferences([
+    { distanceMeters: 800, durationSeconds: 50, safety: paved },
+    { distanceMeters: 1200, durationSeconds: 70, safety: rough },
+  ]);
+  assert.equal(best.fastest, 0);
+  assert.equal(best.shortest, 0);
+  assert.equal(best.safest, 0);
+});
+
+test("routePreferences requires sufficient safety data on all routes to identify a safest winner", () => {
+  const insufficientSafety = { ...paved, sufficient: false, mappedRiskExposure: null };
+  const best = routePreferences([
+    { distanceMeters: 800, durationSeconds: 50, safety: paved },
+    { distanceMeters: 1200, durationSeconds: 70, safety: insufficientSafety },
+  ]);
+  assert.equal(best.fastest, 0);
+  assert.equal(best.shortest, 0);
+  assert.equal(best.safest, -1);
+});
+
+test("road class tags apply lower penalty for standard roads and higher penalty for minor/unclassified", () => {
+  const standardRoad = assessRoadConditions(
+    legs,
+    [{ nodes: [1, 2, 3], tags: { surface: "asphalt", highway: "primary" } }],
+    false,
+  );
+  const minorRoad = assessRoadConditions(
+    legs,
+    [{ nodes: [1, 2, 3], tags: { surface: "asphalt", highway: "track" } }],
+    false,
+  );
+  assert.equal(standardRoad.sufficient, true);
+  assert.equal(minorRoad.sufficient, true);
+  assert.ok(minorRoad.mappedRiskExposure! > standardRoad.mappedRiskExposure!);
+});
+

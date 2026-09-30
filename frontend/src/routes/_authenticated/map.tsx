@@ -9,6 +9,8 @@ import {
   Flag,
   ListOrdered,
   Loader2,
+  LocateFixed,
+  MapPin,
   Milestone,
   Moon,
   MoveUp,
@@ -20,28 +22,60 @@ import {
   ShieldCheck,
   Split,
   Sun,
+  X,
   Zap,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import type L from "leaflet";
-import { NearbyPlaces } from "@/components/NearbyPlaces";
-import "leaflet/dist/leaflet.css";
+import type { Map as MapLibreMap, Marker as MapLibreMarker, GeolocateControl, IControl } from "maplibre-gl";
+import type { FeatureCollection } from "geojson";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getRoutes, searchPlaces } from "@/lib/maps.functions";
+import { getCurrentArea } from "@/lib/goa.functions";
 import type { RouteStep } from "@/lib/goa-schemas";
+import {
+  MAP_STYLES,
+  GOA_CENTER,
+  GOA_BOUNDS,
+  getDefaultStyleId,
+  addCustomLayers,
+  ORIGIN_MARKER_SVG,
+  DESTINATION_MARKER_SVG,
+  stepMarkerSvg,
+  injectMapCSS,
+  type MapStyleEntry,
+} from "@/lib/map-config";
 
 export const Route = createFileRoute("/_authenticated/map")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { dest?: string; lat?: string; lng?: string } => {
-    const params: { dest?: string; lat?: string; lng?: string } = {};
+  ): {
+    dest?: string;
+    lat?: string;
+    lng?: string;
+    origin?: string;
+    originLat?: string;
+    originLng?: string;
+  } => {
+    const params: {
+      dest?: string;
+      lat?: string;
+      lng?: string;
+      origin?: string;
+      originLat?: string;
+      originLng?: string;
+    } = {};
     if (typeof search["dest"] === "string" && search["dest"]) params.dest = search["dest"];
     if (typeof search["lat"] === "string" && search["lat"]) params.lat = search["lat"];
     if (typeof search["lng"] === "string" && search["lng"]) params.lng = search["lng"];
+    if (typeof search["origin"] === "string" && search["origin"]) params.origin = search["origin"];
+    if (typeof search["originLat"] === "string" && search["originLat"])
+      params.originLat = search["originLat"];
+    if (typeof search["originLng"] === "string" && search["originLng"])
+      params.originLng = search["originLng"];
     return params;
   },
   component: MapPage,
@@ -77,17 +111,39 @@ function formatDistance(meters: number): string {
   return `${meters} m`;
 }
 
+// ---------------------------------------------------------------------------
+// Route color helpers
+// ---------------------------------------------------------------------------
+
+function routeColor(kind: string, isSelected: boolean): string {
+  if (!isSelected) return "#94a3b8";
+  if (kind === "safer") return "#10b981";
+  if (kind === "alt") return "#06b6d4";
+  return "#f97316";
+}
+
+// ---------------------------------------------------------------------------
+// MapPage component
+// ---------------------------------------------------------------------------
+
 function MapPage() {
   const searchParams = Route.useSearch();
   const requestedTarget = useRef("");
   const mapEl = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const linesRef = useRef<L.Polyline[]>([]);
-  const markersRef = useRef<L.Marker[]>([]);
-  const leafletRef = useRef<typeof import("leaflet") | null>(null);
-  const [originLabel, setOriginLabel] = useState("Panjim (default starting point)");
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const maplibreRef = useRef<typeof import("maplibre-gl") | null>(null);
+  const originMarkerRef = useRef<MapLibreMarker | null>(null);
+  const destMarkerRef = useRef<MapLibreMarker | null>(null);
+  const stepMarkerRef = useRef<MapLibreMarker | null>(null);
+  const geolocateRef = useRef<GeolocateControl | null>(null);
+
+  const [originLabel, setOriginLabel] = useState("Detecting location…");
   const [locationReady, setLocationReady] = useState(false);
-  const stepMarkerRef = useRef<L.Marker | null>(null);
+  const [isGpsOrigin, setIsGpsOrigin] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [showOriginSearch, setShowOriginSearch] = useState(false);
+  const [originQuery, setOriginQuery] = useState("");
+  const [originHits, setOriginHits] = useState<Hit[]>([]);
 
   const [ready, setReady] = useState(false);
   const [origin, setOrigin] = useState(DEFAULT_ORIGIN);
@@ -98,6 +154,10 @@ function MapPage() {
   const [destination, setDestination] = useState<Hit | null>(null);
   const [showDirections, setShowDirections] = useState(true);
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
+
+  // Map style & 3D state (session only, no localStorage)
+  const [activeStyleId, setActiveStyleId] = useState(getDefaultStyleId);
+  const [is3d, setIs3d] = useState(false);
 
   const currentHour = Number(
     new Intl.DateTimeFormat("en-GB", {
@@ -110,30 +170,332 @@ function MapPage() {
 
   const search = useServerFn(searchPlaces);
   const route = useServerFn(getRoutes);
+  const currentArea = useServerFn(getCurrentArea);
+
+  const originSearchMutation = useMutation({
+    mutationFn: async (q: string) => (await search({ data: { query: q } })) as Hit[],
+    onSuccess: (data) => {
+      setOriginHits(data);
+      if (data.length === 0) toast.info("No matching starting places found.");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Origin search failed"),
+  });
+
+  const requestUserLocation = (isAutomatic = false) => {
+    if (!navigator.geolocation) {
+      if (!isAutomatic) {
+        toast.error("Geolocation is not supported by your browser");
+      }
+      setLocationReady(true);
+      setOriginLabel("Panjim (default fallback)");
+      return;
+    }
+
+    setLocating(true);
+
+    const applyLocation = async (lat: number, lng: number) => {
+      const coords = { lat, lng };
+      setOrigin(coords);
+      setIsGpsOrigin(true);
+      setLocationReady(true);
+      setLocating(false);
+
+      if (mapRef.current) {
+        mapRef.current.flyTo({ center: [lng, lat], zoom: 13 });
+      }
+
+      let label = "Your Location";
+      try {
+        const area = await currentArea({ data: coords });
+        if (area?.name) {
+          label = `${area.name} (Your Location)`;
+        }
+      } catch {
+        label = `Your Location (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+      }
+      setOriginLabel(label);
+
+      try {
+        localStorage.setItem(
+          "safr_last_origin",
+          JSON.stringify({ coords, label, isGps: true }),
+        );
+      } catch {
+        // localStorage unavailable
+      }
+
+      if (!isAutomatic) {
+        toast.success(`Starting point updated to ${label}`);
+      }
+
+      if (destination) {
+        routeMutation.mutate(destination);
+      }
+    };
+
+    const handleFailure = (err?: GeolocationPositionError) => {
+      if (err && err.code === err.TIMEOUT) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => applyLocation(pos.coords.latitude, pos.coords.longitude),
+          () => {
+            setLocating(false);
+            setLocationReady(true);
+            setOriginLabel((prev) =>
+              prev.startsWith("Detecting") ? "Panjim (default starting point)" : prev,
+            );
+            if (!isAutomatic) {
+              toast.error("Could not acquire GPS fix. Please select a starting point manually.");
+            }
+          },
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
+        );
+        return;
+      }
+
+      setLocating(false);
+      setLocationReady(true);
+      setOriginLabel((prev) =>
+        prev.startsWith("Detecting") ? "Panjim (default starting point)" : prev,
+      );
+      if (!isAutomatic) {
+        if (err?.code === err?.PERMISSION_DENIED) {
+          toast.error(
+            "Location permission was denied. Please allow location access in your browser settings.",
+          );
+        } else {
+          toast.error("Unable to retrieve location. Using Panjim as fallback.");
+        }
+      }
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => applyLocation(pos.coords.latitude, pos.coords.longitude),
+      handleFailure,
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 },
+    );
+  };
+
+  // -----------------------------------------------------------------------
+  // addRouteDataToMap — re-adds route sources/layers to the current map
+  // -----------------------------------------------------------------------
+
+  const routesRef = useRef(routes);
+  const selectedRef = useRef(selected);
+  routesRef.current = routes;
+  selectedRef.current = selected;
+
+  const addRouteDataToMap = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const curRoutes = routesRef.current;
+    const curSelected = selectedRef.current;
+
+    // Clean up any existing route layers/sources
+    for (let i = 0; i < 10; i++) {
+      try { map.removeLayer(`safr-route-arrows-${i}`); } catch { /* */ }
+      try { map.removeLayer(`safr-route-line-${i}`); } catch { /* */ }
+      try { map.removeLayer(`safr-route-casing-${i}`); } catch { /* */ }
+      try { map.removeSource(`safr-route-${i}`); } catch { /* */ }
+    }
+
+    curRoutes.forEach((r, i) => {
+      if (!r.polyline) return;
+      try {
+        const pathCoords = JSON.parse(r.polyline) as [number, number][];
+        if (!pathCoords || pathCoords.length === 0) return;
+
+        // polyline is stored as [lat, lng] pairs — MapLibre uses [lng, lat]
+        const coords = pathCoords.map(([lat, lng]) => [lng, lat] as [number, number]);
+
+        const sourceId = `safr-route-${i}`;
+        const geojson: FeatureCollection = {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              properties: {},
+              geometry: { type: "LineString", coordinates: coords },
+            },
+          ],
+        };
+
+        map.addSource(sourceId, { type: "geojson", data: geojson });
+
+        const color = routeColor(r.kind, i === curSelected);
+        const isSelected = i === curSelected;
+
+        // Casing (dark outline)
+        map.addLayer({
+          id: `safr-route-casing-${i}`,
+          type: "line",
+          source: sourceId,
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: {
+            "line-color": isSelected ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.1)",
+            "line-width": isSelected ? 9 : 5,
+            "line-opacity": isSelected ? 1 : 0.35,
+          },
+        });
+
+        // Main line
+        map.addLayer({
+          id: `safr-route-line-${i}`,
+          type: "line",
+          source: sourceId,
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: {
+            "line-color": color,
+            "line-width": isSelected ? 6 : 3.5,
+            "line-opacity": isSelected ? 1 : 0.35,
+          },
+        });
+
+        // Direction arrows on selected route only
+        if (isSelected) {
+          map.addLayer({
+            id: `safr-route-arrows-${i}`,
+            type: "symbol",
+            source: sourceId,
+            layout: {
+              "symbol-placement": "line",
+              "icon-image": "safr-route-arrow",
+              "icon-size": 0.7,
+              "icon-rotation-alignment": "map",
+              "icon-allow-overlap": true,
+              "symbol-spacing": 80,
+            },
+          });
+        }
+      } catch (e) {
+        console.error("Failed to add route layer", e);
+      }
+    });
+  }, []);
+
+  // -----------------------------------------------------------------------
+  // MapLibre GL initialization
+  // -----------------------------------------------------------------------
 
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
     let cancelled = false;
-    void import("leaflet").then((L) => {
+
+    void import("maplibre-gl").then((ml) => {
       if (cancelled || !mapEl.current) return;
-      leafletRef.current = L;
-      mapRef.current = L.map(mapEl.current, {
-        center: [DEFAULT_ORIGIN.lat, DEFAULT_ORIGIN.lng],
+      maplibreRef.current = ml;
+      injectMapCSS();
+
+      const initStyle = MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
+
+      const map = new ml.Map({
+        container: mapEl.current,
+        style: initStyle.style,
+        center: GOA_CENTER,
         zoom: 11,
-        zoomControl: true,
-      });
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors",
-      }).addTo(mapRef.current);
-
-      delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+        maxPitch: 70,
+        minZoom: 8,
+        maxBounds: GOA_BOUNDS,
+        attributionControl: { compact: true },
+        dragRotate: true,
       });
 
-      setReady(true);
+      mapRef.current = map;
+
+      map.addControl(new ml.NavigationControl({ showCompass: true, showZoom: true }), "top-right");
+      map.addControl(new ml.FullscreenControl(), "top-right");
+
+      const geolocate = new ml.GeolocateControl({
+        positionOptions: { enableHighAccuracy: true },
+        trackUserLocation: true,
+      });
+      geolocateRef.current = geolocate;
+      map.addControl(geolocate, "top-right");
+
+      // Style switcher (top-left)
+      const switcherDiv = document.createElement("div");
+      switcherDiv.className = "safr-style-switcher";
+      MAP_STYLES.forEach((s) => {
+        const btn = document.createElement("button");
+        btn.className = "safr-style-btn";
+        btn.textContent = s.icon;
+        btn.title = s.label;
+        btn.setAttribute("aria-label", `Map style: ${s.label}`);
+        btn.setAttribute("aria-pressed", s.id === activeStyleId ? "true" : "false");
+        btn.addEventListener("click", () => {
+          setActiveStyleId(s.id);
+        });
+        switcherDiv.appendChild(btn);
+      });
+
+      class StyleSwitcherControl {
+        _container?: HTMLElement;
+        onAdd() {
+          this._container = document.createElement("div");
+          this._container.className = "maplibregl-ctrl";
+          this._container.appendChild(switcherDiv);
+          return this._container;
+        }
+        onRemove() { this._container?.remove(); }
+      }
+      map.addControl(new StyleSwitcherControl() as IControl, "top-left");
+
+      // 3D toggle + reset view (top-left under switcher)
+      const ctrlsDiv = document.createElement("div");
+      ctrlsDiv.className = "maplibregl-ctrl";
+      ctrlsDiv.style.cssText = "display:flex;flex-direction:column;gap:4px;";
+
+      const btn3d = document.createElement("button");
+      btn3d.className = "safr-map-ctrl-btn";
+      btn3d.textContent = "3D";
+      btn3d.setAttribute("aria-label", "Toggle 3D buildings and terrain");
+      btn3d.setAttribute("aria-pressed", "false");
+      btn3d.addEventListener("click", () => {
+        setIs3d((prev) => !prev);
+      });
+      ctrlsDiv.appendChild(btn3d);
+
+      const btnReset = document.createElement("button");
+      btnReset.className = "safr-map-ctrl-btn";
+      btnReset.textContent = "⌂";
+      btnReset.setAttribute("aria-label", "Reset map view to Goa");
+      btnReset.addEventListener("click", () => {
+        const m = mapRef.current;
+        if (!m) return;
+        m.setMaxBounds(GOA_BOUNDS);
+        m.flyTo({ center: GOA_CENTER, zoom: 11, pitch: 0, bearing: 0 });
+      });
+      ctrlsDiv.appendChild(btnReset);
+
+      class ExtraControlsControl {
+        _container?: HTMLElement;
+        onAdd() {
+          this._container = document.createElement("div");
+          this._container.className = "maplibregl-ctrl";
+          this._container.appendChild(ctrlsDiv);
+          return this._container;
+        }
+        onRemove() { this._container?.remove(); }
+      }
+      map.addControl(new ExtraControlsControl() as IControl, "top-left");
+
+      map.on("style.load", () => {
+        const curStyle = MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
+        addCustomLayers(map, {
+          is3d,
+          isVector: curStyle.isVector,
+          routeDataFn: addRouteDataToMap,
+        });
+      });
+
+      map.on("load", () => {
+        addCustomLayers(map, {
+          is3d: false,
+          isVector: initStyle.isVector,
+          routeDataFn: addRouteDataToMap,
+        });
+        setReady(true);
+      });
     });
 
     return () => {
@@ -141,26 +503,103 @@ function MapPage() {
       mapRef.current?.remove();
       mapRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // -----------------------------------------------------------------------
+  // Style switching
+  // -----------------------------------------------------------------------
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+
+    const entry = MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
+    map.setStyle(entry.style);
+
+    // Update switcher button states
+    const btns = map.getContainer().querySelectorAll<HTMLButtonElement>(".safr-style-btn");
+    btns.forEach((btn, i) => {
+      const s = MAP_STYLES[i];
+      btn.setAttribute("aria-pressed", s?.id === activeStyleId ? "true" : "false");
+    });
+
+    // style.load handler re-adds custom layers
+  }, [activeStyleId, ready]);
+
+  // -----------------------------------------------------------------------
+  // 3D toggle
+  // -----------------------------------------------------------------------
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+
+    const curStyle = MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
+
+    map.easeTo({ pitch: is3d ? 60 : 0, duration: 600 });
+
+    addCustomLayers(map, {
+      is3d,
+      isVector: curStyle.isVector,
+      routeDataFn: addRouteDataToMap,
+    });
+
+    // Update 3D button state
+    const btn = map.getContainer().querySelector<HTMLButtonElement>(".safr-map-ctrl-btn");
+    btn?.setAttribute("aria-pressed", is3d ? "true" : "false");
+  }, [is3d, ready, activeStyleId, addRouteDataToMap]);
+
+  // -----------------------------------------------------------------------
+  // Location restore and geolocation
+  // -----------------------------------------------------------------------
+
+  useEffect(() => {
+    let hasCached = false;
+    try {
+      const saved = localStorage.getItem("safr_last_origin");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (
+          parsed?.coords?.lat &&
+          parsed?.coords?.lng &&
+          Number.isFinite(parsed.coords.lat) &&
+          Number.isFinite(parsed.coords.lng)
+        ) {
+          setOrigin(parsed.coords);
+          if (parsed.label) setOriginLabel(parsed.label);
+          if (parsed.isGps) setIsGpsOrigin(true);
+          setLocationReady(true);
+          hasCached = true;
+        }
+      }
+    } catch {
+      // localStorage failed
+    }
+
+    if (!hasCached) {
+      setOriginLabel("Panjim (default starting point)");
+    }
+
+    requestUserLocation(true);
   }, []);
 
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocationReady(true);
-      return;
+    if (searchParams.originLat && searchParams.originLng) {
+      const lat = parseFloat(searchParams.originLat);
+      const lng = parseFloat(searchParams.originLng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        setOrigin({ lat, lng });
+        setOriginLabel(searchParams.origin || "Custom Starting Point");
+        setIsGpsOrigin(false);
+        setLocationReady(true);
+      }
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setOrigin({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setOriginLabel("Your GPS location");
-        setLocationReady(true);
-      },
-      () => {
-        setLocationReady(true);
-        toast.info("Location unavailable. Routes start in Panjim.");
-      },
-      { timeout: 8000 },
-    );
-  }, []);
+  }, [searchParams.origin, searchParams.originLat, searchParams.originLng]);
+
+  // -----------------------------------------------------------------------
+  // Search and route mutations
+  // -----------------------------------------------------------------------
 
   const searchMutation = useMutation({
     mutationFn: async (q: string) => (await search({ data: { query: q } })) as Hit[],
@@ -229,112 +668,382 @@ function MapPage() {
     searchMutation,
   ]);
 
+  // -----------------------------------------------------------------------
+  // Render routes, markers, and fit bounds
+  // -----------------------------------------------------------------------
+
   useEffect(() => {
     if (!ready || !mapRef.current) return;
     const map = mapRef.current;
-    const L = leafletRef.current;
-    if (!L) return;
+    const ml = maplibreRef.current;
+    if (!ml) return;
 
-    linesRef.current.forEach((l) => map.removeLayer(l));
-    markersRef.current.forEach((m) => map.removeLayer(m));
-    if (stepMarkerRef.current) {
-      map.removeLayer(stepMarkerRef.current);
-      stepMarkerRef.current = null;
+    // Remove old markers (DOM elements survive style change but we manage them here)
+    originMarkerRef.current?.remove();
+    destMarkerRef.current?.remove();
+    stepMarkerRef.current?.remove();
+    originMarkerRef.current = null;
+    destMarkerRef.current = null;
+    stepMarkerRef.current = null;
+
+    // Origin marker
+    const originEl = document.createElement("div");
+    originEl.innerHTML = ORIGIN_MARKER_SVG;
+    originEl.title = isGpsOrigin ? "You (Starting Point)" : "Starting Point";
+    originMarkerRef.current = new ml.Marker({ element: originEl, anchor: "center" })
+      .setLngLat([origin.lng, origin.lat])
+      .setPopup(new ml.Popup({ offset: 16 }).setHTML(
+        `<b>${isGpsOrigin ? "You (Starting Point)" : "Starting Point"}</b><br/>${originLabel}`
+      ))
+      .addTo(map);
+
+    // Destination marker
+    if (destination) {
+      const destEl = document.createElement("div");
+      destEl.innerHTML = DESTINATION_MARKER_SVG;
+      destEl.title = destination.name;
+      destMarkerRef.current = new ml.Marker({ element: destEl, anchor: "bottom" })
+        .setLngLat([destination.lng, destination.lat])
+        .setPopup(new ml.Popup({ offset: 24 }).setText(destination.name))
+        .addTo(map);
     }
-    linesRef.current = [];
-    markersRef.current = [];
 
-    if (routes.length === 0) return;
+    // Remove old route layers/sources & re-add
+    addRouteDataToMap();
 
-    const bounds = L.latLngBounds([]);
+    // Fit bounds
+    if (routes.length === 0) {
+      if (destination) {
+        const bounds = new ml.LngLatBounds(
+          [origin.lng, origin.lat],
+          [destination.lng, destination.lat],
+        );
+        // If route leaves Goa bounds, remove maxBounds restriction
+        map.setMaxBounds(GOA_BOUNDS);
+        map.fitBounds(bounds, { padding: 50 });
+      } else {
+        map.setMaxBounds(GOA_BOUNDS);
+        map.flyTo({ center: [origin.lng, origin.lat], zoom: isGpsOrigin ? 14 : 12 });
+      }
+      return;
+    }
 
-    routes.forEach((r, i) => {
+    const bounds = new ml.LngLatBounds();
+    bounds.extend([origin.lng, origin.lat]);
+    if (destination) bounds.extend([destination.lng, destination.lat]);
+
+    routes.forEach((r) => {
       if (!r.polyline) return;
       try {
         const pathCoords = JSON.parse(r.polyline) as [number, number][];
-        if (!pathCoords || pathCoords.length === 0) return;
-
-        // Color coding: Safer (Emerald/Teal), Alt (Cyan/Purple), Fastest (Coral)
-        const lineColor =
-          i === selected
-            ? r.kind === "safer"
-              ? "#10b981"
-              : r.kind === "alt"
-                ? "#06b6d4"
-                : "#f97316"
-            : "#94a3b8";
-
-        const line = L.polyline(pathCoords, {
-          color: lineColor,
-          opacity: i === selected ? 1 : 0.35,
-          weight: i === selected ? 6 : 3.5,
-        }).addTo(map);
-
-        if (i === selected) {
-          line.bringToFront();
-        }
-
-        linesRef.current.push(line);
-        pathCoords.forEach((p) => bounds.extend(p));
-      } catch (e) {
-        console.error("Failed to parse polyline", e);
-      }
+        pathCoords.forEach(([lat, lng]) => bounds.extend([lng, lat]));
+      } catch { /* */ }
     });
 
-    markersRef.current.push(L.marker([origin.lat, origin.lng]).addTo(map).bindPopup(originLabel));
-    if (destination) {
-      markersRef.current.push(
-        L.marker([destination.lat, destination.lng])
-          .addTo(map)
-          .bindPopup(
-            Object.assign(document.createElement("span"), { textContent: destination.name }),
-          ),
-      );
+    // If any route point lies outside Goa bounds, remove the restriction
+    const goaSW = (GOA_BOUNDS as [[number, number], [number, number]])[0];
+    const goaNE = (GOA_BOUNDS as [[number, number], [number, number]])[1];
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+    if (
+      sw.lng < goaSW[0] || sw.lat < goaSW[1] ||
+      ne.lng > goaNE[0] || ne.lat > goaNE[1]
+    ) {
+      map.setMaxBounds(null);
+    } else {
+      map.setMaxBounds(GOA_BOUNDS);
     }
 
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [48, 48] });
+    map.fitBounds(bounds, { padding: 48 });
+
+    // Animate draw-in for the selected route (respects prefers-reduced-motion)
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+    if (!prefersReducedMotion && routes[selected]?.polyline) {
+      try {
+        const selCoords = JSON.parse(routes[selected]!.polyline) as [number, number][];
+        if (selCoords.length > 2) {
+          const sourceId = `safr-route-${selected}`;
+          const total = selCoords.length;
+          const start = performance.now();
+          const duration = 700;
+
+          const animate = (now: number) => {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const count = Math.max(2, Math.floor(progress * total));
+            const partial = selCoords.slice(0, count);
+            const coords = partial.map(([lat, lng]) => [lng, lat] as [number, number]);
+
+            const src = map.getSource(sourceId);
+            if (src && "setData" in src) {
+              (src as { setData: (d: FeatureCollection) => void }).setData({
+                type: "FeatureCollection",
+                features: [{
+                  type: "Feature",
+                  properties: {},
+                  geometry: { type: "LineString", coordinates: coords },
+                }],
+              });
+            }
+
+            if (progress < 1) requestAnimationFrame(animate);
+          };
+
+          requestAnimationFrame(animate);
+        }
+      } catch { /* animation is optional, never break the map */ }
     }
-  }, [routes, selected, ready, origin, destination, originLabel]);
+  }, [routes, selected, ready, origin, destination, originLabel, isGpsOrigin, addRouteDataToMap]);
+
+  // -----------------------------------------------------------------------
+  // Step click handler
+  // -----------------------------------------------------------------------
 
   const handleStepClick = (step: RouteStep, idx: number) => {
     setActiveStepIndex(idx);
     if (!mapRef.current || !step.location) return;
+    const ml = maplibreRef.current;
+    if (!ml) return;
 
     const [lat, lng] = step.location;
-    mapRef.current.setView([lat, lng], 15, { animate: true });
+    mapRef.current.flyTo({ center: [lng, lat], zoom: 15 });
 
-    if (stepMarkerRef.current) {
-      mapRef.current.removeLayer(stepMarkerRef.current);
-    }
-
-    const L = leafletRef.current;
-    if (!L) return;
-    const stepIcon = L.divIcon({
-      className: "custom-step-marker",
-      html: `<div style="background:#0f766e;color:white;width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 4px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;">${idx + 1}</div>`,
-      iconSize: [28, 28],
-      iconAnchor: [14, 14],
-    });
-
-    stepMarkerRef.current = L.marker([lat, lng], { icon: stepIcon })
-      .addTo(mapRef.current)
-      .bindPopup(
-        Object.assign(document.createElement("span"), {
-          textContent: `Step ${idx + 1}: ${step.instruction}`,
-        }),
-      )
-      .openPopup();
+    stepMarkerRef.current?.remove();
+    const el = document.createElement("div");
+    el.innerHTML = stepMarkerSvg(idx + 1);
+    stepMarkerRef.current = new ml.Marker({ element: el, anchor: "center" })
+      .setLngLat([lng, lat])
+      .setPopup(new ml.Popup({ offset: 16 }).setText(`Step ${idx + 1}: ${step.instruction}`))
+      .addTo(mapRef.current);
+    stepMarkerRef.current.togglePopup();
   };
+
+  // -----------------------------------------------------------------------
+  // Comparison cards logic (unchanged from previous implementation)
+  // -----------------------------------------------------------------------
 
   const currentRoute = routes[selected];
 
+  const fastestIdx = routes.findIndex((r) => r.isFastest);
+  const shortestIdx = routes.findIndex((r) => r.isShortest);
+  const safestIdx = routes.findIndex((r) => r.isSafest);
+
+  type ComparisonCard = {
+    title: string;
+    index: number;
+    detail: string;
+    alsoSafest?: boolean;
+  };
+
+  const comparisonCards: ComparisonCard[] = [];
+  if (routes.length > 0) {
+    if (fastestIdx !== -1 && fastestIdx === shortestIdx) {
+      const isSafestAlso = safestIdx !== -1 && safestIdx === fastestIdx;
+      comparisonCards.push({
+        title: "Fastest & shortest",
+        index: fastestIdx,
+        detail: "This route is both the quickest and the shortest among the returned options.",
+        alsoSafest: isSafestAlso,
+      });
+      if (!isSafestAlso) {
+        comparisonCards.push({
+          title: "Safest route (estimate)",
+          index: safestIdx,
+          detail: "Based on mapped road conditions; not a safety guarantee",
+        });
+      }
+    } else {
+      const isFastestSafest = safestIdx !== -1 && safestIdx === fastestIdx;
+      const isShortestSafest = safestIdx !== -1 && safestIdx === shortestIdx;
+
+      if (fastestIdx !== -1) {
+        comparisonCards.push({
+          title: "Fastest route",
+          index: fastestIdx,
+          detail: "Lowest estimated time among returned routes",
+          alsoSafest: isFastestSafest,
+        });
+      }
+      if (shortestIdx !== -1) {
+        comparisonCards.push({
+          title: "Shortest available route",
+          index: shortestIdx,
+          detail: `Least road distance among ${routes.length} returned route${routes.length === 1 ? "" : "s"}; not a global shortest-path guarantee`,
+          alsoSafest: isShortestSafest,
+        });
+      }
+      if (!isFastestSafest && !isShortestSafest) {
+        comparisonCards.push({
+          title: "Safest route (estimate)",
+          index: safestIdx,
+          detail: "Based on mapped road conditions; not a safety guarantee",
+        });
+      }
+    }
+  }
+
+  const gridColsClass =
+    comparisonCards.length === 1
+      ? "grid-cols-1"
+      : comparisonCards.length === 2
+        ? "grid-cols-1 sm:grid-cols-2"
+        : "grid-cols-1 sm:grid-cols-3";
+
   return (
-    <AppShell title="Safe Route Workspace" subtitle="Driving directions and nearby places" back>
+    <AppShell title="Safe Route Workspace" subtitle="Driving directions" back>
+      {/* Starting Location Control Panel */}
+      <div className="mb-4 rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl p-3.5 shadow-sm transition-all">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              className={`size-2.5 rounded-full shrink-0 ${
+                isGpsOrigin ? "bg-emerald-500 animate-pulse" : "bg-primary"
+              }`}
+            />
+            <div className="text-xs truncate">
+              <span className="text-muted-foreground">Starting from: </span>
+              <strong className="text-foreground">{originLabel}</strong>
+            </div>
+            {isGpsOrigin && (
+              <span className="rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 text-[10px] font-bold shrink-0">
+                GPS Active
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              type="button"
+              variant={isGpsOrigin ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => requestUserLocation(false)}
+              disabled={locating}
+              className="h-8 gap-1.5 rounded-full text-xs font-semibold hover:border-primary/50"
+            >
+              {locating ? (
+                <Loader2 className="size-3.5 animate-spin text-primary" />
+              ) : (
+                <LocateFixed className="size-3.5 text-primary" />
+              )}
+              <span>{locating ? "Locating…" : "Use My Location"}</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowOriginSearch(!showOriginSearch)}
+              className="h-8 gap-1 rounded-full text-xs font-medium hover:border-primary/50"
+            >
+              <MapPin className="size-3 text-muted-foreground" />
+              <span>{showOriginSearch ? "Cancel" : "Change Start"}</span>
+            </Button>
+
+            {!isGpsOrigin && origin.lat !== DEFAULT_ORIGIN.lat && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setOrigin(DEFAULT_ORIGIN);
+                  setOriginLabel("Panjim (default starting point)");
+                  setIsGpsOrigin(false);
+                  if (destination) {
+                    routeMutation.mutate(destination);
+                  }
+                }}
+                className="h-8 rounded-full text-xs text-muted-foreground hover:text-foreground"
+              >
+                Reset
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Expandable Origin Search Input */}
+        {showOriginSearch && (
+          <div className="mt-3 pt-3 border-t border-border/40 animate-in fade-in slide-in-from-top-2 duration-200">
+            <form
+              className="flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (originQuery.trim().length < 2) return;
+                originSearchMutation.mutate(originQuery.trim());
+              }}
+            >
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  value={originQuery}
+                  placeholder="Search starting hotel, beach, station, or town in Goa…"
+                  onChange={(e) => setOriginQuery(e.target.value)}
+                  className="h-9 pl-9 pr-3 rounded-full text-xs bg-background/80"
+                />
+              </div>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={originSearchMutation.isPending}
+                className="h-9 rounded-full px-4 text-xs font-semibold"
+              >
+                {originSearchMutation.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  "Search"
+                )}
+              </Button>
+            </form>
+
+            {/* Origin Hits Dropdown */}
+            {originHits.length > 0 && (
+              <div className="mt-2 overflow-hidden rounded-2xl border border-border/60 bg-card/95 backdrop-blur-xl shadow-lg z-20">
+                {originHits.map((h) => (
+                  <button
+                    key={h.id}
+                    type="button"
+                    onClick={() => {
+                      setOrigin({ lat: h.lat, lng: h.lng });
+                      setOriginLabel(h.name);
+                      setIsGpsOrigin(false);
+                      setShowOriginSearch(false);
+                      setOriginHits([]);
+                      setOriginQuery("");
+                      try {
+                        localStorage.setItem(
+                          "safr_last_origin",
+                          JSON.stringify({
+                            coords: { lat: h.lat, lng: h.lng },
+                            label: h.name,
+                            isGps: false,
+                          }),
+                        );
+                      } catch {
+                        // ignore
+                      }
+                      toast.success(`Starting point set to ${h.name}`);
+                      if (destination) {
+                        routeMutation.mutate(destination);
+                      }
+                    }}
+                    className="block w-full border-b border-border/30 px-4 py-2.5 text-left last:border-0 hover:bg-primary/5 transition-colors"
+                  >
+                    <span className="block text-xs font-bold text-foreground">{h.name}</span>
+                    <span className="block text-[11px] text-muted-foreground truncate">
+                      {h.address}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <p className="mb-3 text-xs text-muted-foreground">
-        Starting from: {originLabel}. OSRM times exclude live traffic. Shortest means the least
-        distance among the returned routes. Safety preference requires sufficient mapped
-        road-condition evidence.
+        Route times exclude live traffic. Shortest means the least distance among the returned
+        routes. Safety preference requires sufficient mapped road-condition evidence.
       </p>
       {/* Night Travel Safety Advisory Banner */}
       <div
@@ -447,37 +1156,34 @@ function MapPage() {
       {/* ROUTE COMPARISON CARDS */}
       {routes.length > 0 && currentRoute && (
         <div className="mt-6 space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[
-              {
-                title: "Fastest route",
-                index: routes.findIndex((r) => r.isFastest),
-                detail: "Lowest estimated time among returned routes",
-              },
-              {
-                title: "Shortest available route",
-                index: routes.findIndex((r) => r.isShortest),
-                detail: `Least road distance among ${routes.length} returned route${routes.length === 1 ? "" : "s"}; not a global shortest-path guarantee`,
-              },
-              {
-                title: "Safest route (estimate)",
-                index: routes.findIndex((r) => r.isSafest),
-                detail: "Based on mapped road conditions; not a safety guarantee",
-              },
-            ].map((choice) => {
-              const r = routes[choice.index];
+          <div className={`grid gap-3 ${gridColsClass}`}>
+            {comparisonCards.map((choice) => {
+              const r = choice.index !== -1 ? routes[choice.index] : undefined;
               return (
                 <button
                   key={choice.title}
                   disabled={!r}
                   aria-pressed={Boolean(r && choice.index === selected)}
                   onClick={() => {
-                    setSelected(choice.index);
-                    setActiveStepIndex(null);
+                    if (r) {
+                      setSelected(choice.index);
+                      setActiveStepIndex(null);
+                    }
                   }}
-                  className={`rounded-3xl border p-5 text-left ${r && choice.index === selected ? "border-primary bg-primary/10 ring-2 ring-primary/30" : "border-border bg-card"}`}
+                  className={`rounded-3xl border p-5 text-left transition-all ${
+                    r && choice.index === selected
+                      ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                      : "border-border bg-card"
+                  } ${!r ? "opacity-90 cursor-default" : "hover:border-primary/50"}`}
                 >
-                  <span className="font-bold block">{choice.title}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold block text-foreground">{choice.title}</span>
+                    {choice.alsoSafest && (
+                      <span className="rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold shrink-0">
+                        Also safest
+                      </span>
+                    )}
+                  </div>
                   <span className="block mt-2 font-semibold">
                     {r ? `${r.durationMin} min · ${r.distanceKm} km` : "Cannot determine reliably"}
                   </span>
@@ -513,7 +1219,6 @@ function MapPage() {
             ))}
           </div>
 
-          <NearbyPlaces center={origin} polyline={currentRoute.polyline} map={mapRef.current} />
           {/* Active Route Intelligence Card */}
           <div className="rounded-3xl border border-border/60 bg-card/80 backdrop-blur-2xl p-6 sm:p-8 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-5">

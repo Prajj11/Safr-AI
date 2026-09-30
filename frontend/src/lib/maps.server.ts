@@ -3,9 +3,12 @@ import {
   assessRoadConditions,
   roadBounds,
   routePreferences,
+  type RoadWay,
   type SafetyEvidence,
 } from "./route-comparison";
 import { z } from "zod";
+import { fetchValhallaRoutes, type InternalRoute } from "./valhalla.server";
+
 export type PlaceHit = {
   id: string;
   name: string;
@@ -60,22 +63,13 @@ export type OSRMStep = {
   duration: number;
   maneuver: {
     type: string;
-    modifier?: string;
-    location?: [number, number]; // [lng, lat]
-    exit?: number;
+    modifier?: string | undefined;
+    location?: [number, number] | undefined; // [lng, lat]
+    exit?: number | undefined;
   };
 };
 
-type OSRMRoute = {
-  distance: number;
-  duration: number;
-  geometry: { coordinates: [number, number][] };
-  legs: Array<{
-    summary?: string;
-    steps?: OSRMStep[];
-    annotation?: { nodes: number[]; distance: number[] };
-  }>;
-};
+export type OSRMRoute = InternalRoute;
 
 export type RouteStep = {
   instruction: string;
@@ -142,7 +136,7 @@ function formatManeuverInstruction(step: OSRMStep): string {
 }
 
 function scoreRoute(
-  route: OSRMRoute,
+  route: InternalRoute,
   origin: { lat: number; lng: number },
   destination: { lat: number; lng: number },
   safety: SafetyEvidence,
@@ -150,16 +144,20 @@ function scoreRoute(
   const durationMin = Math.ceil(route.duration / 60);
   const distanceKm = Math.round(route.distance / 100) / 10;
   const rawSteps = route.legs.flatMap((l) => l.steps || []);
-  // Format structured step-by-step instructions
-  const steps: RouteStep[] = rawSteps.map((s) => ({
-    instruction: formatManeuverInstruction(s),
-    distanceMeters: Math.round(s.distance ?? 0),
-    durationSeconds: Math.round(s.duration ?? 0),
-    maneuverType: s.maneuver.type ?? "continue",
-    maneuverModifier: s.maneuver.modifier,
-    name: s.name || "Road",
-    location: s.maneuver.location ? [s.maneuver.location[1], s.maneuver.location[0]] : undefined, // [lat, lng]
-  }));
+  const precomputedSteps = route.legs.flatMap((l) => l.routeSteps || []);
+
+  const steps: RouteStep[] =
+    precomputedSteps.length > 0
+      ? precomputedSteps
+      : rawSteps.map((s) => ({
+          instruction: formatManeuverInstruction(s),
+          distanceMeters: Math.round(s.distance ?? 0),
+          durationSeconds: Math.round(s.duration ?? 0),
+          maneuverType: s.maneuver.type ?? "continue",
+          maneuverModifier: s.maneuver.modifier,
+          name: s.name || "Road",
+          location: s.maneuver.location ? [s.maneuver.location[1], s.maneuver.location[0]] : undefined, // [lat, lng]
+        }));
 
   const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&travelmode=driving`;
 
@@ -174,30 +172,29 @@ function scoreRoute(
       "Distance and time are compared before rounding. Times exclude live traffic.",
       "Google Maps may choose a different path; the displayed path and turn list are the route assessed here.",
     ],
-    summary: route.legs?.[0]?.summary || rawSteps.find((s) => s.name)?.name || "Local Road Route",
+    summary: route.legs?.[0]?.summary || steps.find((s) => s.name)?.name || "Local Road Route",
     polyline: JSON.stringify(route.geometry.coordinates.map((c) => [c[1], c[0]])),
     steps,
     googleMapsUrl,
   };
 }
 
-export async function computeSafeRoutes(
+async function fetchOSRMRoutes(
   origin: { lat: number; lng: number },
   destination: { lat: number; lng: number },
-  isNight: boolean,
-): Promise<ScoredRoute[]> {
+): Promise<InternalRoute[]> {
   const url = `${(process.env["OSRM_BASE_URL"] || "https://router.project-osrm.org").replace(/\/$/, "")}/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&alternatives=3&steps=true&annotations=nodes,distance`;
   const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
 
   if (!response.ok) {
     const body = await response.text();
-    console.error(`Routes failed [${response.status}]: ${body}`);
+    console.error(`OSRM routes failed [${response.status}]: ${body}`);
     throw new Error("Could not work out routes for that trip. Please try again.");
   }
 
   const json = (await response.json()) as {
     code?: string;
-    routes?: OSRMRoute[];
+    routes?: InternalRoute[];
     waypoints?: { distance: number }[];
   };
   if (json.waypoints?.some((point) => !Number.isFinite(point.distance) || point.distance > 1000)) {
@@ -205,7 +202,7 @@ export async function computeSafeRoutes(
       "A location is more than 1 km from a routable road. Choose its road entrance or a nearby accessible starting point.",
     );
   }
-  const raw = (json.routes ?? []).filter(
+  return (json.routes ?? []).filter(
     (route) =>
       Number.isFinite(route.distance) &&
       route.distance >= 0 &&
@@ -220,6 +217,35 @@ export async function computeSafeRoutes(
           Math.abs(lng) <= 180,
       ),
   );
+}
+
+export async function computeSafeRoutes(
+  origin: { lat: number; lng: number },
+  destination: { lat: number; lng: number },
+  isNight: boolean,
+): Promise<ScoredRoute[]> {
+  const provider = (process.env["ROUTING_PROVIDER"] || "osrm").toLowerCase();
+  let raw: InternalRoute[] = [];
+
+  if (provider === "valhalla") {
+    try {
+      raw = await fetchValhallaRoutes(origin, destination);
+      if (raw.length === 0) {
+        console.warn("[routing] Valhalla returned 0 routes, falling back to OSRM");
+        raw = await fetchOSRMRoutes(origin, destination);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("more than 1 km from a routable road")) {
+        throw err;
+      }
+      console.error("[routing] Valhalla routing failed, falling back to OSRM:", err);
+      raw = await fetchOSRMRoutes(origin, destination);
+    }
+  } else {
+    raw = await fetchOSRMRoutes(origin, destination);
+  }
+
   if (raw.length === 0) return [];
 
   const unique = raw.filter(
@@ -229,7 +255,7 @@ export async function computeSafeRoutes(
           JSON.stringify(r.geometry.coordinates) === JSON.stringify(route.geometry.coordinates),
       ) === i,
   );
-  let ways: { nodes: number[]; tags: Record<string, string> }[] = [];
+  let ways: RoadWay[] = [];
   try {
     const points = unique.flatMap((r) =>
       r.geometry.coordinates.map(([lng, lat]) => ({ lat, lng })),
@@ -247,7 +273,13 @@ export async function computeSafeRoutes(
       const data = z
         .object({
           remark: z.string().optional(),
-          elements: z.array(z.object({ nodes: z.array(z.number()), tags: z.record(z.string()) })),
+          elements: z.array(
+            z.object({
+              id: z.number().optional(),
+              nodes: z.array(z.number()),
+              tags: z.record(z.string()),
+            }),
+          ),
         })
         .parse(await fetchJson(overpass.toString(), {}, 16000));
       if (!data.remark) ways = data.elements;
@@ -268,3 +300,4 @@ export async function computeSafeRoutes(
     isSafest: i === best.safest,
   }));
 }
+

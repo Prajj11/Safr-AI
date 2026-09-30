@@ -4,15 +4,14 @@
 
 **Safr** is an intelligent, full-stack travel safety companion web application engineered to solve real-world tourism and security challenges across India, currently piloted in Goa. 
 
-Traditional tourism apps only recommend places to visit; **Safr** actively protects travelers by combining **real-time geospatial safety scoring**, **turn-by-turn navigation with 1-tap Google Maps GPS**, **1.5 km road corridor hotspot search**, **marine beach swell flags**, **crowd density intelligence**, **smart transport mode recommendations**, **budget-enforcing AI itinerary planning**, **Zero-Knowledge family QR safety wristbands with age-validation checks**, **public emergency directory access**, and **multi-lingual accessibility** in 12+ Indian languages including Konkani.
+Traditional tourism apps only recommend places to visit; **Safr** actively protects travelers by combining **real-time geospatial safety scoring**, **turn-by-turn navigation with 1-tap Google Maps GPS**, **marine beach swell flags**, **crowd density intelligence**, **smart transport mode recommendations**, **budget-enforcing AI itinerary planning**, **Zero-Knowledge family QR safety wristbands with age-validation checks**, **public emergency directory access**, and **multi-lingual accessibility** in 12+ Indian languages including Konkani.
 
 ---
 
 ## 🌟 Core Application Modules & Features
 
-### 1. 🧭 Safe-Scored Wayfinding, Corridor Hotspots & Navigation (`/map`)
+### 1. 🧭 Safe-Scored Wayfinding & Navigation (`/map`)
 * **Safer vs. Fastest OSRM Engine**: Compares routes based on distance, road illumination, ghat hairpin bends, speed hazards, and accident history.
-* **1.5 km Route Corridor Search**: Displays verified restaurants, hotels, and attractions along the chosen road path.
 * **Night-Travel Guidance Mode**: Automatically activates between 19:00 and 06:00 to prioritize well-lit coastal roads over unlit highway ghats.
 * **Turn-by-Turn Maneuver Drawer**: Step-by-step directions with maneuver icons and interactive Leaflet map pin focus.
 * **1-Tap GPS Launch**: Deep-links directly into native Google Maps / Apple Maps turn-by-turn GPS navigation.

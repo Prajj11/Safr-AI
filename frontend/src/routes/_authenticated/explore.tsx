@@ -1,4 +1,3 @@
-import { NearbyPlaces } from "@/components/NearbyPlaces";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -141,11 +140,6 @@ type SavedPlace = {
 
 function Explore() {
   const queryClient = useQueryClient();
-  const [suggestionCenter, setSuggestionCenter] = useState({ lat: 15.4989, lng: 73.8278 });
-  const [suggestionLabel, setSuggestionLabel] = useState(
-    "Panjim — select your location for personal suggestions",
-  );
-  const [suggestionError, setSuggestionError] = useState("");
   const [activeTab, setActiveTab] = useState<"explore" | "saved">("explore");
   const [query, setQuery] = useState("");
   const [shuffledPlaces, setShuffledPlaces] = useState<string[]>([]);
@@ -239,39 +233,6 @@ function Explore() {
       subtitle="Food, sights, crowd levels, transport & saved places"
       back
     >
-      <div className="rounded-2xl bg-secondary/30 p-4 space-y-2">
-        <h2 className="font-bold">Suggest a place for me</h2>
-        <p className="text-xs text-muted-foreground">
-          Around {suggestionLabel}. Choose a category and distance below.
-        </p>
-        <Button
-          variant="outline"
-          onClick={() => {
-            if (!navigator.geolocation) {
-              setSuggestionError("Location is unavailable. Search a destination below.");
-              return;
-            }
-            navigator.geolocation.getCurrentPosition(
-              (p) => {
-                setSuggestionCenter({ lat: p.coords.latitude, lng: p.coords.longitude });
-                setSuggestionLabel("your current location");
-                setSuggestionError("");
-              },
-              () =>
-                setSuggestionError("Location permission unavailable. Search a destination below."),
-              { timeout: 10000 },
-            );
-          }}
-        >
-          Suggest near my location
-        </Button>
-        {suggestionError && (
-          <p role="alert" className="text-sm text-destructive">
-            {suggestionError}
-          </p>
-        )}
-      </div>
-      <NearbyPlaces center={suggestionCenter} />
       {/* View Switcher Tabs: Explore vs Saved Bucket List */}
       <div className="flex gap-2 p-1 bg-secondary/50 rounded-full w-fit mb-5 border border-border/40">
         <button

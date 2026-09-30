@@ -14,6 +14,8 @@ export default defineConfig(({ mode }) => {
     "GEMINI_MODEL",
     "OSRM_BASE_URL",
     "OVERPASS_URL",
+    "ROUTING_PROVIDER",
+    "VALHALLA_BASE_URL",
   ]) {
     if (!process.env[key] && env[key]) process.env[key] = env[key];
   }
