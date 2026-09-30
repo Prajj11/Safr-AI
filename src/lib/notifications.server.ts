@@ -28,15 +28,24 @@ export function maskPhone(phone: string): string {
 }
 
 export function normalizeE164(phone: string): string {
-  let digits = phone.replace(/[^\d+]/g, "");
-  if (digits.startsWith("+")) {
-    return digits;
+  // 1. Strip spaces, dashes, brackets, and non-digit/non-plus chars
+  let cleaned = phone.replace(/[\s\-\(\)]/g, "").replace(/[^\d+]/g, "");
+  if (!cleaned) return "";
+
+  // 2. If it already starts with "+", return as is
+  if (cleaned.startsWith("+")) {
+    return cleaned;
   }
-  digits = digits.replace(/^0+/, "");
-  if (digits.length === 10) {
-    return `+91${digits}`;
+
+  // 3. Remove leading zeroes
+  cleaned = cleaned.replace(/^0+/, "");
+
+  // 4. If it already starts with "91", add "+" prefix. Otherwise add "+91" by default.
+  if (cleaned.startsWith("91")) {
+    return `+${cleaned}`;
   }
-  return `+${digits}`;
+
+  return `+91${cleaned}`;
 }
 
 export function formatAlertMessage(params: SafeTagAlertParams): string {
@@ -79,6 +88,8 @@ export async function sendTwilioMessage(
         ? fromPhone
         : `whatsapp:${fromPhone}`
       : fromPhone;
+
+    console.log(`[Twilio ${isWhatsapp ? "WhatsApp" : "SMS"}] Sending to: ${to}`);
 
     const formData = new URLSearchParams();
     formData.append("To", to);

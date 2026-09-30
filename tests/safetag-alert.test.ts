@@ -9,9 +9,10 @@ import {
 import { checkRateLimit, sanitizeText, sanitizeCoordinates } from "../src/lib/rate-limit.server.ts";
 
 test("phone normalization to E.164 (+91)", () => {
-  assert.equal(normalizeE164("9876543210"), "+919876543210");
-  assert.equal(normalizeE164("+91 98765 43210"), "+919876543210");
-  assert.equal(normalizeE164("09876543210"), "+919876543210");
+  assert.equal(normalizeE164("9921827979"), "+919921827979");
+  assert.equal(normalizeE164("919921827979"), "+919921827979");
+  assert.equal(normalizeE164("+91 (992) 182-7979"), "+919921827979");
+  assert.equal(normalizeE164("09921827979"), "+919921827979");
   assert.equal(normalizeE164("+14155238886"), "+14155238886");
 });
 
