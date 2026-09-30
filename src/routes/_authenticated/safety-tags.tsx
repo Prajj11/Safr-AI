@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
+import { SafeTagAlertBanner } from "@/components/safetag-alert-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -248,6 +249,7 @@ function SafetyTags() {
       subtitle="Printable QR wristbands with Zero-Knowledge privacy"
       back
     >
+      <SafeTagAlertBanner />
       {/* Privacy Guarantee Header Card */}
       <div className="rounded-3xl border border-border/60 bg-card/75 backdrop-blur-2xl p-6 sm:p-8 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

@@ -140,6 +140,53 @@ export type Database = {
         }
         Relationships: []
       }
+      safety_tag_scans: {
+        Row: {
+          id: string
+          safety_tag_id: string
+          finder_note: string | null
+          finder_contact: string | null
+          lat: number | null
+          lng: number | null
+          delivery_status: Json
+          is_resolved: boolean
+          resolved_at: string | null
+          scanned_at: string
+        }
+        Insert: {
+          id?: string
+          safety_tag_id: string
+          finder_note?: string | null
+          finder_contact?: string | null
+          lat?: number | null
+          lng?: number | null
+          delivery_status?: Json
+          is_resolved?: boolean
+          resolved_at?: string | null
+          scanned_at?: string
+        }
+        Update: {
+          id?: string
+          safety_tag_id?: string
+          finder_note?: string | null
+          finder_contact?: string | null
+          lat?: number | null
+          lng?: number | null
+          delivery_status?: Json
+          is_resolved?: boolean
+          resolved_at?: string | null
+          scanned_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safety_tag_scans_safety_tag_id_fkey"
+            columns: ["safety_tag_id"]
+            isOneToOne: false
+            referencedRelation: "safety_tags"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       saved_places: {
         Row: {
           category: string
