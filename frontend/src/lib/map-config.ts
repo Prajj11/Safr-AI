@@ -95,9 +95,9 @@ export const MAP_STYLES: MapStyleEntry[] = [
   { id: "osm", label: "Standard", icon: "🌍", style: OSM_RASTER_STYLE, isVector: false },
 ];
 
-/** Pick the initial style: defaults to streets (vibrant full-color vector map). */
+/** Pick the initial style: defaults to osm (standard OpenStreetMap tiles, fast & reliable). */
 export function getDefaultStyleId(): string {
-  return "streets";
+  return "osm";
 }
 
 // ---------------------------------------------------------------------------
