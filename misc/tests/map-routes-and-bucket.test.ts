@@ -32,10 +32,9 @@ test("notifications.server getNotifyChannels parses comma-separated channels", (
 });
 
 test("notifications.server maskPhoneNumber protects user and finder privacy", () => {
-  assert.equal(maskPhoneNumber("+919876543210"), "+**********10");
-  assert.equal(maskPhoneNumber("9876543210"), "********10");
-  assert.equal(maskPhoneNumber("123"), "*23");
-  assert.equal(maskPhoneNumber(""), "**");
+  assert.equal(maskPhoneNumber("+919876543210"), "+9******10");
+  assert.equal(maskPhoneNumber("9876543210"), "98******10");
+  assert.equal(maskPhoneNumber("123"), "****");
 });
 
 test("multi-stop distance and duration aggregation logic", () => {

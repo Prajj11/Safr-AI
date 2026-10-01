@@ -173,9 +173,14 @@ CREATE TABLE IF NOT EXISTS public.safety_tag_scans (
   safety_tag_id UUID NOT NULL REFERENCES public.safety_tags(id) ON DELETE CASCADE,
   finder_note TEXT,
   finder_contact TEXT,
+  lat DOUBLE PRECISION,
+  lng DOUBLE PRECISION,
+  delivery_status JSONB NOT NULL DEFAULT '{}'::jsonb,
+  is_resolved BOOLEAN NOT NULL DEFAULT false,
+  resolved_at TIMESTAMPTZ,
   scanned_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-GRANT SELECT ON public.safety_tag_scans TO authenticated;
+GRANT SELECT, UPDATE ON public.safety_tag_scans TO authenticated;
 GRANT INSERT ON public.safety_tag_scans TO anon, authenticated;
 GRANT ALL ON public.safety_tag_scans TO service_role;
 ALTER TABLE public.safety_tag_scans ENABLE ROW LEVEL SECURITY;
@@ -187,6 +192,25 @@ DO $$ BEGIN
     CREATE POLICY "owner reads own tag scans" ON public.safety_tag_scans
       FOR SELECT TO authenticated
       USING (
+        EXISTS (
+          SELECT 1 FROM public.safety_tags t
+          WHERE t.id = safety_tag_id AND t.user_id = auth.uid()
+        )
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'safety_tag_scans' AND policyname = 'owner updates own tag scans'
+  ) THEN
+    CREATE POLICY "owner updates own tag scans" ON public.safety_tag_scans
+      FOR UPDATE TO authenticated
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.safety_tags t
+          WHERE t.id = safety_tag_id AND t.user_id = auth.uid()
+        )
+      )
+      WITH CHECK (
         EXISTS (
           SELECT 1 FROM public.safety_tags t
           WHERE t.id = safety_tag_id AND t.user_id = auth.uid()
@@ -215,23 +239,49 @@ RETURNS TABLE (
 $$;
 GRANT EXECUTE ON FUNCTION public.check_safety_tag(TEXT) TO anon, authenticated;
 
-CREATE OR REPLACE FUNCTION public.notify_safety_tag(_token TEXT, _finder_note TEXT DEFAULT NULL, _finder_contact TEXT DEFAULT NULL)
-RETURNS BOOLEAN LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.notify_safety_tag(
+  _token TEXT,
+  _finder_note TEXT DEFAULT NULL,
+  _finder_contact TEXT DEFAULT NULL,
+  _lat DOUBLE PRECISION DEFAULT NULL,
+  _lng DOUBLE PRECISION DEFAULT NULL,
+  _delivery_status JSONB DEFAULT '{}'::jsonb
+)
+RETURNS JSONB LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-  _tag_id UUID;
+  _tag RECORD;
+  _scan_id UUID;
 BEGIN
-  SELECT id INTO _tag_id FROM public.safety_tags WHERE token = _token;
-  IF _tag_id IS NULL THEN
-    RETURN false;
+  SELECT id, person_name, token INTO _tag FROM public.safety_tags WHERE token = _token;
+  IF _tag.id IS NULL THEN
+    RETURN NULL;
   END IF;
 
-  INSERT INTO public.safety_tag_scans (safety_tag_id, finder_note, finder_contact)
-  VALUES (_tag_id, _finder_note, _finder_contact);
+  INSERT INTO public.safety_tag_scans (
+    safety_tag_id,
+    finder_note,
+    finder_contact,
+    lat,
+    lng,
+    delivery_status
+  ) VALUES (
+    _tag.id,
+    _finder_note,
+    _finder_contact,
+    _lat,
+    _lng,
+    COALESCE(_delivery_status, '{}'::jsonb)
+  ) RETURNING id INTO _scan_id;
 
-  RETURN true;
+  RETURN jsonb_build_object(
+    'scan_id', _scan_id,
+    'tag_id', _tag.id,
+    'person_name', _tag.person_name,
+    'token', _tag.token
+  );
 END;
 $$;
-GRANT EXECUTE ON FUNCTION public.notify_safety_tag(TEXT, TEXT, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.notify_safety_tag(TEXT, TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, JSONB) TO anon, authenticated, service_role;
 
 -- 8. Saved Places Table
 CREATE TABLE IF NOT EXISTS public.saved_places (

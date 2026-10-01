@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
+import { SafeTagAlertBanner } from "@/components/safetag-alert-banner";
 import { Button } from "@/components/ui/button";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import { supabase } from "@/integrations/supabase/client";
@@ -112,6 +113,7 @@ function Dashboard() {
           : "Personalized Goan Safety Intelligence"
       }
     >
+      <SafeTagAlertBanner />
       <div className="space-y-8 animate-in fade-in duration-500">
         {/* Top Bento Row: Separated Trip Overview Box & Standalone Weather Station Box */}
         <div className="w-full">
