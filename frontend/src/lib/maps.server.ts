@@ -71,6 +71,12 @@ export type OSRMStep = {
 
 export type OSRMRoute = InternalRoute;
 
+export type Waypoint = {
+  lat: number;
+  lng: number;
+  name?: string | undefined;
+};
+
 export type RouteStep = {
   instruction: string;
   distanceMeters: number;
@@ -79,6 +85,16 @@ export type RouteStep = {
   maneuverModifier?: string | undefined;
   name: string;
   location?: [number, number] | undefined; // [lat, lng]
+  legIndex?: number;
+};
+
+export type RouteLeg = {
+  legIndex: number;
+  fromName: string;
+  toName: string;
+  distanceMeters: number;
+  durationSeconds: number;
+  steps: RouteStep[];
 };
 
 export type ScoredRoute = {
@@ -96,7 +112,10 @@ export type ScoredRoute = {
   polyline: string;
   summary: string;
   steps: RouteStep[];
+  legs?: RouteLeg[];
   googleMapsUrl: string;
+  mode?: string;
+  waypoints?: Waypoint[];
 };
 
 function formatManeuverInstruction(step: OSRMStep): string {
@@ -137,53 +156,114 @@ function formatManeuverInstruction(step: OSRMStep): string {
 
 function scoreRoute(
   route: InternalRoute,
-  origin: { lat: number; lng: number },
-  destination: { lat: number; lng: number },
+  origin: { lat: number; lng: number; name?: string | undefined },
+  destination: { lat: number; lng: number; name?: string | undefined },
   safety: SafetyEvidence,
-) {
+  waypoints: Waypoint[] = [],
+  mode: string = "car",
+): ScoredRoute {
   const durationMin = Math.ceil(route.duration / 60);
   const distanceKm = Math.round(route.distance / 100) / 10;
-  const rawSteps = route.legs.flatMap((l) => l.steps || []);
-  const precomputedSteps = route.legs.flatMap((l) => l.routeSteps || []);
 
-  const steps: RouteStep[] =
-    precomputedSteps.length > 0
-      ? precomputedSteps
-      : rawSteps.map((s) => ({
-          instruction: formatManeuverInstruction(s),
-          distanceMeters: Math.round(s.distance ?? 0),
-          durationSeconds: Math.round(s.duration ?? 0),
-          maneuverType: s.maneuver.type ?? "continue",
-          maneuverModifier: s.maneuver.modifier,
-          name: s.name || "Road",
-          location: s.maneuver.location ? [s.maneuver.location[1], s.maneuver.location[0]] : undefined, // [lat, lng]
-        }));
+  const namedStops = [
+    origin.name || "Starting Point",
+    ...waypoints.map((w, idx) => w.name || `Stop ${idx + 1}`),
+    destination.name || "Destination",
+  ];
 
-  const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&travelmode=driving`;
+  const routeLegs: RouteLeg[] = (route.legs || []).map((l, idx) => {
+    const rawSteps = l.steps || [];
+    const precomputedSteps = l.routeSteps || [];
+    const legSteps: RouteStep[] =
+      precomputedSteps.length > 0
+        ? precomputedSteps.map((s) => ({ ...s, legIndex: idx }))
+        : rawSteps.map((s) => ({
+            instruction: formatManeuverInstruction(s),
+            distanceMeters: Math.round(s.distance ?? 0),
+            durationSeconds: Math.round(s.duration ?? 0),
+            maneuverType: s.maneuver.type ?? "continue",
+            maneuverModifier: s.maneuver.modifier,
+            name: s.name || "Road",
+            location: s.maneuver.location ? [s.maneuver.location[1], s.maneuver.location[0]] : undefined,
+            legIndex: idx,
+          }));
+
+    const legDist = legSteps.reduce((acc, s) => acc + s.distanceMeters, 0);
+    const legDur = legSteps.reduce((acc, s) => acc + s.durationSeconds, 0);
+
+    return {
+      legIndex: idx,
+      fromName: namedStops[idx] || `Stop ${idx}`,
+      toName: namedStops[idx + 1] || `Stop ${idx + 1}`,
+      distanceMeters: legDist > 0 ? legDist : route.distance,
+      durationSeconds: legDur > 0 ? legDur : route.duration,
+      steps: legSteps,
+    };
+  });
+
+  const steps: RouteStep[] = routeLegs.flatMap((l) => l.steps);
+
+  const gmapsMode =
+    mode === "walking"
+      ? "walking"
+      : mode === "bicycle"
+        ? "bicycling"
+        : mode === "motor_scooter"
+          ? "two-wheeler"
+          : "driving";
+  const waypointsParam =
+    waypoints.length > 0
+      ? `&waypoints=${waypoints.map((w) => `${w.lat},${w.lng}`).join("|")}`
+      : "";
+  const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}${waypointsParam}&travelmode=${gmapsMode}`;
+
+  const reasons = [...safety.reasons];
+  if (mode === "walking" || mode === "bicycle") {
+    reasons.push(
+      "Road safety index is estimated for vehicular travel; walking and cycling conditions may vary based on pedestrian infrastructure.",
+    );
+  }
+  if (waypoints.length > 0) {
+    reasons.push(
+      `Multi-stop trip routed through ${waypoints.length} intermediate stop${waypoints.length > 1 ? "s" : ""}; distance and time summed across all legs.`,
+    );
+  }
+  reasons.push(
+    "Distance and time are compared before rounding. Times exclude live traffic.",
+    "Google Maps may choose a different path; the displayed path and turn list are the route assessed here.",
+  );
 
   return {
-    durationMin,
+    label: "",
+    kind: "fastest",
     distanceKm,
+    durationMin,
     distanceMeters: route.distance,
     durationSeconds: route.duration,
     safety,
-    reasons: [
-      ...safety.reasons,
-      "Distance and time are compared before rounding. Times exclude live traffic.",
-      "Google Maps may choose a different path; the displayed path and turn list are the route assessed here.",
-    ],
+    isFastest: false,
+    isShortest: false,
+    isSafest: false,
+    reasons,
     summary: route.legs?.[0]?.summary || steps.find((s) => s.name)?.name || "Local Road Route",
     polyline: JSON.stringify(route.geometry.coordinates.map((c) => [c[1], c[0]])),
     steps,
+    legs: routeLegs,
     googleMapsUrl,
+    mode,
+    waypoints,
   };
 }
 
 async function fetchOSRMRoutes(
   origin: { lat: number; lng: number },
   destination: { lat: number; lng: number },
+  waypoints: Waypoint[] = [],
 ): Promise<InternalRoute[]> {
-  const url = `${(process.env["OSRM_BASE_URL"] || "https://router.project-osrm.org").replace(/\/$/, "")}/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&alternatives=3&steps=true&annotations=nodes,distance`;
+  const coordsList = [origin, ...waypoints, destination];
+  const coordsStr = coordsList.map((p) => `${p.lng},${p.lat}`).join(";");
+  const baseUrl = (process.env["OSRM_BASE_URL"] || "https://router.project-osrm.org").replace(/\/$/, "");
+  const url = `${baseUrl}/route/v1/driving/${coordsStr}?overview=full&geometries=geojson&alternatives=3&steps=true&annotations=nodes,distance`;
   const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
 
   if (!response.ok) {
@@ -220,19 +300,21 @@ async function fetchOSRMRoutes(
 }
 
 export async function computeSafeRoutes(
-  origin: { lat: number; lng: number },
-  destination: { lat: number; lng: number },
-  isNight: boolean,
+  origin: { lat: number; lng: number; name?: string | undefined },
+  destination: { lat: number; lng: number; name?: string | undefined },
+  isNight: boolean = false,
+  waypoints: Waypoint[] = [],
+  mode: string = "car",
 ): Promise<ScoredRoute[]> {
   const provider = (process.env["ROUTING_PROVIDER"] || "osrm").toLowerCase();
   let raw: InternalRoute[] = [];
 
   if (provider === "valhalla") {
     try {
-      raw = await fetchValhallaRoutes(origin, destination);
+      raw = await fetchValhallaRoutes(origin, destination, waypoints, mode);
       if (raw.length === 0) {
         console.warn("[routing] Valhalla returned 0 routes, falling back to OSRM");
-        raw = await fetchOSRMRoutes(origin, destination);
+        raw = await fetchOSRMRoutes(origin, destination, waypoints);
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -240,10 +322,10 @@ export async function computeSafeRoutes(
         throw err;
       }
       console.error("[routing] Valhalla routing failed, falling back to OSRM:", err);
-      raw = await fetchOSRMRoutes(origin, destination);
+      raw = await fetchOSRMRoutes(origin, destination, waypoints);
     }
   } else {
-    raw = await fetchOSRMRoutes(origin, destination);
+    raw = await fetchOSRMRoutes(origin, destination, waypoints);
   }
 
   if (raw.length === 0) return [];
@@ -288,7 +370,14 @@ export async function computeSafeRoutes(
     /* Never substitute fabricated safety scores for missing map data. */
   }
   const candidates = unique.map((r) =>
-    scoreRoute(r, origin, destination, assessRoadConditions(r.legs, ways, isNight)),
+    scoreRoute(
+      r,
+      origin,
+      destination,
+      assessRoadConditions(r.legs, ways, isNight),
+      waypoints,
+      mode,
+    ),
   );
   const best = routePreferences(candidates);
   return candidates.map((r, i) => ({

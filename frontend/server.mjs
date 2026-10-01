@@ -56,6 +56,8 @@ const server = http.createServer((req, res) => {
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https:",
       "connect-src 'self' https: wss: https://translate.googleapis.com https://translate-pa.googleapis.com",
+      "worker-src 'self' blob:",
+      "child-src 'self' blob:",
       "frame-src 'self' https://translate.google.com https://translate.googleapis.com",
       "frame-ancestors 'none'",
       "object-src 'none'",

@@ -37,3 +37,19 @@ backend/
    - Google Gemini 2.5 Flash for itinerary ranking.
    - OSRM (Open Source Routing Machine) for road distance matrices.
    - Photon & Overpass for geocoding and 1.5 km corridor point-of-interest discovery.
+
+---
+
+## 🗄️ Database Migrations
+
+Database migrations are stored sequentially in `supabase/migrations/`.
+To apply migrations to your Supabase project:
+
+1. **Via Supabase CLI**:
+   ```bash
+   npx supabase db push
+   ```
+2. **Via Supabase Dashboard**:
+   Copy and execute the contents of the latest migration SQL file (e.g. `supabase/migrations/20261001210000_bucket_list_and_saved_routes.sql`) in the **SQL Editor** tab of your Supabase dashboard.
+   The migration is idempotent (`IF NOT EXISTS` / deduplication before index creation) and safe to run on existing deployments.
+

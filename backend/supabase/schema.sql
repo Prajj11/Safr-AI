@@ -243,11 +243,37 @@ CREATE TABLE IF NOT EXISTS public.saved_places (
   image_url TEXT,
   lat DOUBLE PRECISION,
   lng DOUBLE PRECISION,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  status TEXT NOT NULL DEFAULT 'want' CHECK (status IN ('want', 'planned', 'visited')),
+  visited_at TIMESTAMPTZ,
+  priority SMALLINT NOT NULL DEFAULT 0,
+  planned_date DATE,
+  tags TEXT[] NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.saved_places TO authenticated;
 GRANT ALL ON public.saved_places TO service_role;
 ALTER TABLE public.saved_places ENABLE ROW LEVEL SECURITY;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_places_user_place_name
+  ON public.saved_places (user_id, lower(place_name));
+
+CREATE INDEX IF NOT EXISTS idx_saved_places_user_created_at
+  ON public.saved_places (user_id, created_at DESC);
+
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_saved_places_updated_at ON public.saved_places;
+CREATE TRIGGER trigger_saved_places_updated_at
+  BEFORE UPDATE ON public.saved_places
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
 
 DO $$ BEGIN
   IF NOT EXISTS (
@@ -255,6 +281,37 @@ DO $$ BEGIN
   ) THEN
     CREATE POLICY "Users can manage their own saved places"
       ON public.saved_places
+      FOR ALL
+      TO authenticated
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- 8b. Saved Routes Table
+CREATE TABLE IF NOT EXISTS public.saved_routes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  mode TEXT NOT NULL DEFAULT 'car',
+  origin JSONB NOT NULL,
+  destination JSONB NOT NULL,
+  waypoints JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.saved_routes TO authenticated;
+GRANT ALL ON public.saved_routes TO service_role;
+ALTER TABLE public.saved_routes ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_saved_routes_user_created_at
+  ON public.saved_routes (user_id, created_at DESC);
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'saved_routes' AND policyname = 'Users can manage their own saved routes'
+  ) THEN
+    CREATE POLICY "Users can manage their own saved routes"
+      ON public.saved_routes
       FOR ALL
       TO authenticated
       USING (auth.uid() = user_id)

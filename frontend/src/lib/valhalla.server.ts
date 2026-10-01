@@ -239,35 +239,47 @@ async function fetchValhallaTripBundle(
   return rawTrips;
 }
 
+const VALHALLA_COSTINGS: Record<string, string> = {
+  car: "auto",
+  motor_scooter: "motor_scooter",
+  bicycle: "bicycle",
+  walking: "pedestrian",
+};
+
 export async function fetchValhallaRoutes(
   origin: Coordinate,
   destination: Coordinate,
+  waypoints: Array<Coordinate & { name?: string | undefined }> = [],
+  mode: string = "car",
 ): Promise<InternalRoute[]> {
   const baseUrl = (process.env["VALHALLA_BASE_URL"] || "https://valhalla1.openstreetmap.de").replace(
     /\/$/,
     "",
   );
 
+  const costing = VALHALLA_COSTINGS[mode] || "auto";
+
   const locations = [
     { lat: origin.lat, lon: origin.lng },
+    ...waypoints.map((w) => ({ lat: w.lat, lon: w.lng, type: "break" as const })),
     { lat: destination.lat, lon: destination.lng },
   ];
   const directionsOptions = { units: "kilometers", language: "en-US" };
 
-  // 1. Fastest-oriented (default auto costing with alternates: 2)
+  // 1. Fastest-oriented
   const reqFastest = {
     locations,
-    costing: "auto",
+    costing,
     alternates: 2,
     directions_options: directionsOptions,
   };
 
-  // 2. Distance-oriented (auto costing with shortest: true)
+  // 2. Distance-oriented
   const reqShortest = {
     locations,
-    costing: "auto",
+    costing,
     costing_options: {
-      auto: {
+      [costing]: {
         shortest: true,
       },
     },
@@ -275,12 +287,12 @@ export async function fetchValhallaRoutes(
     directions_options: directionsOptions,
   };
 
-  // 3. Different road choice (lower use_highways to encourage secondary/local roads)
+  // 3. Different road choice (lower use_highways for secondary/local roads where available)
   const reqLowHighways = {
     locations,
-    costing: "auto",
+    costing,
     costing_options: {
-      auto: {
+      [costing]: {
         use_highways: 0.1,
       },
     },
@@ -321,39 +333,62 @@ export async function fetchValhallaRoutes(
     const trips = res.value;
 
     for (const trip of trips) {
-      const leg = trip.legs[0]!;
-      const coords = decodePolyline6(leg.shape);
-      if (coords.length < 2) continue;
+      if (!trip.legs || trip.legs.length === 0) continue;
 
-      const validCoords = coords.every(
-        ([lng, lat]) =>
-          Number.isFinite(lat) &&
-          Number.isFinite(lng) &&
-          Math.abs(lat) <= 90 &&
-          Math.abs(lng) <= 180,
-      );
-      if (!validCoords) continue;
+      const allCoords: [number, number][] = [];
+      let valid = true;
 
-      const startCoord = coords[0]!;
-      const endCoord = coords[coords.length - 1]!;
-      if (
-        distanceKm(origin, { lat: startCoord[1], lng: startCoord[0] }) > 1.0 ||
-        distanceKm(destination, { lat: endCoord[1], lng: endCoord[0] }) > 1.0
-      ) {
-        throw new Error(
-          "A location is more than 1 km from a routable road. Choose its road entrance or a nearby accessible starting point.",
+      for (let legIdx = 0; legIdx < trip.legs.length; legIdx++) {
+        const leg = trip.legs[legIdx]!;
+        const legCoords = decodePolyline6(leg.shape);
+        if (legCoords.length < 2) {
+          valid = false;
+          break;
+        }
+
+        const validCoords = legCoords.every(
+          ([lng, lat]) =>
+            Number.isFinite(lat) &&
+            Number.isFinite(lng) &&
+            Math.abs(lat) <= 90 &&
+            Math.abs(lng) <= 180,
         );
+        if (!validCoords) {
+          valid = false;
+          break;
+        }
+
+        const expectedStart = legIdx === 0 ? origin : waypoints[legIdx - 1]!;
+        const expectedEnd = legIdx === trip.legs.length - 1 ? destination : waypoints[legIdx]!;
+        const startCoord = legCoords[0]!;
+        const endCoord = legCoords[legCoords.length - 1]!;
+        if (
+          distanceKm(expectedStart, { lat: startCoord[1], lng: startCoord[0] }) > 1.0 ||
+          distanceKm(expectedEnd, { lat: endCoord[1], lng: endCoord[0] }) > 1.0
+        ) {
+          throw new Error(
+            "A location is more than 1 km from a routable road. Choose its road entrance or a nearby accessible starting point.",
+          );
+        }
+
+        if (allCoords.length === 0) {
+          allCoords.push(...legCoords);
+        } else {
+          allCoords.push(...legCoords.slice(1));
+        }
       }
+
+      if (!valid || allCoords.length < 2) continue;
 
       const distMeters = Math.round(trip.summary.length * 1000);
       const durSeconds = Math.round(trip.summary.time);
 
       const isDup = uniqueCandidates.some((c) =>
-        areRoutesDuplicate(c.coords, c.distMeters, c.durSeconds, coords, distMeters, durSeconds),
+        areRoutesDuplicate(c.coords, c.distMeters, c.durSeconds, allCoords, distMeters, durSeconds),
       );
 
       if (!isDup) {
-        uniqueCandidates.push({ trip, coords, distMeters, durSeconds });
+        uniqueCandidates.push({ trip, coords: allCoords, distMeters, durSeconds });
         counts[reqName]++;
       }
     }
@@ -367,90 +402,94 @@ export async function fetchValhallaRoutes(
 
   const internalRoutes: InternalRoute[] = await Promise.all(
     uniqueCandidates.map(async ({ trip, coords, distMeters, durSeconds }) => {
-      const leg = trip.legs[0]!;
+      const processedLegs = await Promise.all(
+        trip.legs.map(async (leg, legIdx) => {
+          const legCoords = decodePolyline6(leg.shape);
+          const routeSteps: RouteStep[] = (leg.maneuvers || []).map((m) => {
+            const beginIdx =
+              typeof m.begin_shape_index === "number" &&
+              m.begin_shape_index >= 0 &&
+              m.begin_shape_index < legCoords.length
+                ? m.begin_shape_index
+                : 0;
+            const pt = legCoords[beginIdx];
+            const location: [number, number] | undefined = pt ? [pt[1], pt[0]] : undefined;
+            const name = m.street_names?.[0] || "the road";
 
-      const routeSteps: RouteStep[] = (leg.maneuvers || []).map((m) => {
-        const beginIdx =
-          typeof m.begin_shape_index === "number" &&
-          m.begin_shape_index >= 0 &&
-          m.begin_shape_index < coords.length
-            ? m.begin_shape_index
-            : 0;
-        const pt = coords[beginIdx];
-        const location: [number, number] | undefined = pt ? [pt[1], pt[0]] : undefined;
-        const name = m.street_names?.[0] || "the road";
+            return {
+              instruction: m.instruction || `Continue along ${name}`,
+              distanceMeters: Math.round((m.length ?? 0) * 1000),
+              durationSeconds: Math.round(m.time ?? 0),
+              maneuverType: mapValhallaManeuverType(m.type),
+              maneuverModifier: undefined,
+              name,
+              location,
+              legIndex: legIdx,
+            };
+          });
 
-        return {
-          instruction: m.instruction || `Continue along ${name}`,
-          distanceMeters: Math.round((m.length ?? 0) * 1000),
-          durationSeconds: Math.round(m.time ?? 0),
-          maneuverType: mapValhallaManeuverType(m.type),
-          maneuverModifier: undefined,
-          name,
-          location,
-        };
-      });
+          let wayIds: number[] = [];
+          let edgeDistances: number[] = [];
 
-      let wayIds: number[] = [];
-      let edgeDistances: number[] = [];
+          try {
+            const traceRes = await fetch(`${baseUrl}/trace_attributes`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                "User-Agent": "Safr/1.0 (Goa travel planner; https://github.com/Prajj11/Ideas)",
+              },
+              body: JSON.stringify({
+                encoded_polyline: leg.shape,
+                costing,
+                shape_match: "map_snap",
+              }),
+              signal: AbortSignal.timeout(15000),
+            });
 
-      try {
-        const traceRes = await fetch(`${baseUrl}/trace_attributes`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            "User-Agent": "Safr/1.0 (Goa travel planner; https://github.com/Prajj11/Ideas)",
-          },
-          body: JSON.stringify({
-            encoded_polyline: leg.shape,
-            costing: "auto",
-            shape_match: "map_snap",
-          }),
-          signal: AbortSignal.timeout(15000),
-        });
-
-        if (traceRes.ok) {
-          const traceData = (await traceRes.json()) as {
-            edges?: Array<{ way_id?: number; length?: number }>;
-          };
-          if (Array.isArray(traceData.edges) && traceData.edges.length > 0) {
-            wayIds = traceData.edges.map((e) => e.way_id || 0);
-            edgeDistances = traceData.edges.map((e) => Math.round((e.length ?? 0) * 1000));
+            if (traceRes.ok) {
+              const traceData = (await traceRes.json()) as {
+                edges?: Array<{ way_id?: number; length?: number }>;
+              };
+              if (Array.isArray(traceData.edges) && traceData.edges.length > 0) {
+                wayIds = traceData.edges.map((e) => e.way_id || 0);
+                edgeDistances = traceData.edges.map((e) => Math.round((e.length ?? 0) * 1000));
+              }
+            } else {
+              console.warn(
+                `[valhalla] trace_attributes failed with status ${traceRes.status}; safety data will be reported as unknown`,
+              );
+            }
+          } catch (traceErr) {
+            console.warn(
+              "[valhalla] trace_attributes network or timeout error; safety data will be reported as unknown:",
+              traceErr,
+            );
           }
-        } else {
-          console.warn(
-            `[valhalla] trace_attributes failed with status ${traceRes.status}; safety data will be reported as unknown`,
-          );
-        }
-      } catch (traceErr) {
-        console.warn(
-          "[valhalla] trace_attributes network or timeout error; safety data will be reported as unknown:",
-          traceErr,
-        );
-      }
 
-      const hasCompleteAnnotation =
-        wayIds.length > 0 &&
-        edgeDistances.length > 0 &&
-        wayIds.length === edgeDistances.length;
+          const hasCompleteAnnotation =
+            wayIds.length > 0 &&
+            edgeDistances.length > 0 &&
+            wayIds.length === edgeDistances.length;
 
-      const summary =
-        leg.maneuvers?.find((m) => m.street_names?.[0])?.street_names?.[0] ||
-        routeSteps.find((s) => s.name && s.name !== "the road")?.name ||
-        "Local Road Route";
+          const summary =
+            leg.maneuvers?.find((m) => m.street_names?.[0])?.street_names?.[0] ||
+            routeSteps.find((s) => s.name && s.name !== "the road")?.name ||
+            (trip.legs.length > 1 ? `Leg ${legIdx + 1}` : "Local Road Route");
+
+          return {
+            summary,
+            routeSteps,
+            annotation: hasCompleteAnnotation ? { wayIds, distance: edgeDistances } : undefined,
+          };
+        }),
+      );
 
       return {
         distance: distMeters,
         duration: durSeconds,
         geometry: { coordinates: coords },
-        legs: [
-          {
-            summary,
-            routeSteps,
-            annotation: hasCompleteAnnotation ? { wayIds, distance: edgeDistances } : undefined,
-          },
-        ],
+        legs: processedLegs,
       };
     }),
   );

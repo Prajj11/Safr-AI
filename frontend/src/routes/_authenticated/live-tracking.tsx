@@ -1,3 +1,4 @@
+import "maplibre-gl/dist/maplibre-gl.css";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import type { Map as MapLibreMap, Marker as MapLibreMarker, IControl } from "maplibre-gl";
@@ -14,6 +15,7 @@ import {
   Battery,
   Signal,
   Radio,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -60,6 +62,26 @@ function LiveTrackingPage() {
   // Map style & 3D state (session only)
   const [activeStyleId, setActiveStyleId] = useState(getDefaultStyleId);
   const [is3d, setIs3d] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [isLoadingMap, setIsLoadingMap] = useState(true);
+  const [mapLoadError, setMapLoadError] = useState(false);
+
+  const appliedStyleIdRef = useRef<string>(getDefaultStyleId());
+  const activeStyleIdRef = useRef(activeStyleId);
+  activeStyleIdRef.current = activeStyleId;
+  const is3dRef = useRef(is3d);
+  is3dRef.current = is3d;
+
+  const handleRetryMap = () => {
+    setMapLoadError(false);
+    setIsLoadingMap(true);
+    const map = mapRef.current;
+    if (map) {
+      const curStyle = MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ?? MAP_STYLES[0]!;
+      appliedStyleIdRef.current = curStyle.id;
+      map.setStyle(curStyle.style);
+    }
+  };
 
   // Initialize MapLibre Map
   useEffect(() => {
@@ -71,7 +93,8 @@ function LiveTrackingPage() {
       maplibreRef.current = ml;
       injectMapCSS();
 
-      const initStyle = MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
+      const initStyle = MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ?? MAP_STYLES[0]!;
+      appliedStyleIdRef.current = initStyle.id;
 
       const map = new ml.Map({
         container: mapElRef.current,
@@ -87,6 +110,12 @@ function LiveTrackingPage() {
 
       mapRef.current = map;
 
+      const loadTimeout = setTimeout(() => {
+        if (!map.loaded()) {
+          setMapLoadError(true);
+        }
+      }, 8000);
+
       map.addControl(new ml.NavigationControl({ showCompass: true, showZoom: true }), "top-right");
       map.addControl(new ml.FullscreenControl(), "top-right");
 
@@ -99,7 +128,7 @@ function LiveTrackingPage() {
         btn.textContent = s.icon;
         btn.title = s.label;
         btn.setAttribute("aria-label", `Map style: ${s.label}`);
-        btn.setAttribute("aria-pressed", s.id === activeStyleId ? "true" : "false");
+        btn.setAttribute("aria-pressed", s.id === activeStyleIdRef.current ? "true" : "false");
         btn.addEventListener("click", () => {
           setActiveStyleId(s.id);
         });
@@ -157,23 +186,42 @@ function LiveTrackingPage() {
       }
       map.addControl(new ExtraControlsControl() as IControl, "top-left");
 
+      map.on("error", (e) => {
+        console.error("[map]", e.error);
+        if (!map.isStyleLoaded() || !map.loaded()) {
+          setMapLoadError(true);
+        }
+      });
+
       map.on("style.load", () => {
-        const curStyle = MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
-        addCustomLayers(map, { is3d, isVector: curStyle.isVector });
+        const curStyle = MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ?? MAP_STYLES[0]!;
+        addCustomLayers(map, { is3d: is3dRef.current, isVector: curStyle.isVector });
       });
 
       map.on("load", () => {
-        addCustomLayers(map, { is3d: false, isVector: initStyle.isVector });
+        clearTimeout(loadTimeout);
+        setIsLoadingMap(false);
+        setMapLoadError(false);
+        setReady(true);
 
-        // Add initial member markers
+        // Add initial member markers using DOM elements (never HTML strings)
         INITIAL_MEMBERS.forEach((m) => {
           const el = document.createElement("div");
           el.style.cssText = "background-color:#06b6d4;color:white;width:32px;height:32px;border-radius:50%;border:3px solid white;box-shadow:0 4px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px;";
           el.textContent = m.name.charAt(0);
 
+          const popupContent = document.createElement("div");
+          const nameEl = document.createElement("b");
+          nameEl.textContent = m.name;
+          const phoneEl = document.createElement("div");
+          phoneEl.textContent = m.phone;
+          const batteryEl = document.createElement("div");
+          batteryEl.textContent = `Battery: ${m.battery}%`;
+          popupContent.append(nameEl, phoneEl, batteryEl);
+
           const marker = new ml.Marker({ element: el })
             .setLngLat([m.lng, m.lat])
-            .setPopup(new ml.Popup({ offset: 16 }).setHTML(`<b>${m.name}</b><br>${m.phone}<br>Battery: ${m.battery}%`))
+            .setPopup(new ml.Popup({ offset: 16 }).setDOMContent(popupContent))
             .addTo(map);
           memberMarkersRef.current[m.id] = marker;
         });
@@ -191,22 +239,25 @@ function LiveTrackingPage() {
   // Style switching
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !ready) return;
 
-    const entry = MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
-    map.setStyle(entry.style);
+    if (activeStyleId !== appliedStyleIdRef.current) {
+      appliedStyleIdRef.current = activeStyleId;
+      const entry = MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
+      map.setStyle(entry.style);
+    }
 
     const btns = map.getContainer().querySelectorAll<HTMLButtonElement>(".safr-style-btn");
     btns.forEach((btn, i) => {
       const s = MAP_STYLES[i];
       btn.setAttribute("aria-pressed", s?.id === activeStyleId ? "true" : "false");
     });
-  }, [activeStyleId]);
+  }, [activeStyleId, ready]);
 
   // 3D toggle
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !ready) return;
 
     const curStyle = MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
 
@@ -216,7 +267,7 @@ function LiveTrackingPage() {
 
     const btn = map.getContainer().querySelector<HTMLButtonElement>(".safr-map-ctrl-btn");
     btn?.setAttribute("aria-pressed", is3d ? "true" : "false");
-  }, [is3d, activeStyleId]);
+  }, [is3d, ready, activeStyleId]);
 
   // Track User Location — keep existing "me" marker logic using DOM elements
   useEffect(() => {
@@ -297,10 +348,24 @@ function LiveTrackingPage() {
       </div>
 
       {/* Map Container */}
-      <div
-        ref={mapElRef}
-        className="mt-6 h-80 sm:h-96 w-full overflow-hidden rounded-3xl border border-border/60 bg-secondary/40 shadow-inner z-0 relative"
-      />
+      <div className="relative mt-6 h-80 sm:h-96 w-full overflow-hidden rounded-3xl border border-border/60 bg-secondary/40 shadow-inner z-0">
+        <div ref={mapElRef} className="h-full w-full" />
+        {isLoadingMap && !mapLoadError && (
+          <div className="absolute inset-0 pointer-events-none bg-muted/30 backdrop-blur-[2px] animate-pulse flex items-center justify-center">
+            <span className="text-xs text-muted-foreground font-mono flex items-center gap-2">
+              <Loader2 className="size-4 animate-spin text-primary" /> Loading live map…
+            </span>
+          </div>
+        )}
+        {mapLoadError && (
+          <div className="absolute inset-0 bg-background/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-10">
+            <p className="text-sm font-semibold text-foreground mb-3">Map tiles could not be loaded.</p>
+            <Button size="sm" variant="outline" onClick={handleRetryMap} className="gap-2 rounded-xl text-xs font-bold">
+              <RotateCcw className="size-3.5" /> Retry
+            </Button>
+          </div>
+        )}
+      </div>
 
       <p role="status" className="mt-4 rounded-2xl border border-border p-4 text-sm">
         Family device sharing is not configured. No family locations or battery levels are

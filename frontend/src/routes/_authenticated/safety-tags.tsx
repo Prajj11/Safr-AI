@@ -263,6 +263,14 @@ function SafetyTags() {
               separated in crowded markets or beaches, finders can notify you instantly without ever
               seeing your private phone number or hotel address.
             </p>
+            <div className="mt-3 rounded-2xl bg-secondary/50 border border-border/40 p-3 text-[11px] text-muted-foreground flex items-start gap-2 max-w-xl">
+              <Info className="size-4 text-primary shrink-0 mt-0.5" />
+              <span>
+                <strong>Twilio WhatsApp Sandbox note:</strong> For alerts via WhatsApp sandbox, the recipient
+                guardian number must have joined your Twilio sandbox keyword. Sandbox memberships expire after
+                inactivity—re-send the join code if alerts stop arriving.
+              </span>
+            </div>
           </div>
 
           <Button

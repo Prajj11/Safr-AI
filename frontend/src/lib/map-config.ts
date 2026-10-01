@@ -114,58 +114,82 @@ export function addCustomLayers(
     routeDataFn?: () => void;
   },
 ): void {
-  // 1) 3D buildings (only on vector styles that have a "building" source-layer)
+  if (!map.isStyleLoaded()) {
+    map.once("idle", () => {
+      addCustomLayers(map, opts);
+    });
+    return;
+  }
+
+  const style = map.getStyle();
+  if (!style) return;
+
+  // Find first symbol layer to insert 3D buildings and hillshade below labels
+  let firstSymbolId: string | undefined;
+  if (style.layers) {
+    for (const layer of style.layers) {
+      if (layer.type === "symbol") {
+        firstSymbolId = layer.id;
+        break;
+      }
+    }
+  }
+
+  // 1) 3D buildings (only on vector styles that have a vector source)
   if (opts.isVector) {
     try {
-      // Check if a "building" source-layer exists in any source
-      // The layer only renders at zoom >= 15
-      if (!map.getLayer("safr-3d-buildings")) {
-        map.addLayer({
-          id: "safr-3d-buildings",
-          type: "fill-extrusion",
-          source: "openmaptiles",
-          "source-layer": "building",
-          minzoom: 15,
-          paint: {
-            "fill-extrusion-color": "hsl(35, 12%, 82%)",
-            "fill-extrusion-height": ["coalesce", ["get", "render_height"], ["get", "height"], 5],
-            "fill-extrusion-base": [
-              "coalesce",
-              ["get", "render_min_height"],
-              0,
-            ],
-            "fill-extrusion-opacity": 0.8,
+      let vectorSourceName: string | undefined;
+      if (style.sources) {
+        for (const [sourceName, sourceDef] of Object.entries(style.sources)) {
+          if (sourceDef && (sourceDef as { type?: string }).type === "vector") {
+            vectorSourceName = sourceName;
+            break;
+          }
+        }
+      }
+
+      if (vectorSourceName && !map.getLayer("safr-3d-buildings")) {
+        map.addLayer(
+          {
+            id: "safr-3d-buildings",
+            type: "fill-extrusion",
+            source: vectorSourceName,
+            "source-layer": "building",
+            minzoom: 15,
+            paint: {
+              "fill-extrusion-color": "hsl(35, 12%, 82%)",
+              "fill-extrusion-height": ["coalesce", ["get", "render_height"], ["get", "height"], 5],
+              "fill-extrusion-base": [
+                "coalesce",
+                ["get", "render_min_height"],
+                0,
+              ],
+              "fill-extrusion-opacity": 0.8,
+            },
           },
-        });
+          firstSymbolId,
+        );
       }
     } catch {
       // source-layer or source doesn't exist in this style — skip silently
     }
   }
 
-  // 2) Terrain DEM + hillshade (only active when 3D is toggled on)
+  // 2) Terrain DEM + hillshade (only added and active when 3D is toggled on)
   if (ENABLE_TERRAIN) {
     try {
-      if (!map.getSource(TERRAIN_SOURCE_ID)) {
-        map.addSource(TERRAIN_SOURCE_ID, {
-          type: "raster-dem",
-          tiles: [TERRAIN_TILES_URL],
-          tileSize: 256,
-          encoding: "terrarium",
-          maxzoom: 15,
-        });
-      }
-
       if (opts.is3d) {
+        if (!map.getSource(TERRAIN_SOURCE_ID)) {
+          map.addSource(TERRAIN_SOURCE_ID, {
+            type: "raster-dem",
+            tiles: [TERRAIN_TILES_URL],
+            tileSize: 256,
+            encoding: "terrarium",
+            maxzoom: 15,
+          });
+        }
+
         if (!map.getLayer("safr-hillshade")) {
-          // Insert hillshade under the first symbol layer (labels stay on top)
-          let beforeId: string | undefined;
-          for (const layer of map.getStyle().layers) {
-            if (layer.type === "symbol") {
-              beforeId = layer.id;
-              break;
-            }
-          }
           map.addLayer(
             {
               id: "safr-hillshade",
@@ -177,7 +201,7 @@ export function addCustomLayers(
                 "hillshade-illumination-direction": 315,
               },
             },
-            beforeId,
+            firstSymbolId,
           );
         } else {
           map.setLayoutProperty("safr-hillshade", "visibility", "visible");
@@ -187,13 +211,14 @@ export function addCustomLayers(
         if (map.getLayer("safr-hillshade")) {
           map.setLayoutProperty("safr-hillshade", "visibility", "none");
         }
-        map.setTerrain(null);
+        if (map.getTerrain()) {
+          map.setTerrain(null);
+        }
       }
     } catch {
       // DEM tiles unavailable — skip terrain silently
     }
   }
-
 
   // 3) Route arrow image
   addArrowImage(map);

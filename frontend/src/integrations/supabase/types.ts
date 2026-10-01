@@ -150,7 +150,13 @@ export type Database = {
           lng: number | null
           notes: string | null
           place_name: string
+          planned_date: string | null
+          priority: number
+          status: "want" | "planned" | "visited"
+          tags: string[]
+          updated_at: string
           user_id: string
+          visited_at: string | null
         }
         Insert: {
           category?: string
@@ -161,7 +167,13 @@ export type Database = {
           lng?: number | null
           notes?: string | null
           place_name: string
+          planned_date?: string | null
+          priority?: number
+          status?: "want" | "planned" | "visited"
+          tags?: string[]
+          updated_at?: string
           user_id: string
+          visited_at?: string | null
         }
         Update: {
           category?: string
@@ -172,7 +184,46 @@ export type Database = {
           lng?: number | null
           notes?: string | null
           place_name?: string
+          planned_date?: string | null
+          priority?: number
+          status?: "want" | "planned" | "visited"
+          tags?: string[]
+          updated_at?: string
           user_id?: string
+          visited_at?: string | null
+        }
+        Relationships: []
+      }
+      saved_routes: {
+        Row: {
+          created_at: string
+          destination: Json
+          id: string
+          mode: string
+          name: string
+          origin: Json
+          user_id: string
+          waypoints: Json
+        }
+        Insert: {
+          created_at?: string
+          destination: Json
+          id?: string
+          mode?: string
+          name: string
+          origin: Json
+          user_id: string
+          waypoints?: Json
+        }
+        Update: {
+          created_at?: string
+          destination?: Json
+          id?: string
+          mode?: string
+          name?: string
+          origin?: Json
+          user_id?: string
+          waypoints?: Json
         }
         Relationships: []
       }
