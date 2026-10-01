@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CheckCircle2, ShieldAlert, ShieldCheck, Phone, ArrowLeft, Send, Loader2 } from "lucide-react";
+import { CheckCircle2, ShieldAlert, ShieldCheck, Phone, ArrowLeft, Send, Loader2, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -26,11 +26,33 @@ export const Route = createFileRoute("/t/$token")({
 const categoryLabel = (c: string) =>
   c === "senior" ? "an elderly traveller" : c === "kid" ? "a child" : "a traveller";
 
+async function getPositionWithTimeout(timeoutMs = 2500): Promise<{ lat: number; lng: number } | null> {
+  if (typeof window === "undefined" || !navigator.geolocation) return null;
+  return new Promise((resolve) => {
+    let timer: number | undefined;
+    const finish = (pos: GeolocationPosition | null) => {
+      if (timer) clearTimeout(timer);
+      if (pos) {
+        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      } else {
+        resolve(null);
+      }
+    };
+    timer = window.setTimeout(() => finish(null), timeoutMs);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => finish(pos),
+      () => finish(null),
+      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 10000 },
+    );
+  });
+}
+
 function TagPage() {
   const { token } = Route.useParams();
   const [note, setNote] = useState("");
   const [contact, setContact] = useState("");
   const [sent, setSent] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["public-tag-check", token],
@@ -44,15 +66,29 @@ function TagPage() {
 
   const notify = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc("notify_safety_tag", {
-        _token: token,
-        _finder_note: note.trim() || null,
-        _finder_contact: contact.trim() || null,
+      setErrorMessage(null);
+      const coords = await getPositionWithTimeout(2500);
+      const res = await fetch(`/api/tags/${encodeURIComponent(token)}/alert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location: note.trim() || null,
+          finderContact: contact.trim() || null,
+          lat: coords?.lat ?? null,
+          lng: coords?.lng ?? null,
+        }),
       });
-      if (error) throw error;
-      return data;
+
+      const json = (await res.json()) as { success?: boolean; error?: string };
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Could not send alert to guardian.");
+      }
+      return json;
     },
     onSuccess: () => setSent(true),
+    onError: (err) => {
+      setErrorMessage(err instanceof Error ? err.message : "Failed to send alert.");
+    },
   });
 
   return (
@@ -76,7 +112,7 @@ function TagPage() {
             <ShieldAlert className="mx-auto size-12 text-destructive" />
             <h1 className="mt-4 text-2xl font-bold font-display tracking-tight">Tag Not Found or Inactive</h1>
             <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              This safety tag OTP code is not registered or has expired. If someone needs urgent assistance in Goa, dial emergency services immediately.
+              This safety tag code is not registered or has expired. If someone needs urgent assistance in Goa, dial emergency services immediately.
             </p>
             <div className="mt-6 space-y-2">
               <a
@@ -115,6 +151,21 @@ function TagPage() {
               You've found <strong>{categoryLabel(data.category)}</strong> registered with an active travel group in Goa.
               Guardian contact details are kept strictly private to protect traveler security. Tap below to send them an instant location and status alert.
             </p>
+
+            {errorMessage && (
+              <div className="mt-4 rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-xs font-semibold text-destructive flex items-center justify-between gap-2">
+                <span>{errorMessage}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => notify.mutate()}
+                  className="rounded-full text-xs h-7 px-3 border-destructive/40 hover:bg-destructive/20"
+                >
+                  <RefreshCw className="size-3 mr-1" /> Retry
+                </Button>
+              </div>
+            )}
 
             <form
               onSubmit={(e) => {
@@ -155,7 +206,7 @@ function TagPage() {
               >
                 {notify.isPending ? (
                   <>
-                    <Loader2 className="size-4 animate-spin mr-2" /> Alerting Family…
+                    <Loader2 className="size-4 animate-spin mr-2" /> Sending Alert…
                   </>
                 ) : (
                   <>
@@ -178,8 +229,7 @@ function TagPage() {
             </h2>
 
             <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Thank you! An urgent notification with your message has been sent to the traveler's registered family dashboard.
-              Please stay with them in a safe, well-lit area until help arrives.
+              Guardian has been alerted. Please stay with the child until they respond.
             </p>
 
             <div className="mt-6 pt-5 border-t border-border/40 text-xs text-muted-foreground">
