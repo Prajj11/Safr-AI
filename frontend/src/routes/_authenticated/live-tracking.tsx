@@ -25,6 +25,7 @@ import {
   getDefaultStyleId,
   addCustomLayers,
   injectMapCSS,
+  OSM_RASTER_STYLE,
   type MapStyleEntry,
 } from "@/lib/map-config";
 
@@ -77,9 +78,9 @@ function LiveTrackingPage() {
     setIsLoadingMap(true);
     const map = mapRef.current;
     if (map) {
-      const curStyle = MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ?? MAP_STYLES[0]!;
-      appliedStyleIdRef.current = curStyle.id;
-      map.setStyle(curStyle.style);
+      appliedStyleIdRef.current = "osm";
+      setActiveStyleId("osm");
+      map.setStyle(OSM_RASTER_STYLE);
     }
   };
 
@@ -110,11 +111,24 @@ function LiveTrackingPage() {
 
       mapRef.current = map;
 
+      // Resilient fallback timer: only auto-fallbacks if style fails to initialize within 12 seconds
       const loadTimeout = setTimeout(() => {
-        if (!map.loaded()) {
-          setMapLoadError(true);
+        if (!map.isStyleLoaded()) {
+          console.warn("[map] Style initialization timed out, falling back to OSM standard tiles...");
+          try {
+            appliedStyleIdRef.current = "osm";
+            setActiveStyleId("osm");
+            map.setStyle(OSM_RASTER_STYLE);
+          } catch {
+            setMapLoadError(true);
+            setIsLoadingMap(false);
+          }
+        } else {
+          setIsLoadingMap(false);
+          setMapLoadError(false);
+          setReady(true);
         }
-      }, 8000);
+      }, 12000);
 
       map.addControl(new ml.NavigationControl({ showCompass: true, showZoom: true }), "top-right");
       map.addControl(new ml.FullscreenControl(), "top-right");
@@ -186,14 +200,16 @@ function LiveTrackingPage() {
       }
       map.addControl(new ExtraControlsControl() as IControl, "top-left");
 
+      // Error handler: log resource warnings, never blank screen for minor tile/glyph 404s
       map.on("error", (e) => {
-        console.error("[map]", e.error);
-        if (!map.isStyleLoaded() || !map.loaded()) {
-          setMapLoadError(true);
-        }
+        console.warn("[map resource]", e?.error?.message || e);
       });
 
       map.on("style.load", () => {
+        clearTimeout(loadTimeout);
+        setIsLoadingMap(false);
+        setMapLoadError(false);
+        setReady(true);
         const curStyle = MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ?? MAP_STYLES[0]!;
         addCustomLayers(map, { is3d: is3dRef.current, isVector: curStyle.isVector });
       });

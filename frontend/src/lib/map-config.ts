@@ -42,6 +42,28 @@ const darkUrl =
   (typeof import.meta !== "undefined" ? import.meta.env?.["VITE_MAP_STYLE_DARK"] : undefined) ||
   "https://tiles.openfreemap.org/styles/dark";
 
+export const OSM_RASTER_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {
+    "osm-tiles": {
+      type: "raster",
+      tiles: [
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      ],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+      maxzoom: 19,
+    },
+  },
+  layers: [
+    {
+      id: "osm-tiles-layer",
+      type: "raster",
+      source: "osm-tiles",
+    },
+  ],
+};
+
 const SATELLITE_STYLE: StyleSpecification = {
   version: 8,
   sources: {
@@ -70,6 +92,7 @@ export const MAP_STYLES: MapStyleEntry[] = [
   { id: "light", label: "Light", icon: "☀️", style: lightUrl, isVector: true },
   { id: "dark", label: "Dark", icon: "🌙", style: darkUrl, isVector: true },
   { id: "satellite", label: "Satellite", icon: "🛰️", style: SATELLITE_STYLE, isVector: false },
+  { id: "osm", label: "Standard", icon: "🌍", style: OSM_RASTER_STYLE, isVector: false },
 ];
 
 /** Pick the initial style: defaults to streets (vibrant full-color vector map). */
