@@ -4,15 +4,14 @@
 
 **Safr** is an intelligent, full-stack travel safety companion web application engineered to solve real-world tourism and security challenges across India, currently piloted in Goa. 
 
-Traditional tourism apps only recommend places to visit; **Safr** actively protects travelers by combining **real-time geospatial safety scoring**, **turn-by-turn navigation with 1-tap Google Maps GPS**, **1.5 km road corridor hotspot search**, **marine beach swell flags**, **crowd density intelligence**, **smart transport mode recommendations**, **budget-enforcing AI itinerary planning**, **Zero-Knowledge family QR safety wristbands with age-validation checks**, **public emergency directory access**, and **multi-lingual accessibility** in 12+ Indian languages including Konkani.
+Traditional tourism apps only recommend places to visit; **Safr** actively protects travelers by combining **real-time geospatial safety scoring**, **turn-by-turn navigation with 1-tap Google Maps GPS**, **marine beach swell flags**, **crowd density intelligence**, **smart transport mode recommendations**, **budget-enforcing AI itinerary planning**, **Zero-Knowledge family QR safety wristbands with age-validation checks**, **public emergency directory access**, and **multi-lingual accessibility** in 12+ Indian languages including Konkani.
 
 ---
 
 ## 🌟 Core Application Modules & Features
 
-### 1. 🧭 Safe-Scored Wayfinding, Corridor Hotspots & Navigation (`/map`)
+### 1. 🧭 Safe-Scored Wayfinding & Navigation (`/map`)
 * **Safer vs. Fastest OSRM Engine**: Compares routes based on distance, road illumination, ghat hairpin bends, speed hazards, and accident history.
-* **1.5 km Route Corridor Search**: Displays verified restaurants, hotels, and attractions along the chosen road path.
 * **Night-Travel Guidance Mode**: Automatically activates between 19:00 and 06:00 to prioritize well-lit coastal roads over unlit highway ghats.
 * **Turn-by-Turn Maneuver Drawer**: Step-by-step directions with maneuver icons and interactive Leaflet map pin focus.
 * **1-Tap GPS Launch**: Deep-links directly into native Google Maps / Apple Maps turn-by-turn GPS navigation.
@@ -92,50 +91,73 @@ npm install
 ```
 
 ### 4. Configure Environment Variables
-Create or verify `.env` in `goa-guide-buddy-main/`:
-```env
-SUPABASE_PROJECT_ID="bfxtulimqxggjageyxrm"
-SUPABASE_PUBLISHABLE_KEY="sb_publishable_5cr0Y9aDxppRRlFqRuJCZg_f842cMe1"
-SUPABASE_URL="https://bfxtulimqxggjageyxrm.supabase.co"
-VITE_SUPABASE_PROJECT_ID="bfxtulimqxggjageyxrm"
-VITE_SUPABASE_PUBLISHABLE_KEY="sb_publishable_5cr0Y9aDxppRRlFqRuJCZg_f842cMe1"
-VITE_SUPABASE_URL="https://bfxtulimqxggjageyxrm.supabase.co"
-GEMINI_API_KEY="your-google-gemini-api-key"
+## 📁 Project Architecture & Organization
+
+The codebase is organized into 3 modular directories with the root `README.md` as the primary entry point:
+
+```
+Tourism Guide/
+├── README.md                      # Primary project overview & guide (this file)
+│
+├── frontend/                      # Client UI, React components & routing
+│   ├── src/                       # Components, routes (/map, /explore, etc.), and styles
+│   ├── public/                    # Static branding & vector assets
+│   ├── package.json               # Frontend dependencies & run scripts
+│   ├── tsconfig.json              # TypeScript strict configuration
+│   ├── vite.config.ts             # Vite build & TanStack Start setup
+│   └── README.md                  # Frontend module documentation
+│
+├── backend/                       # Database, server functions & APIs
+│   ├── supabase/                  # PostgreSQL schema, migrations, and RLS policies
+│   ├── scripts/                   # Backend verification (RLS, services, itinerary)
+│   ├── server.mjs                 # Production Node.js SSR server with CSP
+│   ├── API_SETUP.md               # API keys (Gemini, Supabase, OSRM) configuration
+│   └── README.md                  # Backend architecture documentation
+│
+└── misc/                          # Technical docs, test suites & developer tools
+    ├── MASTER_PROJECT_DOCUMENTATION.md # Full 50KB+ technical architecture guide
+    ├── information.md             # API specifications & algorithms breakdown
+    ├── tests/                     # 23 automated tests (travel, services, route comparison)
+    ├── scripts/                   # Test utilities and TypeScript register runners
+    ├── .agents/                   # Supabase agent skills & configurations
+    ├── LICENSE                    # MIT License
+    └── README.md                  # Misc module documentation
 ```
 
-### 5. Verify Services & Run Tests
+---
+
+## ⚡ Quick Start
+
+### 1. Start Development Server
 ```bash
-# Verify external connectivity (Photon, OSRM, Supabase, Gemini)
-npm run check:services
+# Option A: 1-Click Windows Launcher (Auto-installs dependencies & launches Firefox)
+Double-click run.bat in the project root (or misc/run.bat)
 
-# Run the 14 automated unit tests
-npm test
-
-# Verify TypeScript type safety
-npm run typecheck
-```
-
-### 6. Start Development Server
-```bash
+# Option B: Terminal Command
+cd frontend
 npm run dev
+# Live at http://localhost:5173
 ```
-The application will be live at `http://localhost:5173`. (Or double-click `run.bat` on Windows).
 
-### 7. Build for Production
+### 2. Run Automated Test Suite (23 Tests)
 ```bash
-npm run build
-npm run preview
+# From project root:
+node --import ./misc/scripts/register-typescript.mjs --test misc/tests/*.test.ts
+
+# Or from frontend folder:
+cd frontend
+npm test
 ```
 
 ---
 
 ## 📚 Complete Technical Documentation
 
-For the complete technical blueprint covering all database schemas, RLS policies, mathematical route scoring algorithms, API contracts, and architecture diagrams, refer to:
-* 👉 **[`information.md`](./information.md)** — Comprehensive architecture, API specifications, and schemas.
-* 👉 **[`MASTER_PROJECT_DOCUMENTATION.md`](./MASTER_PROJECT_DOCUMENTATION.md)** — Exhaustive end-to-end technical guide.
-* 👉 **[`API_SETUP.md`](./API_SETUP.md)** — Service configurations and key management.
-* 👉 **[`supabase/schema.sql`](./supabase/schema.sql)** — One-click consolidated database schema.
+For in-depth blueprints covering database architecture, RLS security policies, mathematical route scoring algorithms, and API contracts:
+* 👉 **[`misc/information.md`](./misc/information.md)** — Comprehensive architecture, API specifications, and schemas.
+* 👉 **[`misc/MASTER_PROJECT_DOCUMENTATION.md`](./misc/MASTER_PROJECT_DOCUMENTATION.md)** — Exhaustive end-to-end technical guide.
+* 👉 **[`backend/API_SETUP.md`](./backend/API_SETUP.md)** — Service configurations and key management.
+* 👉 **[`backend/supabase/schema.sql`](./backend/supabase/schema.sql)** — One-click consolidated database schema.
 
 ---
 

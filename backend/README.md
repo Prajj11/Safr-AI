@@ -1,0 +1,39 @@
+# 🛡️ Safr — Backend & Database Services
+
+This folder contains all backend infrastructure, database schemas, and server runtimes for the **Safr** travel safety platform.
+
+---
+
+## 📁 Directory Structure
+
+```
+backend/
+├── supabase/                      # PostgreSQL database layer
+│   ├── migrations/                # Database migrations (including phone number schema)
+│   └── schema.sql                 # Consolidated production database schema & RLS policies
+├── scripts/                       # Backend validation & verification scripts
+│   ├── check-services.mjs         # Connectivity tester for Gemini, Supabase, OSRM, Photon
+│   ├── check-rls.mjs              # Row-Level Security verification script
+│   └── check-itinerary.mjs        # Itinerary generator verification
+├── server.mjs                     # Production Node.js SSR server with CSP & security headers
+└── API_SETUP.md                   # API keys configuration guide (Gemini, Supabase, OSRM)
+```
+
+---
+
+## 🚀 Key Responsibilities
+
+1. **Database & Auth (Supabase / PostgreSQL)**:
+   - User authentication via Supabase Auth.
+   - Row-Level Security (RLS) guaranteeing strict data segregation.
+   - Core tables: `trips`, `travel_buddies`, `emergency_contacts`, `saved_places`, `feedback`.
+   - Migration history preserved in `supabase/migrations/`.
+
+2. **Server Runtime (`server.mjs`)**:
+   - Node.js HTTP server running TanStack Start Server Side Rendering.
+   - Hardened Content-Security-Policy (CSP) allowing Google Translate, OpenStreetMap tiles, and Supabase WebSockets.
+
+3. **External Services & Integrations (`API_SETUP.md`)**:
+   - Google Gemini 2.5 Flash for itinerary ranking.
+   - OSRM (Open Source Routing Machine) for road distance matrices.
+   - Photon & Overpass for geocoding and 1.5 km corridor point-of-interest discovery.
