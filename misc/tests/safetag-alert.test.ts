@@ -14,6 +14,9 @@ test("phone normalization to E.164 (+91)", () => {
   assert.equal(normalizeE164("+91 (992) 182-7979"), "+919921827979");
   assert.equal(normalizeE164("09921827979"), "+919921827979");
   assert.equal(normalizeE164("+14155238886"), "+14155238886");
+  assert.equal(normalizeE164("9123456789"), "+919123456789");
+  assert.equal(normalizeE164("14155238886"), "+14155238886");
+  assert.equal(normalizeE164("00441632960961"), "+441632960961");
 });
 
 test("phone masking for secure logging", () => {
@@ -54,6 +57,24 @@ test("alert message formatting includes child name, code, location, and map link
   assert.ok(msgWithoutMap.includes("Location: not provided."));
   assert.ok(!msgWithoutMap.includes("Map:"));
   assert.ok(msgWithoutMap.includes("Finder contact: not provided."));
+});
+
+test("alert message formatting strips http/https/www links and collapses whitespace", () => {
+  const msgWithLinks = formatAlertMessage({
+    childName: "Aarav",
+    code: "WAZFYJ",
+    locationText: "Near  https://example.com/map   Tito's Lane",
+    finderContact: "+91 98765 00000   www.spam.link  (Shop)",
+    lat: 15.5523,
+    lng: 73.7517,
+    guardianPhone: "+919876543210",
+    timeIst: "30 Sep 2026, 09:30 PM IST",
+  });
+
+  assert.ok(msgWithLinks.includes("Location: Near [link removed] Tito's Lane."));
+  assert.ok(msgWithLinks.includes("Finder contact: +91 98765 00000 [link removed] (Shop)."));
+  assert.ok(!msgWithLinks.includes("https://example.com/map"));
+  assert.ok(!msgWithLinks.includes("www.spam.link"));
 });
 
 test("input sanitization strips HTML tags and caps length", () => {

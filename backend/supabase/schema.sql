@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS public.safety_tag_scans (
   scanned_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 GRANT SELECT, UPDATE ON public.safety_tag_scans TO authenticated;
-GRANT INSERT ON public.safety_tag_scans TO anon, authenticated;
+REVOKE INSERT ON public.safety_tag_scans FROM anon;
 GRANT ALL ON public.safety_tag_scans TO service_role;
 ALTER TABLE public.safety_tag_scans ENABLE ROW LEVEL SECURITY;
 
@@ -218,13 +218,7 @@ DO $$ BEGIN
       );
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'safety_tag_scans' AND policyname = 'anyone can log a scan'
-  ) THEN
-    CREATE POLICY "anyone can log a scan" ON public.safety_tag_scans
-      FOR INSERT TO anon, authenticated
-      WITH CHECK (true);
-  END IF;
+  DROP POLICY IF EXISTS "anyone can log a scan" ON public.safety_tag_scans;
 END $$;
 
 CREATE OR REPLACE FUNCTION public.check_safety_tag(_token TEXT)
@@ -281,7 +275,8 @@ BEGIN
   );
 END;
 $$;
-GRANT EXECUTE ON FUNCTION public.notify_safety_tag(TEXT, TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, JSONB) TO anon, authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.notify_safety_tag(TEXT, TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, JSONB) FROM anon, authenticated, PUBLIC;
+GRANT EXECUTE ON FUNCTION public.notify_safety_tag(TEXT, TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, JSONB) TO service_role;
 
 -- 8. Saved Places Table
 CREATE TABLE IF NOT EXISTS public.saved_places (

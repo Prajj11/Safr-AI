@@ -56,6 +56,8 @@ const server = http.createServer((req, res) => {
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https:",
       "connect-src 'self' https: wss: https://translate.googleapis.com https://translate-pa.googleapis.com",
+      "worker-src 'self' blob:",
+      "child-src 'self' blob:",
       "frame-src 'self' https://translate.google.com https://translate.googleapis.com",
       "frame-ancestors 'none'",
       "object-src 'none'",
@@ -65,13 +67,20 @@ const server = http.createServer((req, res) => {
   );
 
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  let pathname = decodeURIComponent(parsedUrl.pathname);
+  let pathname;
+  try {
+    pathname = decodeURIComponent(parsedUrl.pathname);
+  } catch {
+    res.statusCode = 400;
+    res.end('Bad request');
+    return;
+  }
 
   // Check static file in dist/client
   if (pathname !== '/') {
     const filePath = path.join(clientDir, pathname);
     // Path traversal check
-    if (filePath.startsWith(clientDir) && fs.existsSync(filePath)) {
+    if (filePath.startsWith(clientDir + path.sep) && fs.existsSync(filePath)) {
       try {
         const stat = fs.statSync(filePath);
         if (stat.isFile()) {
