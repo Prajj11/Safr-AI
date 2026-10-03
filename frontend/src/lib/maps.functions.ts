@@ -42,12 +42,11 @@ export const getRoutes = createServerFn({ method: "POST" })
 
 export const getRoutingConfig = createServerFn({ method: "GET" })
   .handler(async () => {
-    const provider = (process.env["ROUTING_PROVIDER"] || "osrm").toLowerCase();
+    const provider = (process.env["ROUTING_PROVIDER"] || "valhalla").toLowerCase();
+    const isValhalla = provider === "valhalla" || Boolean(process.env["VALHALLA_BASE_URL"]);
     return {
-      provider,
-      supportedModes: provider === "valhalla"
-        ? (["car", "motor_scooter", "bicycle", "walking"] as const)
-        : (["car"] as const),
+      provider: isValhalla ? "valhalla" : provider,
+      supportedModes: ["car", "motor_scooter", "bicycle", "walking"] as const,
     };
   });
 

@@ -1750,7 +1750,7 @@ function MapPage() {
                 ].map((modeItem) => {
                   const isSupported = routingConfig?.supportedModes
                     ? (routingConfig.supportedModes as readonly string[]).includes(modeItem.id)
-                    : modeItem.id === "car";
+                    : true;
                   const isSelected = travelMode === modeItem.id;
                   const Icon = modeItem.icon;
 
@@ -1759,7 +1759,7 @@ function MapPage() {
                       key={modeItem.id}
                       type="button"
                       disabled={!isSupported}
-                      title={!isSupported ? "Requires Valhalla routing provider" : modeItem.label}
+                      title={modeItem.label}
                       aria-label={`Travel mode: ${modeItem.label}`}
                       onClick={() => {
                         setTravelMode(modeItem.id as any);
@@ -1770,9 +1770,7 @@ function MapPage() {
                       className={`flex flex-col items-center justify-center p-2 rounded-2xl border text-xs font-semibold transition-all ${
                         isSelected
                           ? "bg-primary/15 border-primary text-primary shadow-xs"
-                          : isSupported
-                            ? "bg-secondary/40 border-border/50 text-foreground hover:bg-secondary/70"
-                            : "opacity-40 border-border/30 text-muted-foreground cursor-not-allowed"
+                          : "bg-secondary/40 border-border/50 text-foreground hover:bg-secondary/70"
                       }`}
                     >
                       <Icon className="size-4 mb-1" />
@@ -1781,11 +1779,6 @@ function MapPage() {
                   );
                 })}
               </div>
-              {routingConfig?.provider === "osrm" && (
-                <p className="mt-1 text-[10px] text-muted-foreground">
-                  (OSRM mode is active: scooter, bike & walk routing require Valhalla)
-                </p>
-              )}
             </div>
 
             {/* Departure Time */}

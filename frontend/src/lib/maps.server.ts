@@ -306,10 +306,10 @@ export async function computeSafeRoutes(
   waypoints: Waypoint[] = [],
   mode: string = "car",
 ): Promise<ScoredRoute[]> {
-  const provider = (process.env["ROUTING_PROVIDER"] || "osrm").toLowerCase();
+  const provider = (process.env["ROUTING_PROVIDER"] || "valhalla").toLowerCase();
   let raw: InternalRoute[] = [];
 
-  if (provider === "valhalla") {
+  if (provider === "valhalla" || mode !== "car") {
     try {
       raw = await fetchValhallaRoutes(origin, destination, waypoints, mode);
       if (raw.length === 0) {
