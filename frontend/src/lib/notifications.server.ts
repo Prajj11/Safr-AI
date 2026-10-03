@@ -50,28 +50,61 @@ export function maskPhone(phone: string): string {
 export const maskPhoneNumber = maskPhone;
 
 export function normalizeE164(phone: string): string {
-  // 1. Strip spaces, dashes, brackets, and non-digit/non-plus chars
-  let cleaned = phone.replace(/[\s\-\(\)]/g, "").replace(/[^\d+]/g, "");
+  // Strip spaces, dashes, brackets, and non-digit/non-plus chars
+  let cleaned = phone.replace(/[\s\-()]/g, "").replace(/[^\d+]/g, "");
   if (!cleaned) return "";
 
-  // 2. If it already starts with "+", return as is
+  // 1. Keep numbers starting with "+"
   if (cleaned.startsWith("+")) {
     return cleaned;
   }
 
-  // 3. Remove leading zeroes
-  cleaned = cleaned.replace(/^0+/, "");
+  // 2. Convert a "00" prefix to "+"
+  if (cleaned.startsWith("00")) {
+    return "+" + cleaned.slice(2);
+  }
 
-  // 4. If it already starts with "91", add "+" prefix. Otherwise add "+91" by default.
-  if (cleaned.startsWith("91")) {
+  // 3. Drop one leading "0"
+  if (cleaned.startsWith("0")) {
+    cleaned = cleaned.slice(1);
+  }
+
+  // 4. 10 digits becomes "+91" + digits
+  if (cleaned.length === 10) {
+    return `+91${cleaned}`;
+  }
+
+  // 5. 12 digits starting with 91 becomes "+" + digits
+  if (cleaned.length === 12 && cleaned.startsWith("91")) {
     return `+${cleaned}`;
   }
 
+  // 6. Anything longer than 10 digits becomes "+" + digits
+  if (cleaned.length > 10) {
+    return `+${cleaned}`;
+  }
+
+  // 7. Otherwise "+91" + digits
   return `+91${cleaned}`;
 }
 
+function removeLinksAndCollapseWhitespace(
+  text: string | null | undefined,
+): string | null {
+  if (!text) return null;
+  const sanitized = text
+    .replace(/(?:https?:\/\/|www\.)[^\s]+/gi, "[link removed]")
+    .replace(/\s+/g, " ")
+    .trim();
+  return sanitized || null;
+}
+
 export function formatAlertMessage(params: SafeTagAlertParams): string {
-  const { childName, code, locationText, finderContact, lat, lng, timeIst } = params;
+  const { childName, code, locationText, finderContact, lat, lng, timeIst } =
+    params;
+  const cleanLocation = removeLinksAndCollapseWhitespace(locationText);
+  const cleanContact = removeLinksAndCollapseWhitespace(finderContact);
+
   const mapsLink =
     lat != null && lng != null && !isNaN(lat) && !isNaN(lng)
       ? `https://www.google.com/maps?q=${lat},${lng}`
@@ -79,12 +112,12 @@ export function formatAlertMessage(params: SafeTagAlertParams): string {
 
   const lines = [
     `SafeTag ALERT: ${childName} (tag ${code}) has been found.`,
-    `Location: ${locationText?.trim() || "not provided"}.`,
+    `Location: ${cleanLocation || "not provided"}.`,
   ];
   if (mapsLink) {
     lines.push(`Map: ${mapsLink}`);
   }
-  lines.push(`Finder contact: ${finderContact?.trim() || "not provided"}.`);
+  lines.push(`Finder contact: ${cleanContact || "not provided"}.`);
   lines.push(`Time: ${timeIst}.`);
 
   return lines.join("\n");
@@ -116,7 +149,8 @@ export async function sendTwilioMessage(
     formData.append("From", from);
     formData.append("Body", bodyText);
 
-    const authHeader = "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+    const authHeader =
+      "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64");
 
     const response = await fetch(url, {
       method: "POST",
@@ -146,15 +180,19 @@ export async function sendTwilioMessage(
   }
 }
 
-export async function sendSafeTagAlert(params: SafeTagAlertParams): Promise<NotificationResult> {
+export async function sendSafeTagAlert(
+  params: SafeTagAlertParams,
+): Promise<NotificationResult> {
   const mode = process.env["NOTIFY_MODE"] || "mock";
   const activeChannels = getNotifyChannels() as NotificationChannel[];
 
   const accountSid = process.env["TWILIO_ACCOUNT_SID"];
   const authToken = process.env["TWILIO_AUTH_TOKEN"];
   const whatsappFrom =
-    process.env["TWILIO_WHATSAPP_FROM"] || process.env["TWILIO_WHATSAPP_NUMBER"];
-  const smsFrom = process.env["TWILIO_SMS_FROM"] || process.env["TWILIO_PHONE_NUMBER"];
+    process.env["TWILIO_WHATSAPP_FROM"] ||
+    process.env["TWILIO_WHATSAPP_NUMBER"];
+  const smsFrom =
+    process.env["TWILIO_SMS_FROM"] || process.env["TWILIO_PHONE_NUMBER"];
 
   const toE164 = normalizeE164(params.guardianPhone);
   const masked = maskPhone(toE164);
@@ -173,7 +211,10 @@ export async function sendSafeTagAlert(params: SafeTagAlertParams): Promise<Noti
   };
 
   if (isMock) {
-    results.whatsapp = { status: "mocked", timestamp: new Date().toISOString() };
+    results.whatsapp = {
+      status: "mocked",
+      timestamp: new Date().toISOString(),
+    };
     results.sms = { status: "mocked", timestamp: new Date().toISOString() };
     return results;
   }
@@ -196,7 +237,10 @@ export async function sendSafeTagAlert(params: SafeTagAlertParams): Promise<Noti
         authToken,
       );
       if (waResult.success) {
-        results.whatsapp = { status: "sent", timestamp: new Date().toISOString() };
+        results.whatsapp = {
+          status: "sent",
+          timestamp: new Date().toISOString(),
+        };
       } else {
         console.error(
           `[notifications] Twilio delivery failed for channel "whatsapp" (recipient: ${masked}, err: ${waResult.error})`,

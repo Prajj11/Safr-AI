@@ -1,22 +1,28 @@
-import http from 'node:http';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { toNodeHandler } from 'srvx/node';
+import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { toNodeHandler } from "srvx/node";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const clientDir = fs.existsSync(path.resolve(__dirname, 'dist/client'))
-  ? path.resolve(__dirname, 'dist/client')
-  : path.resolve(__dirname, '../frontend/dist/client');
+const clientDir = fs.existsSync(path.resolve(__dirname, "dist/client"))
+  ? path.resolve(__dirname, "dist/client")
+  : path.resolve(__dirname, "../frontend/dist/client");
 
-const serverEntry = fs.existsSync(path.resolve(__dirname, 'dist/server/server.js'))
-  ? path.resolve(__dirname, 'dist/server/server.js')
-  : path.resolve(__dirname, '../frontend/dist/server/server.js');
+const serverEntry = fs.existsSync(
+  path.resolve(__dirname, "dist/server/server.js"),
+)
+  ? path.resolve(__dirname, "dist/server/server.js")
+  : path.resolve(__dirname, "../frontend/dist/server/server.js");
 
 if (!fs.existsSync(serverEntry)) {
-  console.error('Server build not found at', serverEntry, '- run "npm run build" first.');
+  console.error(
+    "Server build not found at",
+    serverEntry,
+    '- run "npm run build" first.',
+  );
   process.exit(1);
 }
 
@@ -24,31 +30,34 @@ const { default: serverApp } = await import(pathToFileURL(serverEntry).href);
 const ssrHandler = toNodeHandler(serverApp.fetch);
 
 const MIME_TYPES = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-  '.webp': 'image/webp',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.ttf': 'font/ttf',
-  '.txt': 'text/plain; charset=utf-8',
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".webp": "image/webp",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".txt": "text/plain; charset=utf-8",
 };
 
 const server = http.createServer((req, res) => {
   // Security headers to protect against clickjacking, MIME sniffing, and enforce HTTPS
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
   res.setHeader(
-    'Content-Security-Policy',
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains",
+  );
+  res.setHeader(
+    "Content-Security-Policy",
     [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://translate.google.com https://translate.googleapis.com https://www.gstatic.com",
@@ -63,34 +72,47 @@ const server = http.createServer((req, res) => {
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
-    ].join('; ')
+    ].join("; "),
   );
 
-  const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  let pathname = decodeURIComponent(parsedUrl.pathname);
+  const parsedUrl = new URL(
+    req.url,
+    `http://${req.headers.host || "localhost"}`,
+  );
+  let pathname;
+  try {
+    pathname = decodeURIComponent(parsedUrl.pathname);
+  } catch {
+    res.statusCode = 400;
+    res.end("Bad request");
+    return;
+  }
 
   // Check static file in dist/client
-  if (pathname !== '/') {
+  if (pathname !== "/") {
     const filePath = path.join(clientDir, pathname);
     // Path traversal check
-    if (filePath.startsWith(clientDir) && fs.existsSync(filePath)) {
+    if (filePath.startsWith(clientDir + path.sep) && fs.existsSync(filePath)) {
       try {
         const stat = fs.statSync(filePath);
         if (stat.isFile()) {
           const ext = path.extname(filePath).toLowerCase();
-          const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-          if (pathname.startsWith('/assets/')) {
-            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          const contentType = MIME_TYPES[ext] || "application/octet-stream";
+          if (pathname.startsWith("/assets/")) {
+            res.setHeader(
+              "Cache-Control",
+              "public, max-age=31536000, immutable",
+            );
           } else {
-            res.setHeader('Cache-Control', 'public, max-age=3600');
+            res.setHeader("Cache-Control", "public, max-age=3600");
           }
-          res.setHeader('Content-Type', contentType);
-          res.setHeader('Content-Length', stat.size);
+          res.setHeader("Content-Type", contentType);
+          res.setHeader("Content-Length", stat.size);
           fs.createReadStream(filePath).pipe(res);
           return;
         }
       } catch (err) {
-        console.error('Error reading static file:', err);
+        console.error("Error reading static file:", err);
       }
     }
   }
@@ -100,7 +122,7 @@ const server = http.createServer((req, res) => {
 });
 
 const port = Number(process.env.PORT) || 3000;
-const host = '0.0.0.0';
+const host = "0.0.0.0";
 
 server.listen(port, host, () => {
   console.log(`Safr server listening on http://${host}:${port}`);

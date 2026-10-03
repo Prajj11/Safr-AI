@@ -1,6 +1,15 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CheckCircle2, ShieldAlert, ShieldCheck, Phone, ArrowLeft, Send, Loader2, RefreshCw } from "lucide-react";
+import {
+  CheckCircle2,
+  ShieldAlert,
+  ShieldCheck,
+  Phone,
+  ArrowLeft,
+  Send,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -14,7 +23,8 @@ export const Route = createFileRoute("/t/$token")({
       { title: "Found Someone? — Safety Tag Alert" },
       {
         name: "description",
-        content: "This person is part of an active travel safety group. Notify their family without seeing any private details.",
+        content:
+          "This person is part of an active travel safety group. Notify their family without seeing any private details.",
       },
       { property: "og:title", content: "Safety Tag — Found Someone?" },
       { name: "robots", content: "noindex" },
@@ -24,12 +34,18 @@ export const Route = createFileRoute("/t/$token")({
 });
 
 const categoryLabel = (c: string) =>
-  c === "senior" ? "an elderly traveller" : c === "kid" ? "a child" : "a traveller";
+  c === "senior"
+    ? "an elderly traveller"
+    : c === "kid"
+      ? "a child"
+      : "a traveller";
 
-async function getPositionWithTimeout(timeoutMs = 2500): Promise<{ lat: number; lng: number } | null> {
+async function getPositionWithTimeout(
+  timeoutMs = 2500,
+): Promise<{ lat: number; lng: number } | null> {
   if (typeof window === "undefined" || !navigator.geolocation) return null;
   return new Promise((resolve) => {
-    let timer: number | undefined;
+    let timer: number | undefined; // eslint-disable-line prefer-const
     const finish = (pos: GeolocationPosition | null) => {
       if (timer) clearTimeout(timer);
       if (pos) {
@@ -52,15 +68,22 @@ function TagPage() {
   const [note, setNote] = useState("");
   const [contact, setContact] = useState("");
   const [sent, setSent] = useState(false);
+  const [notified, setNotified] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["public-tag-check", token],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("check_safety_tag", { _token: token });
+      const { data, error } = await supabase.rpc("check_safety_tag", {
+        _token: token,
+      });
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : data;
-      return (row ?? null) as { tag_id: string; category: string; is_active: boolean } | null;
+      return (row ?? null) as {
+        tag_id: string;
+        category: string;
+        is_active: boolean;
+      } | null;
     },
   });
 
@@ -79,15 +102,24 @@ function TagPage() {
         }),
       });
 
-      const json = (await res.json()) as { success?: boolean; error?: string };
+      const json = (await res.json()) as {
+        success?: boolean;
+        notified?: boolean;
+        error?: string;
+      };
       if (!res.ok || !json.success) {
         throw new Error(json.error || "Could not send alert to guardian.");
       }
       return json;
     },
-    onSuccess: () => setSent(true),
+    onSuccess: (data) => {
+      setNotified(data.notified ?? true);
+      setSent(true);
+    },
     onError: (err) => {
-      setErrorMessage(err instanceof Error ? err.message : "Failed to send alert.");
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to send alert.",
+      );
     },
   });
 
@@ -105,14 +137,20 @@ function TagPage() {
           <ArrowLeft className="size-3.5" /> Back to Safr Home
         </Link>
 
-        {isLoading && <div className="h-64 rounded-3xl shimmer-skeleton border border-border/60" />}
+        {isLoading && (
+          <div className="h-64 rounded-3xl shimmer-skeleton border border-border/60" />
+        )}
 
         {(isError || (!isLoading && !data)) && (
           <div className="rounded-3xl border border-border/60 bg-card/85 backdrop-blur-2xl p-8 sm:p-10 text-center shadow-2xl">
             <ShieldAlert className="mx-auto size-12 text-destructive" />
-            <h1 className="mt-4 text-2xl font-bold font-display tracking-tight">Tag Not Found or Inactive</h1>
+            <h1 className="mt-4 text-2xl font-bold font-display tracking-tight">
+              Tag Not Found or Inactive
+            </h1>
             <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              This safety tag code is not registered or has expired. If someone needs urgent assistance in Goa, dial emergency services immediately.
+              This safety tag code is not registered or has expired. If someone
+              needs urgent assistance in Goa, dial emergency services
+              immediately.
             </p>
             <div className="mt-6 space-y-2">
               <a
@@ -148,8 +186,10 @@ function TagPage() {
             </div>
 
             <p className="mt-4 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              You've found <strong>{categoryLabel(data.category)}</strong> registered with an active travel group in Goa.
-              Guardian contact details are kept strictly private to protect traveler security. Tap below to send them an instant location and status alert.
+              You've found <strong>{categoryLabel(data.category)}</strong>{" "}
+              registered with an active travel group in Goa. Guardian contact
+              details are kept strictly private to protect traveler security.
+              Tap below to send them an instant location and status alert.
             </p>
 
             {errorMessage && (
@@ -206,7 +246,8 @@ function TagPage() {
               >
                 {notify.isPending ? (
                   <>
-                    <Loader2 className="size-4 animate-spin mr-2" /> Sending Alert…
+                    <Loader2 className="size-4 animate-spin mr-2" /> Sending
+                    Alert…
                   </>
                 ) : (
                   <>
@@ -219,21 +260,40 @@ function TagPage() {
         )}
 
         {sent && (
-          <div className="rounded-3xl border border-emerald/30 bg-card/85 backdrop-blur-2xl p-8 sm:p-10 text-center shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="mx-auto size-16 rounded-full bg-emerald/15 text-emerald flex items-center justify-center mb-4">
-              <CheckCircle2 className="size-10" />
+          <div
+            className={`rounded-3xl border ${notified ? "border-emerald/30" : "border-amber-500/30"} bg-card/85 backdrop-blur-2xl p-8 sm:p-10 text-center shadow-2xl animate-in zoom-in-95 duration-300`}
+          >
+            <div
+              className={`mx-auto size-16 rounded-full ${notified ? "bg-emerald/15 text-emerald" : "bg-amber-500/15 text-amber-500"} flex items-center justify-center mb-4`}
+            >
+              {notified ? (
+                <CheckCircle2 className="size-10" />
+              ) : (
+                <ShieldAlert className="size-10" />
+              )}
             </div>
 
             <h2 className="text-2xl font-bold font-display text-foreground">
-              Guardian Alerted!
+              {notified
+                ? "Guardian Alerted!"
+                : "Alert Saved, Phone Not Reached"}
             </h2>
 
             <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Guardian has been alerted. Please stay with the child until they respond.
+              {notified
+                ? "Guardian has been alerted. Please stay with the child until they respond."
+                : "The alert has been saved, but we could not reach the guardian's phone immediately. Please stay with the person and call 112 or go to the nearest police station or lifeguard post."}
             </p>
 
             <div className="mt-6 pt-5 border-t border-border/40 text-xs text-muted-foreground">
-              If immediate medical or police assistance is needed, please call <a href="tel:112" className="font-bold text-destructive underline">112</a>.
+              If immediate medical or police assistance is needed, please call{" "}
+              <a
+                href="tel:112"
+                className="font-bold text-destructive underline"
+              >
+                112
+              </a>
+              .
             </div>
           </div>
         )}
