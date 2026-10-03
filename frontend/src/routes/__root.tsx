@@ -147,7 +147,7 @@ function RootComponent() {
           ) {
             toast.success("Email verified successfully! Welcome to Safr.");
             if (window.location.pathname === "/") {
-              router.navigate({ to: "/setup" });
+              router.navigate({ to: "/dashboard" });
             }
           }
         }

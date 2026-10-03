@@ -55,7 +55,7 @@ function AuthPage() {
         if (search.verified) {
           toast.success("Email verified successfully! Welcome to Safr.");
         }
-        navigate({ to: "/setup", replace: true });
+        navigate({ to: "/dashboard", replace: true });
       }
     });
 
@@ -65,7 +65,7 @@ function AuthPage() {
         if (search.verified) {
           toast.success("Email verified successfully! Welcome to Safr.");
         }
-        navigate({ to: "/setup", replace: true });
+        navigate({ to: "/dashboard", replace: true });
       }
     });
 
@@ -98,7 +98,7 @@ function AuthPage() {
           return;
         }
         toast.success("Account created successfully!");
-        navigate({ to: "/setup" });
+        navigate({ to: "/dashboard" });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
