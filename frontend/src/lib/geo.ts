@@ -9,6 +9,8 @@ export type NearbyPlace = Coordinate & {
   distanceKm: number;
   routeDistanceKm?: number | undefined;
   sourceUrl: string;
+  highlight?: string | undefined;
+  interests?: string[] | undefined;
 };
 
 export function distanceKm(a: Coordinate, b: Coordinate): number {

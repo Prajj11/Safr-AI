@@ -82,6 +82,8 @@ const overpassSchema = z.object({
 });
 const cache = new Map<string, { expires: number; places: NearbyPlace[] }>();
 
+import { CURATED_GOA_PLACES } from "./goa-places-data";
+
 export async function nearbyPlaces(
   center: Coordinate,
   radiusKm = 5,
@@ -90,6 +92,21 @@ export async function nearbyPlaces(
   const key = JSON.stringify([center.lat.toFixed(3), center.lng.toFixed(3), radiusKm, path]);
   const cached = cache.get(key);
   if (cached && cached.expires > Date.now()) return cached.places;
+
+  // Gather curated places within search range
+  const searchLimit = Math.max(radiusKm * 1.5, 15);
+  const curatedMatches: NearbyPlace[] = CURATED_GOA_PLACES
+    .map((p) => {
+      const dist = distanceKm(center, p);
+      const fromRoute = path.length ? distanceToRoute(p, path) : undefined;
+      return {
+        ...p,
+        distanceKm: dist,
+        routeDistanceKm: fromRoute,
+      };
+    })
+    .filter((p) => (p.routeDistanceKm != null ? p.routeDistanceKm <= 2.5 : p.distanceKm <= searchLimit));
+
   // A bounding-box lookup is substantially cheaper than Overpass's many-segment
   // around query. Filter the results against the actual road geometry below.
   const latPad = 1.5 / 111.195;
@@ -98,51 +115,85 @@ export async function nearbyPlaces(
     path.length > 1
       ? `${Math.min(...path.map((p) => p.lat)) - latPad},${Math.min(...path.map((p) => p.lng)) - lngPad},${Math.max(...path.map((p) => p.lat)) + latPad},${Math.max(...path.map((p) => p.lng)) + lngPad}`
       : `around:${radiusKm * 1000},${center.lat},${center.lng}`;
-  const query = `[out:json][timeout:20];nwr(${around})["name"]->.nearby;(nwr.nearby["amenity"~"^(restaurant|cafe|fast_food|food_court|marketplace|place_of_worship)$"];nwr.nearby["tourism"~"^(hotel|guest_house|hostel|motel|attraction|museum|viewpoint|gallery|zoo|theme_park)$"];nwr.nearby["historic"~"^(castle|fort|monument|ruins|archaeological_site)$"];nwr.nearby["natural"="beach"];);out center tags 500;`;
+  const query = `[out:json][timeout:20];nwr(${around})["name"]->.nearby;(nwr.nearby["amenity"~"^(restaurant|cafe|fast_food|food_court|bar|pub|nightclub|marketplace|place_of_worship)$"];nwr.nearby["tourism"~"^(hotel|guest_house|hostel|motel|attraction|museum|viewpoint|gallery|zoo|theme_park)$"];nwr.nearby["historic"~"^(castle|fort|monument|ruins|archaeological_site)$"];nwr.nearby["natural"~"^(beach|waterfall)$"];nwr.nearby["leisure"~"^(water_park|sports_centre|park|nature_reserve)$"];);out center tags 500;`;
   const endpoint = process.env["OVERPASS_URL"] || "https://overpass-api.de/api/interpreter";
   const url = new URL(endpoint);
   url.searchParams.set("data", query);
-  const result = overpassSchema.parse(await fetchJson(url.toString(), {}, 25000));
-  if (result.remark) throw new Error("Nearby-place lookup is busy. Please try again shortly.");
+
+  let rawResult: unknown;
+  try {
+    rawResult = await fetchJson(url.toString(), {}, 25000);
+  } catch (err) {
+    if (curatedMatches.length > 0) {
+      console.warn("Overpass unavailable; using curated destination landmarks.");
+      rawResult = { elements: [] };
+    } else {
+      throw err;
+    }
+  }
+
+  const result = overpassSchema.parse(rawResult);
+  if (result.remark && curatedMatches.length === 0) {
+    throw new Error("Nearby-place lookup is busy. Please try again shortly.");
+  }
+
   const seen = new Map<string, Coordinate[]>();
   const places: NearbyPlace[] = [];
-  for (const item of result.elements) {
-    const tags = item.tags || {};
-    const lat = item.lat ?? item.center?.lat,
-      lng = item.lon ?? item.center?.lon;
-    const name = tags["name"];
-    if (
-      !name ||
-      lat == null ||
-      lng == null ||
-      tags["access"] === "private" ||
-      tags["disused"] === "yes"
-    )
-      continue;
-    const point = { lat, lng };
-    const normalized = name.toLowerCase();
-    if (seen.get(normalized)?.some((p) => distanceKm(p, point) < 0.15)) continue;
-    seen.set(normalized, [...(seen.get(normalized) || []), point]);
-    const category = /^(hotel|guest_house|hostel|motel)$/.test(tags["tourism"] || "")
-      ? "hotel"
-      : /^(restaurant|cafe|fast_food|food_court)$/.test(tags["amenity"] || "")
-        ? "restaurant"
-        : "attraction";
-    const fromRoute = path.length ? distanceToRoute(point, path) : undefined;
-    const distance = distanceKm(center, point);
-    if (fromRoute != null ? fromRoute > 1.5 : distance > radiusKm) continue;
-    places.push({
-      ...point,
-      id: `${item.type}/${item.id}`,
-      name,
-      category,
-      kind: tags["tourism"] || tags["historic"] || tags["natural"] || tags["amenity"] || "place",
-      openingHours: tags["opening_hours"],
-      cuisine: tags["cuisine"],
-      distanceKm: distance,
-      routeDistanceKm: fromRoute,
-      sourceUrl: `https://www.openstreetmap.org/${item.type}/${item.id}`,
-    });
+
+  const elements = result.elements || [];
+  if (elements.length > 0) {
+    for (const item of elements) {
+      const tags = item.tags || {};
+      const lat = item.lat ?? item.center?.lat,
+        lng = item.lon ?? item.center?.lon;
+      const name = tags["name"];
+      if (
+        !name ||
+        lat == null ||
+        lng == null ||
+        tags["access"] === "private" ||
+        tags["disused"] === "yes"
+      )
+        continue;
+      const point = { lat, lng };
+      const normalized = name.toLowerCase();
+      if (seen.get(normalized)?.some((p) => distanceKm(p, point) < 0.2)) continue;
+      seen.set(normalized, [...(seen.get(normalized) || []), point]);
+      const category = /^(hotel|guest_house|hostel|motel)$/.test(tags["tourism"] || "")
+        ? "hotel"
+        : /^(restaurant|cafe|fast_food|food_court|bar|pub)$/.test(tags["amenity"] || "")
+          ? "restaurant"
+          : "attraction";
+      const fromRoute = path.length ? distanceToRoute(point, path) : undefined;
+      const distance = distanceKm(center, point);
+      if (fromRoute != null ? fromRoute > 1.5 : distance > radiusKm) continue;
+      const kind =
+        tags["natural"] === "beach"
+          ? "beach"
+          : tags["tourism"] ||
+            tags["historic"] ||
+            tags["natural"] ||
+            tags["leisure"] ||
+            tags["amenity"] ||
+            "place";
+      places.push({
+        ...point,
+        id: `${item.type}/${item.id}`,
+        name,
+        category,
+        kind,
+        openingHours: tags["opening_hours"],
+        cuisine: tags["cuisine"],
+        distanceKm: distance,
+        routeDistanceKm: fromRoute,
+        sourceUrl: `https://www.openstreetmap.org/${item.type}/${item.id}`,
+      });
+    }
+  } else if (curatedMatches.length > 0) {
+    // When Overpass returns 0 elements or failed, use curated landmark database
+    for (const c of curatedMatches) {
+      places.push(c);
+    }
   }
   places.sort((a, b) => a.distanceKm - b.distanceKm);
   if (cache.size >= 100) cache.delete(cache.keys().next().value!);

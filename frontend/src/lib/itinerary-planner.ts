@@ -6,6 +6,24 @@ export function formatPlanTime(minutes: number) {
   return `${String(Math.floor(time / 60)).padStart(2, "0")}:${String(time % 60).padStart(2, "0")}${day ? ` (+${day} day)` : ""}`;
 }
 
+export interface PlanStop {
+  time: string;
+  title: string;
+  type: "food" | "sight" | "activity" | "beach" | "rest" | "travel";
+  duration: string;
+  durationMin: number;
+  arrivalMinute: number;
+  departureMinute: number;
+  description: string;
+  travel_note: string;
+  lat?: number;
+  lng?: number;
+  distanceKm?: number;
+  transitMin?: number;
+  sourceUrl?: string;
+  crowdLevel?: "low" | "moderate" | "high";
+}
+
 export function scheduleItinerary(input: {
   candidates: NearbyPlace[];
   durations: (number | null)[][];
@@ -22,7 +40,7 @@ export function scheduleItinerary(input: {
     deadline = start + input.hours * 60;
   let clock = start,
     previous = 0;
-  const stops = [];
+  const stops: PlanStop[] = [];
   const remaining = input.candidates.map((place, i) => ({ place, index: i + 1 }));
   const buffer = input.pace === "relaxed" ? 15 : input.pace === "balanced" ? 10 : 5;
   const visit = input.pace === "relaxed" ? 75 : input.pace === "balanced" ? 50 : 30;
@@ -56,6 +74,19 @@ export function scheduleItinerary(input: {
         )
           return [];
         const rank = input.preferredIds.indexOf(place.id);
+        // Anti-clustering penalty: avoid back-to-back restaurants or same venue types
+        const lastStop = stops[stops.length - 1];
+        let diversityPenalty = 0;
+        if (lastStop) {
+          if (lastStop.type === "food" && place.category === "restaurant") {
+            diversityPenalty += 80;
+          } else if (
+            (lastStop.type === "beach" && place.kind === "beach") ||
+            (lastStop.title === place.name)
+          ) {
+            diversityPenalty += 25;
+          }
+        }
         return [
           {
             place,
@@ -64,7 +95,7 @@ export function scheduleItinerary(input: {
             transit,
             duration,
             meters,
-            score: transit + (rank < 0 ? 60 : rank * 3),
+            score: transit + (rank < 0 ? 60 : rank * 12) + diversityPenalty,
           },
         ];
       })
@@ -73,20 +104,25 @@ export function scheduleItinerary(input: {
     if (!next) break;
     const arrival = clock + next.transit,
       end = arrival + next.duration;
+    const stopType =
+      next.place.category === "restaurant"
+        ? ("food" as const)
+        : next.place.kind === "beach"
+          ? ("beach" as const)
+          : ["water_sports", "water_park", "sports_centre", "nightclub"].includes(next.place.kind)
+            ? ("activity" as const)
+            : ("sight" as const);
     stops.push({
       time: `${formatPlanTime(arrival)} – ${formatPlanTime(end)}`,
       title: next.place.name,
-      type:
-        next.place.category === "restaurant"
-          ? ("food" as const)
-          : next.place.kind === "beach"
-            ? ("beach" as const)
-            : ("sight" as const),
+      type: stopType,
       duration: `${next.duration} mins`,
       durationMin: next.duration,
       arrivalMinute: arrival,
       departureMinute: end,
-      description: `${next.place.kind.replaceAll("_", " ")} listed on OpenStreetMap.${next.place.cuisine ? ` Cuisine: ${next.place.cuisine.replaceAll(";", ", ")}.` : ""}`,
+      description:
+        next.place.highlight ||
+        `${next.place.kind.replaceAll("_", " ")} listed on OpenStreetMap.${next.place.cuisine ? ` Cuisine: ${next.place.cuisine.replaceAll(";", ", ")}.` : ""}`,
       travel_note: `${next.drive} min estimated drive + ${buffer} min arrival buffer from ${stops.length ? "previous stop" : "your starting point"}. ${next.place.openingHours ? `Listed hours: ${next.place.openingHours}. Confirm before visiting.` : "Opening hours unavailable; confirm before visiting."}`,
       lat: next.place.lat,
       lng: next.place.lng,

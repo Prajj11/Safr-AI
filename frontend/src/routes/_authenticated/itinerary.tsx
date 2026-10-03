@@ -548,6 +548,9 @@ function ItineraryPage() {
                         <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold capitalize text-muted-foreground">
                           {stop.duration}
                         </span>
+                        <span className="rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                          {typeEmoji[stop.type] ?? "📍"} {stop.type}
+                        </span>
 
                         {/* Real-time Crowd Indicator */}
                         {stop.crowdLevel && (
