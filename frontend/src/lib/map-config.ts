@@ -254,7 +254,7 @@ export function addCustomLayers(
 // Arrow image for route direction symbols (canvas-generated, no font glyph)
 // ---------------------------------------------------------------------------
 
-function addArrowImage(map: MapLibreMap): void {
+export function addArrowImage(map: MapLibreMap): void {
   if (map.hasImage("safr-route-arrow")) return;
   const size = 20;
   const canvas = document.createElement("canvas");

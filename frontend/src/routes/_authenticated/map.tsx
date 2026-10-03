@@ -56,6 +56,7 @@ import {
   GOA_BOUNDS,
   getDefaultStyleId,
   addCustomLayers,
+  addArrowImage,
   ORIGIN_MARKER_SVG,
   DESTINATION_MARKER_SVG,
   stepMarkerSvg,
@@ -538,6 +539,7 @@ function MapPage() {
 
         // Direction arrows on selected route
         if (isSelected) {
+          addArrowImage(map);
           map.addLayer({
             id: `safr-route-arrows-${i}`,
             type: "symbol",
