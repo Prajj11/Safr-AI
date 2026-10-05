@@ -1,7 +1,11 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import type { Map as MapLibreMap, Marker as MapLibreMarker, IControl } from "maplibre-gl";
+import type {
+  Map as MapLibreMap,
+  Marker as MapLibreMarker,
+  IControl,
+} from "maplibre-gl";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,7 +98,9 @@ function LiveTrackingPage() {
       maplibreRef.current = ml;
       injectMapCSS();
 
-      const initStyle = MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ?? MAP_STYLES[0]!;
+      const initStyle =
+        MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ??
+        MAP_STYLES[0]!;
       appliedStyleIdRef.current = initStyle.id;
 
       const map = new ml.Map({
@@ -114,7 +120,9 @@ function LiveTrackingPage() {
       // Resilient fallback timer: only auto-fallbacks if style fails to initialize within 12 seconds
       const loadTimeout = setTimeout(() => {
         if (!map.isStyleLoaded()) {
-          console.warn("[map] Style initialization timed out, falling back to OSM standard tiles...");
+          console.warn(
+            "[map] Style initialization timed out, falling back to OSM standard tiles...",
+          );
           try {
             appliedStyleIdRef.current = "osm";
             setActiveStyleId("osm");
@@ -130,7 +138,10 @@ function LiveTrackingPage() {
         }
       }, 12000);
 
-      map.addControl(new ml.NavigationControl({ showCompass: true, showZoom: true }), "top-right");
+      map.addControl(
+        new ml.NavigationControl({ showCompass: true, showZoom: true }),
+        "top-right",
+      );
       map.addControl(new ml.FullscreenControl(), "top-right");
 
       // Style switcher (top-left)
@@ -142,7 +153,10 @@ function LiveTrackingPage() {
         btn.textContent = s.icon;
         btn.title = s.label;
         btn.setAttribute("aria-label", `Map style: ${s.label}`);
-        btn.setAttribute("aria-pressed", s.id === activeStyleIdRef.current ? "true" : "false");
+        btn.setAttribute(
+          "aria-pressed",
+          s.id === activeStyleIdRef.current ? "true" : "false",
+        );
         btn.addEventListener("click", () => {
           setActiveStyleId(s.id);
         });
@@ -157,7 +171,9 @@ function LiveTrackingPage() {
           this._container.appendChild(switcherDiv);
           return this._container;
         }
-        onRemove() { this._container?.remove(); }
+        onRemove() {
+          this._container?.remove();
+        }
       }
       map.addControl(new StyleSwitcherControl() as IControl, "top-left");
 
@@ -196,7 +212,9 @@ function LiveTrackingPage() {
           this._container.appendChild(ctrlsDiv);
           return this._container;
         }
-        onRemove() { this._container?.remove(); }
+        onRemove() {
+          this._container?.remove();
+        }
       }
       map.addControl(new ExtraControlsControl() as IControl, "top-left");
 
@@ -210,8 +228,13 @@ function LiveTrackingPage() {
         setIsLoadingMap(false);
         setMapLoadError(false);
         setReady(true);
-        const curStyle = MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ?? MAP_STYLES[0]!;
-        addCustomLayers(map, { is3d: is3dRef.current, isVector: curStyle.isVector });
+        const curStyle =
+          MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ??
+          MAP_STYLES[0]!;
+        addCustomLayers(map, {
+          is3d: is3dRef.current,
+          isVector: curStyle.isVector,
+        });
       });
 
       map.on("load", () => {
@@ -223,7 +246,8 @@ function LiveTrackingPage() {
         // Add initial member markers using DOM elements (never HTML strings)
         INITIAL_MEMBERS.forEach((m) => {
           const el = document.createElement("div");
-          el.style.cssText = "background-color:#06b6d4;color:white;width:32px;height:32px;border-radius:50%;border:3px solid white;box-shadow:0 4px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px;";
+          el.style.cssText =
+            "background-color:#06b6d4;color:white;width:32px;height:32px;border-radius:50%;border:3px solid white;box-shadow:0 4px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px;";
           el.textContent = m.name.charAt(0);
 
           const popupContent = document.createElement("div");
@@ -249,7 +273,6 @@ function LiveTrackingPage() {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Style switching
@@ -259,14 +282,20 @@ function LiveTrackingPage() {
 
     if (activeStyleId !== appliedStyleIdRef.current) {
       appliedStyleIdRef.current = activeStyleId;
-      const entry = MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
+      const entry =
+        MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
       map.setStyle(entry.style);
     }
 
-    const btns = map.getContainer().querySelectorAll<HTMLButtonElement>(".safr-style-btn");
+    const btns = map
+      .getContainer()
+      .querySelectorAll<HTMLButtonElement>(".safr-style-btn");
     btns.forEach((btn, i) => {
       const s = MAP_STYLES[i];
-      btn.setAttribute("aria-pressed", s?.id === activeStyleId ? "true" : "false");
+      btn.setAttribute(
+        "aria-pressed",
+        s?.id === activeStyleId ? "true" : "false",
+      );
     });
   }, [activeStyleId, ready]);
 
@@ -275,13 +304,16 @@ function LiveTrackingPage() {
     const map = mapRef.current;
     if (!map || !ready) return;
 
-    const curStyle = MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
+    const curStyle =
+      MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
 
     map.easeTo({ pitch: is3d ? 60 : 0, duration: 600 });
 
     addCustomLayers(map, { is3d, isVector: curStyle.isVector });
 
-    const btn = map.getContainer().querySelector<HTMLButtonElement>(".safr-map-ctrl-btn");
+    const btn = map
+      .getContainer()
+      .querySelector<HTMLButtonElement>(".safr-map-ctrl-btn");
     btn?.setAttribute("aria-pressed", is3d ? "true" : "false");
   }, [is3d, ready, activeStyleId]);
 
@@ -301,17 +333,21 @@ function LiveTrackingPage() {
           const ml = maplibreRef.current;
           if (!meMarkerRef.current) {
             const el = document.createElement("div");
-            el.style.cssText = "background-color:#f97316;width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 0 15px rgba(249,115,22,0.6);";
+            el.style.cssText =
+              "background-color:#f97316;width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 0 15px rgba(249,115,22,0.6);";
             meMarkerRef.current = new ml.Marker({ element: el })
               .setLngLat([longitude, latitude])
-              .setPopup(new ml.Popup({ offset: 16 }).setHTML("<b>You (Guardian)</b>"))
+              .setPopup(
+                new ml.Popup({ offset: 16 }).setHTML("<b>You (Guardian)</b>"),
+              )
               .addTo(mapRef.current);
           } else {
             meMarkerRef.current.setLngLat([longitude, latitude]);
           }
         }
       },
-      () => setLocationError("Unable to retrieve high-accuracy GPS coordinates"),
+      () =>
+        setLocationError("Unable to retrieve high-accuracy GPS coordinates"),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
 
@@ -369,23 +405,35 @@ function LiveTrackingPage() {
         {isLoadingMap && !mapLoadError && (
           <div className="absolute inset-0 pointer-events-none bg-muted/30 backdrop-blur-[2px] animate-pulse flex items-center justify-center">
             <span className="text-xs text-muted-foreground font-mono flex items-center gap-2">
-              <Loader2 className="size-4 animate-spin text-primary" /> Loading live map…
+              <Loader2 className="size-4 animate-spin text-primary" /> Loading
+              live map…
             </span>
           </div>
         )}
         {mapLoadError && (
           <div className="absolute inset-0 bg-background/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-10">
-            <p className="text-sm font-semibold text-foreground mb-3">Map tiles could not be loaded.</p>
-            <Button size="sm" variant="outline" onClick={handleRetryMap} className="gap-2 rounded-xl text-xs font-bold">
+            <p className="text-sm font-semibold text-foreground mb-3">
+              Map tiles could not be loaded.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRetryMap}
+              className="gap-2 rounded-xl text-xs font-bold"
+            >
               <RotateCcw className="size-3.5" /> Retry
             </Button>
           </div>
         )}
       </div>
 
-      <p role="status" className="mt-4 rounded-2xl border border-border p-4 text-sm">
-        Family device sharing is not configured. No family locations or battery levels are
-        simulated. Each family device will need to consent and send its own location.
+      <p
+        role="status"
+        className="mt-4 rounded-2xl border border-border p-4 text-sm"
+      >
+        Family device sharing is not configured. No family locations or battery
+        levels are simulated. Each family device will need to consent and send
+        its own location.
       </p>
       {locationError && (
         <p role="alert" className="mt-3 text-sm text-destructive">
@@ -435,7 +483,9 @@ function LiveTrackingPage() {
                 {m.name.charAt(0)}
               </div>
               <div className="min-w-0">
-                <h4 className="text-base font-bold text-foreground truncate">{m.name}</h4>
+                <h4 className="text-base font-bold text-foreground truncate">
+                  {m.name}
+                </h4>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                   <span className="flex items-center gap-1 font-mono">
                     <Battery className="size-3 text-emerald" /> {m.battery}%

@@ -3,12 +3,17 @@ import { useState } from "react";
 import { Search, ShieldCheck, Compass, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EMERGENCY_NUMBERS } from "@/lib/emergency-contacts";
 
 export const Route = createFileRoute("/find")({
   head: () => ({
     meta: [
       { title: "Found Someone? — Safr SafeTag Finder" },
-      { name: "description", content: "Enter the OTP code on a safety wristband to notify the family securely." },
+      {
+        name: "description",
+        content:
+          "Enter the OTP code on a safety wristband to notify the family securely.",
+      },
     ],
   }),
   component: FindPage,
@@ -21,7 +26,10 @@ function FindPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (code.trim().length > 0) {
-      navigate({ to: "/t/$token", params: { token: code.trim().toUpperCase() } });
+      navigate({
+        to: "/t/$token",
+        params: { token: code.trim().toUpperCase() },
+      });
     }
   };
 
@@ -53,7 +61,9 @@ function FindPage() {
           </h1>
 
           <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mt-2 mb-6">
-            Enter the 6-character OTP code printed on their safety wristband or card to securely notify their family without seeing any private contact info.
+            Enter the 6-character OTP code printed on their safety wristband or
+            card to securely notify their family without seeing any private
+            contact info.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -76,7 +86,21 @@ function FindPage() {
           </form>
 
           <div className="mt-6 pt-5 border-t border-border/40 text-xs text-muted-foreground">
-            Immediate emergency in Goa? Dial <a href="tel:112" className="font-bold text-destructive underline">112 Police</a> or <a href="tel:108" className="font-bold text-destructive underline">108 Ambulance</a>.
+            Immediate emergency in Goa? Dial{" "}
+            <a
+              href={`tel:${EMERGENCY_NUMBERS.police}`}
+              className="font-bold text-destructive underline"
+            >
+              {EMERGENCY_NUMBERS.police} Police
+            </a>{" "}
+            or{" "}
+            <a
+              href={`tel:${EMERGENCY_NUMBERS.ambulance}`}
+              className="font-bold text-destructive underline"
+            >
+              {EMERGENCY_NUMBERS.ambulance} Ambulance
+            </a>
+            .
           </div>
         </div>
       </div>

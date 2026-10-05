@@ -40,14 +40,23 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { Map as MapLibreMap, Marker as MapLibreMarker, GeolocateControl, IControl } from "maplibre-gl";
+import type {
+  Map as MapLibreMap,
+  Marker as MapLibreMarker,
+  GeolocateControl,
+  IControl,
+} from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { getRoutes, searchPlaces, getRoutingConfig } from "@/lib/maps.functions";
+import {
+  getRoutes,
+  searchPlaces,
+  getRoutingConfig,
+} from "@/lib/maps.functions";
 import { getCurrentArea } from "@/lib/goa.functions";
 import type { RouteStep, ScoredRoute, Waypoint } from "@/lib/maps.server";
 import {
@@ -86,10 +95,14 @@ export const Route = createFileRoute("/_authenticated/map")({
       originLng?: string;
       stops?: string;
     } = {};
-    if (typeof search["dest"] === "string" && search["dest"]) params.dest = search["dest"];
-    if (typeof search["lat"] === "string" && search["lat"]) params.lat = search["lat"];
-    if (typeof search["lng"] === "string" && search["lng"]) params.lng = search["lng"];
-    if (typeof search["origin"] === "string" && search["origin"]) params.origin = search["origin"];
+    if (typeof search["dest"] === "string" && search["dest"])
+      params.dest = search["dest"];
+    if (typeof search["lat"] === "string" && search["lat"])
+      params.lat = search["lat"];
+    if (typeof search["lng"] === "string" && search["lng"])
+      params.lng = search["lng"];
+    if (typeof search["origin"] === "string" && search["origin"])
+      params.origin = search["origin"];
     if (typeof search["originLat"] === "string" && search["originLat"])
       params.originLat = search["originLat"];
     if (typeof search["originLng"] === "string" && search["originLng"])
@@ -107,26 +120,65 @@ export const Route = createFileRoute("/_authenticated/map")({
   component: MapPage,
 });
 
-type Hit = { id: string; name: string; address: string; lat: number; lng: number };
+type Hit = {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+};
 type Scored = ScoredRoute;
 
 const DEFAULT_ORIGIN = { lat: 15.4989, lng: 73.8278, name: "Panjim" };
 
 const QUICK_DESTINATIONS: Hit[] = [
-  { id: "q1", name: "Baga Beach", address: "North Goa", lat: 15.5553, lng: 73.7517 },
-  { id: "q2", name: "Fort Aguada", address: "Candolim, Goa", lat: 15.4925, lng: 73.7736 },
-  { id: "q3", name: "Palolem Beach", address: "Canacona, South Goa", lat: 15.01, lng: 74.0232 },
-  { id: "q4", name: "Dudhsagar Falls", address: "Sanguem, Goa", lat: 15.3144, lng: 74.3144 },
-  { id: "q5", name: "Panjim Church", address: "Fontainhas, Panaji", lat: 15.4989, lng: 73.8278 },
+  {
+    id: "q1",
+    name: "Baga Beach",
+    address: "North Goa",
+    lat: 15.5553,
+    lng: 73.7517,
+  },
+  {
+    id: "q2",
+    name: "Fort Aguada",
+    address: "Candolim, Goa",
+    lat: 15.4925,
+    lng: 73.7736,
+  },
+  {
+    id: "q3",
+    name: "Palolem Beach",
+    address: "Canacona, South Goa",
+    lat: 15.01,
+    lng: 74.0232,
+  },
+  {
+    id: "q4",
+    name: "Dudhsagar Falls",
+    address: "Sanguem, Goa",
+    lat: 15.3144,
+    lng: 74.3144,
+  },
+  {
+    id: "q5",
+    name: "Panjim Church",
+    address: "Fontainhas, Panaji",
+    lat: 15.4989,
+    lng: 73.8278,
+  },
 ];
 
 function getManeuverIcon(type: string, modifier?: string) {
   if (type === "arrive") return <Flag className="size-4 text-emerald" />;
   if (type === "roundabout" || type === "rotary")
     return <RotateCcw className="size-4 text-amber" />;
-  if (type === "fork" || type === "merge") return <Split className="size-4 text-cyan" />;
-  if (modifier?.includes("left")) return <CornerUpLeft className="size-4 text-primary" />;
-  if (modifier?.includes("right")) return <CornerUpRight className="size-4 text-coral" />;
+  if (type === "fork" || type === "merge")
+    return <Split className="size-4 text-cyan" />;
+  if (modifier?.includes("left"))
+    return <CornerUpLeft className="size-4 text-primary" />;
+  if (modifier?.includes("right"))
+    return <CornerUpRight className="size-4 text-coral" />;
   return <MoveUp className="size-4 text-primary" />;
 }
 
@@ -157,9 +209,14 @@ function getRecentSearches(): Hit[] {
 
 function saveRecentSearch(hit: Hit): void {
   try {
-    const recents = getRecentSearches().filter((r) => r.name.toLowerCase() !== hit.name.toLowerCase());
+    const recents = getRecentSearches().filter(
+      (r) => r.name.toLowerCase() !== hit.name.toLowerCase(),
+    );
     recents.unshift(hit);
-    localStorage.setItem("safr_recent_destinations", JSON.stringify(recents.slice(0, 5)));
+    localStorage.setItem(
+      "safr_recent_destinations",
+      JSON.stringify(recents.slice(0, 5)),
+    );
   } catch {
     // ignore localStorage errors
   }
@@ -232,7 +289,9 @@ function MapPage() {
   // Departure Time & Travel Mode
   const [departureMode, setDepartureMode] = useState<"now" | "custom">("now");
   const [customTime, setCustomTime] = useState("19:00");
-  const [travelMode, setTravelMode] = useState<"car" | "motor_scooter" | "bicycle" | "walking">("car");
+  const [travelMode, setTravelMode] = useState<
+    "car" | "motor_scooter" | "bicycle" | "walking"
+  >("car");
 
   // Saved places & Saved routes
   const [showSavedPlaces, setShowSavedPlaces] = useState(true);
@@ -252,7 +311,8 @@ function MapPage() {
   const is3dRef = useRef(is3d);
   is3dRef.current = is3d;
 
-  const isNightTime = departureMode === "now" ? isGoaNight() : isGoaNight(customTime);
+  const isNightTime =
+    departureMode === "now" ? isGoaNight() : isGoaNight(customTime);
 
   const search = useServerFn(searchPlaces);
   const route = useServerFn(getRoutes);
@@ -301,26 +361,31 @@ function MapPage() {
   }, []);
 
   const originSearchMutation = useMutation({
-    mutationFn: async (q: string) => (await search({ data: { query: q } })) as Hit[],
+    mutationFn: async (q: string) =>
+      (await search({ data: { query: q } })) as Hit[],
     onSuccess: (data) => {
       setOriginHits(data);
       if (data.length === 0) toast.info("No matching starting places found.");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Origin search failed"),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Origin search failed"),
   });
 
   const stopSearchMutation = useMutation({
-    mutationFn: async (q: string) => (await search({ data: { query: q } })) as Hit[],
+    mutationFn: async (q: string) =>
+      (await search({ data: { query: q } })) as Hit[],
     onSuccess: (data) => {
       setStopHits(data);
       if (data.length === 0) toast.info("No matching stops found.");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Stop search failed"),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Stop search failed"),
   });
 
   const requestUserLocation = (isAutomatic = false) => {
     if (!navigator.geolocation) {
-      if (!isAutomatic) toast.error("Geolocation is not supported by your browser");
+      if (!isAutomatic)
+        toast.error("Geolocation is not supported by your browser");
       setLocationReady(true);
       setOriginLabel("Panjim (default fallback)");
       return;
@@ -371,10 +436,14 @@ function MapPage() {
             setLocating(false);
             setLocationReady(true);
             setOriginLabel((prev) =>
-              prev.startsWith("Detecting") ? "Panjim (default starting point)" : prev,
+              prev.startsWith("Detecting")
+                ? "Panjim (default starting point)"
+                : prev,
             );
             if (!isAutomatic) {
-              toast.error("Could not acquire GPS fix. Please select a starting point manually.");
+              toast.error(
+                "Could not acquire GPS fix. Please select a starting point manually.",
+              );
             }
           },
           { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
@@ -389,7 +458,9 @@ function MapPage() {
       );
       if (!isAutomatic) {
         if (err?.code === err?.PERMISSION_DENIED) {
-          toast.error("Location permission was denied. Please allow location access in your browser settings.");
+          toast.error(
+            "Location permission was denied. Please allow location access in your browser settings.",
+          );
         } else {
           toast.error("Unable to retrieve location. Using Panjim as fallback.");
         }
@@ -428,12 +499,36 @@ function MapPage() {
 
     // Clean up any existing route layers/sources
     for (let i = 0; i < 10; i++) {
-      try { map.removeLayer(`safr-route-arrows-${i}`); } catch { /* */ }
-      try { map.removeLayer(`safr-route-line-traveled-${i}`); } catch { /* */ }
-      try { map.removeLayer(`safr-route-line-${i}`); } catch { /* */ }
-      try { map.removeLayer(`safr-route-casing-${i}`); } catch { /* */ }
-      try { map.removeSource(`safr-route-traveled-${i}`); } catch { /* */ }
-      try { map.removeSource(`safr-route-${i}`); } catch { /* */ }
+      try {
+        map.removeLayer(`safr-route-arrows-${i}`);
+      } catch {
+        /* */
+      }
+      try {
+        map.removeLayer(`safr-route-line-traveled-${i}`);
+      } catch {
+        /* */
+      }
+      try {
+        map.removeLayer(`safr-route-line-${i}`);
+      } catch {
+        /* */
+      }
+      try {
+        map.removeLayer(`safr-route-casing-${i}`);
+      } catch {
+        /* */
+      }
+      try {
+        map.removeSource(`safr-route-traveled-${i}`);
+      } catch {
+        /* */
+      }
+      try {
+        map.removeSource(`safr-route-${i}`);
+      } catch {
+        /* */
+      }
     }
 
     curRoutes.forEach((r, i) => {
@@ -442,7 +537,9 @@ function MapPage() {
         const pathCoords = JSON.parse(r.polyline) as [number, number][];
         if (!pathCoords || pathCoords.length === 0) return;
 
-        const coords = pathCoords.map(([lat, lng]) => [lng, lat] as [number, number]);
+        const coords = pathCoords.map(
+          ([lat, lng]) => [lng, lat] as [number, number],
+        );
         const isSelected = i === curSelected;
         const color = routeColor(r.kind, isSelected);
 
@@ -450,13 +547,20 @@ function MapPage() {
         let remainingCoords = coords;
         let traveledCoords: [number, number][] = [];
 
-        if (isSelected && curStepIdx !== null && r.steps[curStepIdx]?.location) {
+        if (
+          isSelected &&
+          curStepIdx !== null &&
+          r.steps[curStepIdx]?.location
+        ) {
           const stepLoc = r.steps[curStepIdx]!.location!;
           // Find closest coordinate index on polyline
           let closestIdx = 0;
           let minDist = Infinity;
           for (let cIdx = 0; cIdx < coords.length; cIdx++) {
-            const d = Math.hypot(coords[cIdx]![0] - stepLoc[1], coords[cIdx]![1] - stepLoc[0]);
+            const d = Math.hypot(
+              coords[cIdx]![0] - stepLoc[1],
+              coords[cIdx]![1] - stepLoc[0],
+            );
             if (d < minDist) {
               minDist = d;
               closestIdx = cIdx;
@@ -561,13 +665,19 @@ function MapPage() {
 
     // Add or update Saved Places Clustered Layer
     try {
-      if (map.getLayer("safr-saved-clusters")) map.removeLayer("safr-saved-clusters");
-      if (map.getLayer("safr-saved-cluster-count")) map.removeLayer("safr-saved-cluster-count");
-      if (map.getLayer("safr-saved-points")) map.removeLayer("safr-saved-points");
-      if (map.getSource("safr-saved-places-src")) map.removeSource("safr-saved-places-src");
+      if (map.getLayer("safr-saved-clusters"))
+        map.removeLayer("safr-saved-clusters");
+      if (map.getLayer("safr-saved-cluster-count"))
+        map.removeLayer("safr-saved-cluster-count");
+      if (map.getLayer("safr-saved-points"))
+        map.removeLayer("safr-saved-points");
+      if (map.getSource("safr-saved-places-src"))
+        map.removeSource("safr-saved-places-src");
 
       if (showSavedPlacesRef.current && savedPlacesRef.current.length > 0) {
-        const validPlaces = savedPlacesRef.current.filter((p) => p.lat && p.lng);
+        const validPlaces = savedPlacesRef.current.filter(
+          (p) => p.lat && p.lng,
+        );
         const savedGeojson: FeatureCollection = {
           type: "FeatureCollection",
           features: validPlaces.map((p) => ({
@@ -603,7 +713,15 @@ function MapPage() {
           filter: ["has", "point_count"],
           paint: {
             "circle-color": "#14b8a6",
-            "circle-radius": ["step", ["get", "point_count"], 16, 5, 22, 15, 28],
+            "circle-radius": [
+              "step",
+              ["get", "point_count"],
+              16,
+              5,
+              22,
+              15,
+              28,
+            ],
             "circle-stroke-width": 2.5,
             "circle-stroke-color": "#ffffff",
           },
@@ -669,7 +787,9 @@ function MapPage() {
       maplibreRef.current = ml;
       injectMapCSS();
 
-      const initStyle = MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ?? MAP_STYLES[0]!;
+      const initStyle =
+        MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ??
+        MAP_STYLES[0]!;
       appliedStyleIdRef.current = initStyle.id;
 
       const map = new ml.Map({
@@ -689,7 +809,9 @@ function MapPage() {
       // Resilient fallback timer: only auto-fallbacks if style fails to initialize within 12 seconds
       const loadTimeout = setTimeout(() => {
         if (!map.isStyleLoaded()) {
-          console.warn("[map] Style initialization timed out, falling back to OSM standard tiles...");
+          console.warn(
+            "[map] Style initialization timed out, falling back to OSM standard tiles...",
+          );
           try {
             appliedStyleIdRef.current = "osm";
             setActiveStyleId("osm");
@@ -705,7 +827,10 @@ function MapPage() {
         }
       }, 12000);
 
-      map.addControl(new ml.NavigationControl({ showCompass: true, showZoom: true }), "top-right");
+      map.addControl(
+        new ml.NavigationControl({ showCompass: true, showZoom: true }),
+        "top-right",
+      );
       map.addControl(new ml.FullscreenControl(), "top-right");
 
       const geolocate = new ml.GeolocateControl({
@@ -724,7 +849,10 @@ function MapPage() {
         btn.textContent = s.icon;
         btn.title = s.label;
         btn.setAttribute("aria-label", `Map style: ${s.label}`);
-        btn.setAttribute("aria-pressed", s.id === activeStyleIdRef.current ? "true" : "false");
+        btn.setAttribute(
+          "aria-pressed",
+          s.id === activeStyleIdRef.current ? "true" : "false",
+        );
         btn.addEventListener("click", () => {
           setActiveStyleId(s.id);
         });
@@ -739,7 +867,9 @@ function MapPage() {
           this._container.appendChild(switcherDiv);
           return this._container;
         }
-        onRemove() { this._container?.remove(); }
+        onRemove() {
+          this._container?.remove();
+        }
       }
       map.addControl(new StyleSwitcherControl() as IControl, "top-left");
 
@@ -782,7 +912,9 @@ function MapPage() {
           this._container.appendChild(ctrlsDiv);
           return this._container;
         }
-        onRemove() { this._container?.remove(); }
+        onRemove() {
+          this._container?.remove();
+        }
       }
       map.addControl(new ExtraControlsControl() as IControl, "top-left");
 
@@ -798,7 +930,9 @@ function MapPage() {
         setMapLoadError(false);
         setReady(true);
 
-        const curStyle = MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ?? MAP_STYLES[0]!;
+        const curStyle =
+          MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ??
+          MAP_STYLES[0]!;
         addCustomLayers(map, {
           is3d: is3dRef.current,
           isVector: curStyle.isVector,
@@ -828,14 +962,22 @@ function MapPage() {
         titleEl.textContent = name;
 
         const catEl = document.createElement("div");
-        catEl.className = "text-[11px] text-muted-foreground uppercase font-semibold mb-2";
+        catEl.className =
+          "text-[11px] text-muted-foreground uppercase font-semibold mb-2";
         catEl.textContent = category || "Saved Place";
 
         const btnDest = document.createElement("button");
-        btnDest.className = "block w-full text-left text-xs font-semibold py-1 px-2 mb-1 rounded bg-primary/10 hover:bg-primary/20 text-primary transition-colors";
+        btnDest.className =
+          "block w-full text-left text-xs font-semibold py-1 px-2 mb-1 rounded bg-primary/10 hover:bg-primary/20 text-primary transition-colors";
         btnDest.textContent = "📍 Set as destination";
         btnDest.addEventListener("click", () => {
-          const hit: Hit = { id: id || "saved", name, address: category || "Goa", lat: Number(lat), lng: Number(lng) };
+          const hit: Hit = {
+            id: id || "saved",
+            name,
+            address: category || "Goa",
+            lat: Number(lat),
+            lng: Number(lng),
+          };
           setDestination(hit);
           setQuery(hit.name);
           saveRecentSearch(hit);
@@ -844,14 +986,21 @@ function MapPage() {
         });
 
         const btnStop = document.createElement("button");
-        btnStop.className = "block w-full text-left text-xs font-semibold py-1 px-2 rounded bg-secondary hover:bg-secondary/80 text-foreground transition-colors";
+        btnStop.className =
+          "block w-full text-left text-xs font-semibold py-1 px-2 rounded bg-secondary hover:bg-secondary/80 text-foreground transition-colors";
         btnStop.textContent = "➕ Add as stop";
         btnStop.addEventListener("click", () => {
           if (waypoints.length >= 5) {
             toast.error("Maximum of 5 stops allowed.");
             return;
           }
-          const stopHit: Hit = { id: id || `stop-${Date.now()}`, name, address: category || "Goa", lat: Number(lat), lng: Number(lng) };
+          const stopHit: Hit = {
+            id: id || `stop-${Date.now()}`,
+            name,
+            address: category || "Goa",
+            lat: Number(lat),
+            lng: Number(lng),
+          };
           const updated = [...waypoints, stopHit];
           setWaypoints(updated);
           toast.success(`Added ${name} as stop`);
@@ -870,17 +1019,22 @@ function MapPage() {
 
       // Cluster clicks -> zoom in
       map.on("click", "safr-saved-clusters", (e) => {
-        const features = map.queryRenderedFeatures(e.point, { layers: ["safr-saved-clusters"] });
+        const features = map.queryRenderedFeatures(e.point, {
+          layers: ["safr-saved-clusters"],
+        });
         const clusterId = features[0]?.properties?.["cluster_id"];
         const source = map.getSource("safr-saved-places-src") as any;
         if (source && typeof source.getClusterExpansionZoom === "function") {
-          source.getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
-            if (err) return;
-            map.easeTo({
-              center: (features[0]?.geometry as any).coordinates,
-              zoom,
-            });
-          });
+          source.getClusterExpansionZoom(
+            clusterId,
+            (err: any, zoom: number) => {
+              if (err) return;
+              map.easeTo({
+                center: (features[0]?.geometry as any).coordinates,
+                zoom,
+              });
+            },
+          );
         }
       });
     });
@@ -903,14 +1057,20 @@ function MapPage() {
 
     if (activeStyleId !== appliedStyleIdRef.current) {
       appliedStyleIdRef.current = activeStyleId;
-      const entry = MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
+      const entry =
+        MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
       map.setStyle(entry.style);
     }
 
-    const btns = map.getContainer().querySelectorAll<HTMLButtonElement>(".safr-style-btn");
+    const btns = map
+      .getContainer()
+      .querySelectorAll<HTMLButtonElement>(".safr-style-btn");
     btns.forEach((btn, i) => {
       const s = MAP_STYLES[i];
-      btn.setAttribute("aria-pressed", s?.id === activeStyleId ? "true" : "false");
+      btn.setAttribute(
+        "aria-pressed",
+        s?.id === activeStyleId ? "true" : "false",
+      );
     });
   }, [activeStyleId, ready]);
 
@@ -918,7 +1078,8 @@ function MapPage() {
     const map = mapRef.current;
     if (!map || !ready) return;
 
-    const curStyle = MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
+    const curStyle =
+      MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
     map.easeTo({ pitch: is3d ? 60 : 0, duration: 600 });
     addCustomLayers(map, {
       is3d,
@@ -926,7 +1087,9 @@ function MapPage() {
       routeDataFn: () => routeDataFnRef.current(),
     });
 
-    const btn = map.getContainer().querySelector<HTMLButtonElement>(".safr-map-ctrl-btn");
+    const btn = map
+      .getContainer()
+      .querySelector<HTMLButtonElement>(".safr-map-ctrl-btn");
     btn?.setAttribute("aria-pressed", is3d ? "true" : "false");
   }, [is3d, ready, activeStyleId]);
 
@@ -984,7 +1147,10 @@ function MapPage() {
         const parsedStops = JSON.parse(searchParams.stops);
         if (Array.isArray(parsedStops)) {
           const validated = parsedStops
-            .filter((s: any) => typeof s.lat === "number" && typeof s.lng === "number")
+            .filter(
+              (s: any) =>
+                typeof s.lat === "number" && typeof s.lng === "number",
+            )
             .slice(0, 5)
             .map((s: any, idx: number) => ({
               id: `param-stop-${idx}`,
@@ -1019,8 +1185,16 @@ function MapPage() {
       }));
       return (await route({
         data: {
-          origin: { lat: params.origin.lat, lng: params.origin.lng, name: originLabel },
-          destination: { lat: params.destination.lat, lng: params.destination.lng, name: params.destination.name },
+          origin: {
+            lat: params.origin.lat,
+            lng: params.origin.lng,
+            name: originLabel,
+          },
+          destination: {
+            lat: params.destination.lat,
+            lng: params.destination.lng,
+            name: params.destination.name,
+          },
           waypoints: wpPayload,
           mode: params.mode,
           isNight: isNightTime,
@@ -1040,7 +1214,10 @@ function MapPage() {
         toast.success(`Routes calculated for ${variables.destination.name}`);
       }
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not calculate routes"),
+    onError: (e) =>
+      toast.error(
+        e instanceof Error ? e.message : "Could not calculate routes",
+      ),
   });
 
   const calculateCurrentRoute = (
@@ -1050,25 +1227,43 @@ function MapPage() {
     m = travelMode,
   ) => {
     if (!dest) return;
-    routeMutation.mutate({ origin: orig, destination: dest, waypoints: wps, mode: m });
+    routeMutation.mutate({
+      origin: orig,
+      destination: dest,
+      waypoints: wps,
+      mode: m,
+    });
   };
 
   const searchMutation = useMutation({
-    mutationFn: async (q: string) => (await search({ data: { query: q } })) as Hit[],
+    mutationFn: async (q: string) =>
+      (await search({ data: { query: q } })) as Hit[],
     onSuccess: (data) => {
       setHits(data);
       if (data.length === 0) toast.info("No matching places found in Goa.");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Search failed"),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Search failed"),
   });
 
   useEffect(() => {
     if (!ready || !locationReady || !searchParams.dest) return;
-    const key = JSON.stringify([searchParams.dest, searchParams.lat, searchParams.lng, searchParams.stops]);
+    const key = JSON.stringify([
+      searchParams.dest,
+      searchParams.lat,
+      searchParams.lng,
+      searchParams.stops,
+    ]);
     if (requestedTarget.current === key) return;
     requestedTarget.current = key;
 
-    if (searchParams.dest && searchParams.lat && searchParams.lng && ready && locationReady) {
+    if (
+      searchParams.dest &&
+      searchParams.lat &&
+      searchParams.lng &&
+      ready &&
+      locationReady
+    ) {
       const parsedLat = parseFloat(searchParams.lat);
       const parsedLng = parseFloat(searchParams.lng);
       if (
@@ -1089,7 +1284,12 @@ function MapPage() {
         setRecentDestinations(getRecentSearches());
         calculateCurrentRoute(origin, destHit, waypoints, travelMode);
       }
-    } else if (searchParams.dest && !searchParams.lat && ready && locationReady) {
+    } else if (
+      searchParams.dest &&
+      !searchParams.lat &&
+      ready &&
+      locationReady
+    ) {
       searchMutation.mutate(searchParams.dest);
     }
   }, [
@@ -1170,12 +1370,17 @@ function MapPage() {
 
     const originPopup = document.createElement("div");
     const oTitle = document.createElement("b");
-    oTitle.textContent = isGpsOrigin ? "You (Starting Point)" : "Starting Point";
+    oTitle.textContent = isGpsOrigin
+      ? "You (Starting Point)"
+      : "Starting Point";
     const oSub = document.createElement("div");
     oSub.textContent = originLabel;
     originPopup.append(oTitle, oSub);
 
-    originMarkerRef.current = new ml.Marker({ element: originEl, anchor: "center" })
+    originMarkerRef.current = new ml.Marker({
+      element: originEl,
+      anchor: "center",
+    })
       .setLngLat([origin.lng, origin.lat])
       .setPopup(new ml.Popup({ offset: 16 }).setDOMContent(originPopup))
       .addTo(map);
@@ -1214,7 +1419,10 @@ function MapPage() {
       dSub.textContent = destination.address;
       destPopup.append(dTitle, dSub);
 
-      destMarkerRef.current = new ml.Marker({ element: destEl, anchor: "bottom" })
+      destMarkerRef.current = new ml.Marker({
+        element: destEl,
+        anchor: "bottom",
+      })
         .setLngLat([destination.lng, destination.lat])
         .setPopup(new ml.Popup({ offset: 24 }).setDOMContent(destPopup))
         .addTo(map);
@@ -1313,8 +1521,16 @@ function MapPage() {
         name: routeName,
         mode: travelMode,
         origin: { lat: origin.lat, lng: origin.lng, name: originLabel },
-        destination: { lat: destination.lat, lng: destination.lng, name: destination.name },
-        waypoints: waypoints.map((w) => ({ lat: w.lat, lng: w.lng, name: w.name })),
+        destination: {
+          lat: destination.lat,
+          lng: destination.lng,
+          name: destination.name,
+        },
+        waypoints: waypoints.map((w) => ({
+          lat: w.lat,
+          lng: w.lng,
+          name: w.name,
+        })),
       });
       if (error) throw error;
       toast.success(`Route "${routeName}" saved to My Routes!`);
@@ -1384,7 +1600,11 @@ function MapPage() {
   }
 
   return (
-    <AppShell title="Safe Route Workspace" subtitle="Multi-stop route planning & road intelligence" back>
+    <AppShell
+      title="Safe Route Workspace"
+      subtitle="Multi-stop route planning & road intelligence"
+      back
+    >
       {/* TWO-COLUMN LAYOUT ON DESKTOP, STACKED ON MOBILE */}
       <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 items-start">
         {/* LEFT COLUMN: PLANNER & RESULTS (Scrolls Independently) */}
@@ -1414,7 +1634,11 @@ function MapPage() {
                   disabled={locating}
                   className="h-7 px-2.5 rounded-full text-xs font-semibold"
                 >
-                  {locating ? <Loader2 className="size-3 animate-spin" /> : <LocateFixed className="size-3 text-primary" />}
+                  {locating ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : (
+                    <LocateFixed className="size-3 text-primary" />
+                  )}
                 </Button>
                 <Button
                   type="button"
@@ -1436,7 +1660,8 @@ function MapPage() {
                   className="flex gap-2"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (originQuery.trim().length >= 2) originSearchMutation.mutate(originQuery.trim());
+                    if (originQuery.trim().length >= 2)
+                      originSearchMutation.mutate(originQuery.trim());
                   }}
                 >
                   <div className="relative flex-1">
@@ -1448,8 +1673,17 @@ function MapPage() {
                       className="h-8 pl-8 pr-2 rounded-full text-xs bg-background/80"
                     />
                   </div>
-                  <Button type="submit" size="sm" className="h-8 rounded-full px-3 text-xs" disabled={originSearchMutation.isPending}>
-                    {originSearchMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Search"}
+                  <Button
+                    type="submit"
+                    size="sm"
+                    className="h-8 rounded-full px-3 text-xs"
+                    disabled={originSearchMutation.isPending}
+                  >
+                    {originSearchMutation.isPending ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      "Search"
+                    )}
                   </Button>
                 </form>
 
@@ -1466,12 +1700,21 @@ function MapPage() {
                           setShowOriginSearch(false);
                           setOriginHits([]);
                           setOriginQuery("");
-                          calculateCurrentRoute({ lat: h.lat, lng: h.lng, name: h.name }, destination, waypoints, travelMode);
+                          calculateCurrentRoute(
+                            { lat: h.lat, lng: h.lng, name: h.name },
+                            destination,
+                            waypoints,
+                            travelMode,
+                          );
                         }}
                         className="block w-full border-b border-border/30 px-3 py-2 text-left last:border-0 hover:bg-muted text-xs"
                       >
-                        <span className="font-bold block text-foreground">{h.name}</span>
-                        <span className="text-[11px] text-muted-foreground truncate block">{h.address}</span>
+                        <span className="font-bold block text-foreground">
+                          {h.name}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground truncate block">
+                          {h.address}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -1484,7 +1727,8 @@ function MapPage() {
           <div className="rounded-3xl border border-border/60 bg-card/85 backdrop-blur-xl p-4 shadow-xs">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Milestone className="size-3.5 text-sky-500" /> Stops ({waypoints.length}/5)
+                <Milestone className="size-3.5 text-sky-500" /> Stops (
+                {waypoints.length}/5)
               </span>
               <div className="flex items-center gap-1.5">
                 <Button
@@ -1523,7 +1767,9 @@ function MapPage() {
                       <span className="size-5 rounded-full bg-sky-500 text-white font-bold flex items-center justify-center text-[10px] shrink-0">
                         {idx + 1}
                       </span>
-                      <span className="font-bold text-foreground truncate">{wp.name}</span>
+                      <span className="font-bold text-foreground truncate">
+                        {wp.name}
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
@@ -1539,7 +1785,12 @@ function MapPage() {
                           copy[idx - 1] = copy[idx]!;
                           copy[idx] = temp;
                           setWaypoints(copy);
-                          calculateCurrentRoute(origin, destination, copy, travelMode);
+                          calculateCurrentRoute(
+                            origin,
+                            destination,
+                            copy,
+                            travelMode,
+                          );
                         }}
                         className="h-6 w-6 p-0 rounded-lg text-muted-foreground hover:text-foreground"
                       >
@@ -1557,7 +1808,12 @@ function MapPage() {
                           copy[idx + 1] = copy[idx]!;
                           copy[idx] = temp;
                           setWaypoints(copy);
-                          calculateCurrentRoute(origin, destination, copy, travelMode);
+                          calculateCurrentRoute(
+                            origin,
+                            destination,
+                            copy,
+                            travelMode,
+                          );
                         }}
                         className="h-6 w-6 p-0 rounded-lg text-muted-foreground hover:text-foreground"
                       >
@@ -1571,7 +1827,12 @@ function MapPage() {
                         onClick={() => {
                           const updated = waypoints.filter((_, i) => i !== idx);
                           setWaypoints(updated);
-                          calculateCurrentRoute(origin, destination, updated, travelMode);
+                          calculateCurrentRoute(
+                            origin,
+                            destination,
+                            updated,
+                            travelMode,
+                          );
                         }}
                         className="h-6 w-6 p-0 rounded-lg text-destructive hover:bg-destructive/10"
                       >
@@ -1582,7 +1843,9 @@ function MapPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-[11px] text-muted-foreground">Direct route with no intermediate stops.</p>
+              <p className="text-[11px] text-muted-foreground">
+                Direct route with no intermediate stops.
+              </p>
             )}
 
             {/* Add Stop Search Box */}
@@ -1592,7 +1855,8 @@ function MapPage() {
                   className="flex gap-2"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (stopQuery.trim().length >= 2) stopSearchMutation.mutate(stopQuery.trim());
+                    if (stopQuery.trim().length >= 2)
+                      stopSearchMutation.mutate(stopQuery.trim());
                   }}
                 >
                   <Input
@@ -1601,8 +1865,17 @@ function MapPage() {
                     onChange={(e) => setStopQuery(e.target.value)}
                     className="h-8 rounded-full text-xs bg-background/80"
                   />
-                  <Button type="submit" size="sm" className="h-8 rounded-full px-3 text-xs" disabled={stopSearchMutation.isPending}>
-                    {stopSearchMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Search"}
+                  <Button
+                    type="submit"
+                    size="sm"
+                    className="h-8 rounded-full px-3 text-xs"
+                    disabled={stopSearchMutation.isPending}
+                  >
+                    {stopSearchMutation.isPending ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      "Search"
+                    )}
                   </Button>
                 </form>
 
@@ -1623,12 +1896,21 @@ function MapPage() {
                           setStopHits([]);
                           setStopQuery("");
                           toast.success(`Stop added: ${h.name}`);
-                          calculateCurrentRoute(origin, destination, updated, travelMode);
+                          calculateCurrentRoute(
+                            origin,
+                            destination,
+                            updated,
+                            travelMode,
+                          );
                         }}
                         className="block w-full border-b border-border/30 px-3 py-2 text-left last:border-0 hover:bg-muted text-xs"
                       >
-                        <span className="font-bold block text-foreground">{h.name}</span>
-                        <span className="text-[11px] text-muted-foreground truncate block">{h.address}</span>
+                        <span className="font-bold block text-foreground">
+                          {h.name}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground truncate block">
+                          {h.address}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -1646,7 +1928,8 @@ function MapPage() {
               className="flex gap-2"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (query.trim().length >= 2) searchMutation.mutate(query.trim());
+                if (query.trim().length >= 2)
+                  searchMutation.mutate(query.trim());
               }}
             >
               <div className="relative flex-1">
@@ -1665,14 +1948,20 @@ function MapPage() {
                 aria-label="Search destinations"
                 className="h-11 w-11 rounded-full p-0 shrink-0"
               >
-                {searchMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Navigation className="size-4" />}
+                {searchMutation.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Navigation className="size-4" />
+                )}
               </Button>
             </form>
 
             {/* Recent Searches Chips */}
             {recentDestinations.length > 0 && (
               <div className="mt-2.5 flex flex-wrap items-center gap-1">
-                <span className="text-[10px] text-muted-foreground font-semibold">Recent:</span>
+                <span className="text-[10px] text-muted-foreground font-semibold">
+                  Recent:
+                </span>
                 {recentDestinations.map((rd) => (
                   <button
                     key={rd.id}
@@ -1692,7 +1981,9 @@ function MapPage() {
 
             {/* Popular quick destinations */}
             <div className="mt-2 flex flex-wrap items-center gap-1">
-              <span className="text-[10px] text-muted-foreground font-semibold">Popular:</span>
+              <span className="text-[10px] text-muted-foreground font-semibold">
+                Popular:
+              </span>
               {QUICK_DESTINATIONS.map((qd) => (
                 <button
                   key={qd.id}
@@ -1726,8 +2017,12 @@ function MapPage() {
                     }}
                     className="block w-full border-b border-border/30 px-4 py-2.5 text-left last:border-0 hover:bg-primary/5 transition-colors"
                   >
-                    <span className="block text-xs font-bold text-foreground">{h.name}</span>
-                    <span className="block text-[11px] text-muted-foreground truncate">{h.address}</span>
+                    <span className="block text-xs font-bold text-foreground">
+                      {h.name}
+                    </span>
+                    <span className="block text-[11px] text-muted-foreground truncate">
+                      {h.address}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -1749,8 +2044,15 @@ function MapPage() {
                   { id: "walking", label: "Walking", icon: Footprints },
                 ].map((modeItem) => {
                   const isSupported = routingConfig?.supportedModes
+<<<<<<< Updated upstream
                     ? (routingConfig.supportedModes as readonly string[]).includes(modeItem.id)
                     : true;
+=======
+                    ? (
+                        routingConfig.supportedModes as readonly string[]
+                      ).includes(modeItem.id)
+                    : modeItem.id === "car";
+>>>>>>> Stashed changes
                   const isSelected = travelMode === modeItem.id;
                   const Icon = modeItem.icon;
 
@@ -1759,12 +2061,25 @@ function MapPage() {
                       key={modeItem.id}
                       type="button"
                       disabled={!isSupported}
+<<<<<<< Updated upstream
                       title={modeItem.label}
+=======
+                      title={
+                        !isSupported
+                          ? "Requires Valhalla routing provider"
+                          : modeItem.label
+                      }
+>>>>>>> Stashed changes
                       aria-label={`Travel mode: ${modeItem.label}`}
                       onClick={() => {
                         setTravelMode(modeItem.id as any);
                         if (destination) {
-                          calculateCurrentRoute(origin, destination, waypoints, modeItem.id as any);
+                          calculateCurrentRoute(
+                            origin,
+                            destination,
+                            waypoints,
+                            modeItem.id as any,
+                          );
                         }
                       }}
                       className={`flex flex-col items-center justify-center p-2 rounded-2xl border text-xs font-semibold transition-all ${
@@ -1779,6 +2094,15 @@ function MapPage() {
                   );
                 })}
               </div>
+<<<<<<< Updated upstream
+=======
+              {routingConfig?.provider === "osrm" && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  (OSRM mode is active: scooter, bike & walk routing require
+                  Valhalla)
+                </p>
+              )}
+>>>>>>> Stashed changes
             </div>
 
             {/* Departure Time */}
@@ -1792,10 +2116,18 @@ function MapPage() {
                     type="button"
                     onClick={() => {
                       setDepartureMode("now");
-                      if (destination) calculateCurrentRoute(origin, destination, waypoints, travelMode);
+                      if (destination)
+                        calculateCurrentRoute(
+                          origin,
+                          destination,
+                          waypoints,
+                          travelMode,
+                        );
                     }}
                     className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-colors ${
-                      departureMode === "now" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                      departureMode === "now"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground"
                     }`}
                   >
                     Leave Now
@@ -1804,10 +2136,18 @@ function MapPage() {
                     type="button"
                     onClick={() => {
                       setDepartureMode("custom");
-                      if (destination) calculateCurrentRoute(origin, destination, waypoints, travelMode);
+                      if (destination)
+                        calculateCurrentRoute(
+                          origin,
+                          destination,
+                          waypoints,
+                          travelMode,
+                        );
                     }}
                     className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-colors ${
-                      departureMode === "custom" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                      departureMode === "custom"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground"
                     }`}
                   >
                     Leave At
@@ -1822,11 +2162,19 @@ function MapPage() {
                     value={customTime}
                     onChange={(e) => {
                       setCustomTime(e.target.value);
-                      if (destination) calculateCurrentRoute(origin, destination, waypoints, travelMode);
+                      if (destination)
+                        calculateCurrentRoute(
+                          origin,
+                          destination,
+                          waypoints,
+                          travelMode,
+                        );
                     }}
                     className="h-8 rounded-xl text-xs bg-background/80"
                   />
-                  <span className="text-[11px] text-muted-foreground">Local IST</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Local IST
+                  </span>
                 </div>
               )}
 
@@ -1846,8 +2194,14 @@ function MapPage() {
               onClick={() => setShowSavedPlaces((prev) => !prev)}
               className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold"
             >
-              <Heart className={`size-3.5 ${showSavedPlaces ? "text-coral fill-coral/30" : ""}`} />
-              <span>{showSavedPlaces ? "Hide saved places on map" : "Show saved places on map"}</span>
+              <Heart
+                className={`size-3.5 ${showSavedPlaces ? "text-coral fill-coral/30" : ""}`}
+              />
+              <span>
+                {showSavedPlaces
+                  ? "Hide saved places on map"
+                  : "Show saved places on map"}
+              </span>
             </button>
 
             <button
@@ -1864,13 +2218,22 @@ function MapPage() {
           {showSavedRoutes && (
             <div className="rounded-3xl border border-border/60 bg-card p-4 shadow-lg animate-in fade-in duration-200">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Saved Trips</h4>
-                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setShowSavedRoutes(false)}>
+                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Saved Trips
+                </h4>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0"
+                  onClick={() => setShowSavedRoutes(false)}
+                >
                   <X className="size-3.5" />
                 </Button>
               </div>
               {savedRoutesList.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No saved routes yet. Plan a trip and click "Save Route".</p>
+                <p className="text-xs text-muted-foreground">
+                  No saved routes yet. Plan a trip and click "Save Route".
+                </p>
               ) : (
                 <div className="space-y-1.5 max-h-48 overflow-y-auto">
                   {savedRoutesList.map((sr: any) => (
@@ -1883,7 +2246,13 @@ function MapPage() {
                         onClick={() => {
                           if (sr.destination) {
                             const d = sr.destination;
-                            setDestination({ id: "saved", name: d.name, address: d.name, lat: d.lat, lng: d.lng });
+                            setDestination({
+                              id: "saved",
+                              name: d.name,
+                              address: d.name,
+                              lat: d.lat,
+                              lng: d.lng,
+                            });
                             setQuery(d.name);
                           }
                           if (sr.origin?.lat && sr.origin?.lng) {
@@ -1904,7 +2273,12 @@ function MapPage() {
                           if (sr.mode) setTravelMode(sr.mode);
                           setShowSavedRoutes(false);
                           toast.success(`Loaded route: ${sr.name}`);
-                          calculateCurrentRoute(sr.origin, sr.destination, sr.waypoints || [], sr.mode || "car");
+                          calculateCurrentRoute(
+                            sr.origin,
+                            sr.destination,
+                            sr.waypoints || [],
+                            sr.mode || "car",
+                          );
                         }}
                         className="text-left text-xs font-bold text-foreground truncate min-w-0"
                       >
@@ -1917,7 +2291,10 @@ function MapPage() {
                         size="sm"
                         aria-label="Delete saved route"
                         onClick={async () => {
-                          await supabase.from("saved_routes").delete().eq("id", sr.id);
+                          await supabase
+                            .from("saved_routes")
+                            .delete()
+                            .eq("id", sr.id);
                           refetchSavedRoutes();
                           toast.success("Saved route removed");
                         }}
@@ -1936,7 +2313,9 @@ function MapPage() {
           {routeMutation.isPending && (
             <div className="flex items-center justify-center gap-3 rounded-3xl border border-primary/20 bg-primary/5 p-4 animate-pulse">
               <Loader2 className="size-5 animate-spin text-primary" />
-              <span className="text-xs font-bold text-primary">Calculating optimal routes…</span>
+              <span className="text-xs font-bold text-primary">
+                Calculating optimal routes…
+              </span>
             </div>
           )}
 
@@ -1945,7 +2324,8 @@ function MapPage() {
               {/* Comparison Cards */}
               <div className="grid gap-2">
                 {comparisonCards.map((choice) => {
-                  const r = choice.index !== -1 ? routes[choice.index] : undefined;
+                  const r =
+                    choice.index !== -1 ? routes[choice.index] : undefined;
                   const isCur = r && choice.index === selected;
                   return (
                     <button
@@ -1965,7 +2345,9 @@ function MapPage() {
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-bold text-xs text-foreground">{choice.title}</span>
+                        <span className="font-bold text-xs text-foreground">
+                          {choice.title}
+                        </span>
                         {choice.alsoSafest && (
                           <span className="rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-bold">
                             Also safest
@@ -1973,9 +2355,13 @@ function MapPage() {
                         )}
                       </div>
                       <span className="block mt-1 font-bold text-sm text-foreground">
-                        {r ? `${r.durationMin} min · ${r.distanceKm} km` : "Unavailable"}
+                        {r
+                          ? `${r.durationMin} min · ${r.distanceKm} km`
+                          : "Unavailable"}
                       </span>
-                      <span className="block mt-0.5 text-[11px] text-muted-foreground">{choice.detail}</span>
+                      <span className="block mt-0.5 text-[11px] text-muted-foreground">
+                        {choice.detail}
+                      </span>
                     </button>
                   );
                 })}
@@ -1986,10 +2372,12 @@ function MapPage() {
                 <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-3">
                   <div>
                     <h3 className="text-base font-bold text-foreground flex items-center gap-1.5">
-                      <Milestone className="size-4 text-primary" /> {currentRoute.summary}
+                      <Milestone className="size-4 text-primary" />{" "}
+                      {currentRoute.summary}
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      <strong>{currentRoute.distanceKm} km</strong> · ~<strong>{currentRoute.durationMin} mins</strong>
+                      <strong>{currentRoute.distanceKm} km</strong> · ~
+                      <strong>{currentRoute.durationMin} mins</strong>
                     </p>
                   </div>
 
@@ -2042,7 +2430,8 @@ function MapPage() {
                           {leg.fromName} → {leg.toName}
                         </span>
                         <span className="font-mono text-muted-foreground shrink-0">
-                          {formatDistance(leg.distanceMeters)} · ~{Math.ceil(leg.durationSeconds / 60)}m
+                          {formatDistance(leg.distanceMeters)} · ~
+                          {Math.ceil(leg.durationSeconds / 60)}m
                         </span>
                       </div>
                     ))}
@@ -2056,7 +2445,10 @@ function MapPage() {
                   </span>
                   <ul className="space-y-1 text-xs text-foreground/90">
                     {currentRoute.reasons.map((reason, idx) => (
-                      <li key={idx} className="flex items-start gap-1.5 leading-snug">
+                      <li
+                        key={idx}
+                        className="flex items-start gap-1.5 leading-snug"
+                      >
                         <span className="text-primary font-bold mt-0.5">•</span>
                         <span>{reason}</span>
                       </li>
@@ -2068,7 +2460,8 @@ function MapPage() {
                 <div className="border-t border-border/40 pt-3">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1">
-                      <ListOrdered className="size-3.5" /> Maneuvers ({currentRoute.steps.length})
+                      <ListOrdered className="size-3.5" /> Maneuvers (
+                      {currentRoute.steps.length})
                     </span>
                     <Button
                       variant="ghost"
@@ -2095,15 +2488,21 @@ function MapPage() {
                             }`}
                           >
                             <div className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-card border border-border/60 mt-0.5">
-                              {getManeuverIcon(step.maneuverType, step.maneuverModifier)}
+                              {getManeuverIcon(
+                                step.maneuverType,
+                                step.maneuverModifier,
+                              )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className={`text-xs font-bold leading-tight ${isActive ? "text-primary" : "text-foreground"}`}>
+                              <p
+                                className={`text-xs font-bold leading-tight ${isActive ? "text-primary" : "text-foreground"}`}
+                              >
                                 {step.instruction}
                               </p>
                               <p className="text-[10px] text-muted-foreground">
                                 {formatDistance(step.distanceMeters)}
-                                {step.durationSeconds > 0 && ` · ~${Math.ceil(step.durationSeconds / 60)}m`}
+                                {step.durationSeconds > 0 &&
+                                  ` · ~${Math.ceil(step.durationSeconds / 60)}m`}
                               </p>
                             </div>
                             <span className="text-[9px] font-mono font-bold text-muted-foreground px-1 py-0.5 rounded bg-card border border-border/40">
@@ -2128,7 +2527,8 @@ function MapPage() {
           {isLoadingMap && !mapLoadError && (
             <div className="absolute inset-0 pointer-events-none bg-muted/30 backdrop-blur-[2px] animate-pulse flex items-center justify-center z-10">
               <span className="text-xs text-muted-foreground font-mono flex items-center gap-2">
-                <Loader2 className="size-4 animate-spin text-primary" /> Loading map tiles…
+                <Loader2 className="size-4 animate-spin text-primary" /> Loading
+                map tiles…
               </span>
             </div>
           )}
@@ -2136,8 +2536,15 @@ function MapPage() {
           {/* Map Load Error Fallback Overlay */}
           {mapLoadError && (
             <div className="absolute inset-0 bg-background/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
-              <p className="text-sm font-semibold text-foreground mb-3">Map tiles could not be loaded.</p>
-              <Button size="sm" variant="outline" onClick={handleRetryMap} className="gap-2 rounded-xl text-xs font-bold">
+              <p className="text-sm font-semibold text-foreground mb-3">
+                Map tiles could not be loaded.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRetryMap}
+                className="gap-2 rounded-xl text-xs font-bold"
+              >
                 <RotateCcw className="size-3.5" /> Retry
               </Button>
             </div>
@@ -2157,11 +2564,16 @@ function MapPage() {
                       {currentRoute.summary}
                     </span>
                     <span className="text-[11px] text-muted-foreground font-semibold">
-                      {currentRoute.durationMin} min · {currentRoute.distanceKm} km · {currentRoute.label}
+                      {currentRoute.durationMin} min · {currentRoute.distanceKm}{" "}
+                      km · {currentRoute.label}
                     </span>
                   </div>
                   <div className="size-7 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                    {sheetExpanded ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
+                    {sheetExpanded ? (
+                      <ChevronDown className="size-4" />
+                    ) : (
+                      <ChevronUp className="size-4" />
+                    )}
                   </div>
                 </button>
 
@@ -2178,21 +2590,40 @@ function MapPage() {
                           GPS Navigation
                         </a>
                       )}
-                      <Button size="sm" variant="outline" onClick={handleShareRoute} className="h-8 rounded-xl px-3 text-xs">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleShareRoute}
+                        className="h-8 rounded-xl px-3 text-xs"
+                      >
                         <Share2 className="size-3.5" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={handleSaveRoute} className="h-8 rounded-xl px-3 text-xs">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleSaveRoute}
+                        className="h-8 rounded-xl px-3 text-xs"
+                      >
                         <Bookmark className="size-3.5" />
                       </Button>
                     </div>
 
                     {currentRoute.legs && currentRoute.legs.length > 1 && (
                       <div className="space-y-1">
-                        <span className="text-[9px] font-bold uppercase text-muted-foreground">Legs</span>
+                        <span className="text-[9px] font-bold uppercase text-muted-foreground">
+                          Legs
+                        </span>
                         {currentRoute.legs.map((leg) => (
-                          <div key={leg.legIndex} className="text-[11px] text-foreground flex justify-between">
-                            <span className="truncate max-w-[180px]">{leg.fromName} → {leg.toName}</span>
-                            <span className="font-mono text-muted-foreground">{formatDistance(leg.distanceMeters)}</span>
+                          <div
+                            key={leg.legIndex}
+                            className="text-[11px] text-foreground flex justify-between"
+                          >
+                            <span className="truncate max-w-[180px]">
+                              {leg.fromName} → {leg.toName}
+                            </span>
+                            <span className="font-mono text-muted-foreground">
+                              {formatDistance(leg.distanceMeters)}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -2213,14 +2644,20 @@ function MapPage() {
               <h3 className="font-bold text-base text-foreground flex items-center gap-2">
                 <Heart className="size-4 text-coral" /> Bucket List Places
               </h3>
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full" onClick={() => setShowSavedPicker(false)}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 rounded-full"
+                onClick={() => setShowSavedPicker(false)}
+              >
                 <X className="size-4" />
               </Button>
             </div>
 
             {savedPlaces.length === 0 ? (
               <p className="text-xs text-muted-foreground py-4 text-center">
-                Your bucket list is empty. Explore places in Goa and tap the heart icon to save them!
+                Your bucket list is empty. Explore places in Goa and tap the
+                heart icon to save them!
               </p>
             ) : (
               <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
@@ -2230,8 +2667,12 @@ function MapPage() {
                     className="p-3 rounded-2xl border border-border/40 bg-secondary/30 flex items-center justify-between gap-3"
                   >
                     <div className="min-w-0">
-                      <h4 className="font-bold text-xs text-foreground truncate">{sp.place_name}</h4>
-                      <span className="text-[10px] text-muted-foreground uppercase font-semibold block">{sp.category}</span>
+                      <h4 className="font-bold text-xs text-foreground truncate">
+                        {sp.place_name}
+                      </h4>
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold block">
+                        {sp.category}
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -2254,7 +2695,12 @@ function MapPage() {
                           setWaypoints(updated);
                           setShowSavedPicker(false);
                           toast.success(`Added ${sp.place_name} as stop`);
-                          calculateCurrentRoute(origin, destination, updated, travelMode);
+                          calculateCurrentRoute(
+                            origin,
+                            destination,
+                            updated,
+                            travelMode,
+                          );
                         }}
                         className="h-7 text-[10px] px-2.5 rounded-full font-bold"
                       >
@@ -2276,7 +2722,12 @@ function MapPage() {
                           saveRecentSearch(hit);
                           setRecentDestinations(getRecentSearches());
                           toast.success(`Set destination to ${sp.place_name}`);
-                          calculateCurrentRoute(origin, hit, waypoints, travelMode);
+                          calculateCurrentRoute(
+                            origin,
+                            hit,
+                            waypoints,
+                            travelMode,
+                          );
                         }}
                         className="h-7 text-[10px] px-2.5 rounded-full font-bold"
                       >

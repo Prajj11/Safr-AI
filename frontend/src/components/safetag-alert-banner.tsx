@@ -1,5 +1,13 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle, ExternalLink, MapPin, Phone, ShieldAlert, Clock } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle,
+  ExternalLink,
+  MapPin,
+  Phone,
+  ShieldAlert,
+  Clock,
+} from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
@@ -47,7 +55,10 @@ export function SafeTagAlertBanner() {
 
       return (scans ?? []).map((s) => ({
         ...s,
-        delivery_status: s.delivery_status as Record<string, { status?: string; error?: string }> | null,
+        delivery_status: s.delivery_status as Record<
+          string,
+          { status?: string; error?: string }
+        > | null,
         safety_tags: tagMap.get(s.safety_tag_id) || null,
       })) as ScanAlertRow[];
     },
@@ -83,7 +94,8 @@ export function SafeTagAlertBanner() {
       toast.success("Alert marked as resolved.");
       refetch();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to resolve alert"),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Failed to resolve alert"),
   });
 
   if (alerts.length === 0) return null;
@@ -98,14 +110,17 @@ export function SafeTagAlertBanner() {
           ? `https://www.google.com/maps?q=${alert.lat},${alert.lng}`
           : null;
 
-        const timeFormatted = new Date(alert.scanned_at).toLocaleString("en-IN", {
-          timeZone: "Asia/Kolkata",
-          day: "numeric",
-          month: "short",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        });
+        const timeFormatted = new Date(alert.scanned_at).toLocaleString(
+          "en-IN",
+          {
+            timeZone: "Asia/Kolkata",
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          },
+        );
 
         return (
           <div
@@ -139,7 +154,8 @@ export function SafeTagAlertBanner() {
             <div className="mt-4 grid gap-3 sm:grid-cols-2 text-xs sm:text-sm">
               <div className="space-y-1">
                 <span className="font-bold text-muted-foreground flex items-center gap-1">
-                  <MapPin className="size-3.5 text-destructive" /> Location Reported:
+                  <MapPin className="size-3.5 text-destructive" /> Location
+                  Reported:
                 </span>
                 <p className="font-semibold text-foreground bg-background/60 p-2.5 rounded-xl border border-border/40">
                   {alert.finder_note || "No location text provided by finder"}

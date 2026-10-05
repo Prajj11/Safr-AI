@@ -132,40 +132,7 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- 6. Emergency Contacts Table (Public read)
-CREATE TABLE IF NOT EXISTS public.emergency_contacts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  phone TEXT NOT NULL,
-  category TEXT NOT NULL,
-  note TEXT,
-  sort_order INTEGER NOT NULL DEFAULT 0
-);
-GRANT SELECT ON public.emergency_contacts TO anon, authenticated;
-GRANT ALL ON public.emergency_contacts TO service_role;
-ALTER TABLE public.emergency_contacts ENABLE ROW LEVEL SECURITY;
 
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'emergency_contacts' AND policyname = 'emergency contacts are public'
-  ) THEN
-    CREATE POLICY "emergency contacts are public" ON public.emergency_contacts FOR SELECT TO anon, authenticated USING (true);
-  END IF;
-END $$;
-
-INSERT INTO public.emergency_contacts (name, phone, category, note, sort_order) VALUES
-('Police', '100', 'police', 'All-India police emergency line', 1),
-('Ambulance', '108', 'medical', 'Free 108 emergency ambulance service in Goa', 2),
-('Fire Brigade', '101', 'fire', 'Fire and rescue services', 3),
-('Emergency Helpline', '112', 'police', 'Single national emergency number', 4),
-('Goa Tourist Police', '+918322428383', 'police', 'Help for tourists: scams, harassment, lost items', 5),
-('Drishti Marine Lifeguards', '+918322520717', 'coastal', 'Beach lifeguard control room for drowning and sea rescue', 6),
-('Women Helpline', '1091', 'helpline', 'Women in distress', 7),
-('Child Helpline', '1098', 'helpline', 'Missing or distressed children', 8),
-('Goa Medical College Hospital, Bambolim', '+918322495000', 'medical', 'Largest government hospital in Goa', 9),
-('Traffic / Highway Accident', '1073', 'road', 'Road accident and highway assistance', 10),
-('Disaster Management, Goa', '1077', 'helpline', 'Floods, cyclones and other disasters', 11)
-ON CONFLICT DO NOTHING;
 
 -- 7. SafeTag Scans & Privacy Functions
 CREATE TABLE IF NOT EXISTS public.safety_tag_scans (

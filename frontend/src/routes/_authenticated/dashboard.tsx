@@ -35,7 +35,8 @@ const TILES = [
     badge: "OSRM Engine",
     title: "Map & Route Planning",
     text: "Driving directions and safe route planning.",
-    color: "from-cyan/15 to-transparent text-cyan border-cyan/30 hover:border-cyan/60",
+    color:
+      "from-cyan/15 to-transparent text-cyan border-cyan/30 hover:border-cyan/60",
     iconBg: "bg-cyan/10 text-cyan group-hover:bg-cyan/20",
   },
   {
@@ -44,7 +45,8 @@ const TILES = [
     badge: "Explore",
     title: "Explore & Bucket List",
     text: "Explore destinations, check crowd levels and save places for your trip.",
-    color: "from-coral/15 to-transparent text-coral border-coral/30 hover:border-coral/60",
+    color:
+      "from-coral/15 to-transparent text-coral border-coral/30 hover:border-coral/60",
     iconBg: "bg-coral/10 text-coral group-hover:bg-coral/20",
   },
   {
@@ -53,7 +55,8 @@ const TILES = [
     badge: "AI Time-Budget",
     title: "AI Itinerary Planner",
     text: "A tailored schedule for the free hours you have with export-ready stop directions.",
-    color: "from-amber/15 to-transparent text-amber border-amber/30 hover:border-amber/60",
+    color:
+      "from-amber/15 to-transparent text-amber border-amber/30 hover:border-amber/60",
     iconBg: "bg-amber/10 text-amber group-hover:bg-amber/20",
   },
   {
@@ -62,7 +65,8 @@ const TILES = [
     badge: "Zero-Knowledge",
     title: "QR Safety Wristbands",
     text: "Printable QR wristbands and OTP codes for kids and seniors traveling with you.",
-    color: "from-emerald/15 to-transparent text-emerald border-emerald/30 hover:border-emerald/60",
+    color:
+      "from-emerald/15 to-transparent text-emerald border-emerald/30 hover:border-emerald/60",
     iconBg: "bg-emerald/10 text-emerald group-hover:bg-emerald/20",
   },
   {
@@ -71,7 +75,8 @@ const TILES = [
     badge: "Device GPS",
     title: "Your Current Location",
     text: "View your device location. Family device sharing is not connected yet.",
-    color: "from-primary/15 to-transparent text-primary border-primary/30 hover:border-primary/60",
+    color:
+      "from-primary/15 to-transparent text-primary border-primary/30 hover:border-primary/60",
     iconBg: "bg-primary/10 text-primary group-hover:bg-primary/20",
   },
   {
@@ -82,8 +87,7 @@ const TILES = [
     text: "Call 112, Pink Force, ambulance, tourist assistance and other official Goa contacts.",
     color:
       "from-destructive/15 to-transparent text-destructive border-destructive/30 hover:border-destructive/60",
-    iconBg:
-      "bg-destructive/10 text-destructive group-hover:bg-destructive/20",
+    iconBg: "bg-destructive/10 text-destructive group-hover:bg-destructive/20",
   },
 ] as const;
 
@@ -102,7 +106,10 @@ function Dashboard() {
     },
   });
 
-  const travellers = (trip?.travellers ?? []) as Array<{ id: string; category: string }>;
+  const travellers = (trip?.travellers ?? []) as Array<{
+    id: string;
+    category: string;
+  }>;
 
   return (
     <AppShell
@@ -130,7 +137,9 @@ function Dashboard() {
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/25 px-3.5 py-1 text-xs font-bold text-primary uppercase tracking-wider shadow-xs">
                       <Compass className="size-3.5" />
-                      {trip.travel_style === "group" ? "Group Expedition" : "Solo Voyager"}
+                      {trip.travel_style === "group"
+                        ? "Group Expedition"
+                        : "Solo Voyager"}
                     </span>
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 border border-border/60 px-3.5 py-1 text-xs font-bold text-foreground/80 shadow-xs">
                       <Calendar className="size-3.5 text-coral" />
@@ -144,7 +153,9 @@ function Dashboard() {
 
                   <p className="mt-1 text-sm font-semibold text-muted-foreground">
                     Lead Traveler:{" "}
-                    <span className="text-foreground font-bold">{trip.traveller_name}</span>
+                    <span className="text-foreground font-bold">
+                      {trip.traveller_name}
+                    </span>
                     {trip.start_date && (
                       <span>
                         {" "}
@@ -160,16 +171,27 @@ function Dashboard() {
                   {travellers.length > 0 && (
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-3 py-1 text-xs font-bold text-secondary-foreground">
-                        <Users className="size-3.5 text-primary" /> {travellers.length} Travelers
+                        <Users className="size-3.5 text-primary" />{" "}
+                        {travellers.length} Travelers
                       </span>
-                      {travellers.filter((t) => t.category === "kid").length > 0 && (
+                      {travellers.filter((t) => t.category === "kid").length >
+                        0 && (
                         <span className="rounded-full bg-coral/10 text-coral border border-coral/20 px-2.5 py-0.5 text-xs font-bold">
-                          {travellers.filter((t) => t.category === "kid").length} Kids
+                          {
+                            travellers.filter((t) => t.category === "kid")
+                              .length
+                          }{" "}
+                          Kids
                         </span>
                       )}
-                      {travellers.filter((t) => t.category === "senior").length > 0 && (
+                      {travellers.filter((t) => t.category === "senior")
+                        .length > 0 && (
                         <span className="rounded-full bg-amber/10 text-amber border border-amber/20 px-2.5 py-0.5 text-xs font-bold">
-                          {travellers.filter((t) => t.category === "senior").length} Seniors
+                          {
+                            travellers.filter((t) => t.category === "senior")
+                              .length
+                          }{" "}
+                          Seniors
                         </span>
                       )}
                     </div>
@@ -203,8 +225,9 @@ function Dashboard() {
                   Ready to explore Goa safely?
                 </h2>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed max-w-lg">
-                  Tell us who's travelling (solo, friends, kids, seniors) and where you're heading
-                  so we can calculate personalized safety routes and crowd tips.
+                  Tell us who's travelling (solo, friends, kids, seniors) and
+                  where you're heading so we can calculate personalized safety
+                  routes and crowd tips.
                 </p>
                 <Button
                   asChild
@@ -225,7 +248,8 @@ function Dashboard() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold font-display tracking-tight text-foreground flex items-center gap-2">
-              <Compass className="size-5 text-primary" /> Safety & Navigation Modules
+              <Compass className="size-5 text-primary" /> Safety & Navigation
+              Modules
             </h3>
             <span className="text-xs text-muted-foreground font-medium">
               Select a tool to launch

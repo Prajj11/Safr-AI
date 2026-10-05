@@ -17,7 +17,11 @@ export const Route = createFileRoute("/_authenticated/setup")({
   component: Setup,
 });
 
-type Person = { name: string; age: string; category: "adult" | "kid" | "senior" };
+type Person = {
+  name: string;
+  age: string;
+  category: "adult" | "kid" | "senior";
+};
 
 function Setup() {
   const navigate = useNavigate();
@@ -29,7 +33,9 @@ function Setup() {
   const [destination, setDestination] = useState("Panjim");
   const [startDate, setStartDate] = useState("");
   const [days, setDays] = useState(3);
-  const [people, setPeople] = useState<Person[]>([{ name: "", age: "", category: "adult" }]);
+  const [people, setPeople] = useState<Person[]>([
+    { name: "", age: "", category: "adult" },
+  ]);
 
   const { data: existing } = useQuery({
     queryKey: ["trip"],
@@ -95,7 +101,10 @@ function Setup() {
 
       let tripId = existing?.id as string | undefined;
       if (tripId) {
-        const { error } = await supabase.from("trips").update(payload).eq("id", tripId);
+        const { error } = await supabase
+          .from("trips")
+          .update(payload)
+          .eq("id", tripId);
         if (error) throw error;
         const { error: deleteError } = await supabase
           .from("travellers")
@@ -103,7 +112,11 @@ function Setup() {
           .eq("trip_id", tripId);
         if (deleteError) throw deleteError;
       } else {
-        const { data, error } = await supabase.from("trips").insert(payload).select("id").single();
+        const { data, error } = await supabase
+          .from("trips")
+          .insert(payload)
+          .select("id")
+          .single();
         if (error) throw error;
         tripId = data.id;
       }
@@ -130,7 +143,8 @@ function Setup() {
       toast.success("Trip saved");
       navigate({ to: "/dashboard" });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save trip"),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Could not save trip"),
   });
 
   return (
@@ -140,7 +154,12 @@ function Setup() {
           <h2 className="text-xl font-semibold">How are you travelling?</h2>
           {(
             [
-              { value: "solo", icon: User, title: "Solo", text: "Just me exploring" },
+              {
+                value: "solo",
+                icon: User,
+                title: "Solo",
+                text: "Just me exploring",
+              },
               {
                 value: "group",
                 icon: Users,
@@ -164,7 +183,9 @@ function Setup() {
               <opt.icon className="size-6 text-primary" />
               <span>
                 <span className="block font-semibold">{opt.title}</span>
-                <span className="block text-sm text-muted-foreground">{opt.text}</span>
+                <span className="block text-sm text-muted-foreground">
+                  {opt.text}
+                </span>
               </span>
             </button>
           ))}
@@ -245,7 +266,11 @@ function Setup() {
                 min={1}
                 max={60}
                 value={days}
-                onChange={(e) => setDays(Math.max(1, Math.min(60, Number(e.target.value) || 1)))}
+                onChange={(e) =>
+                  setDays(
+                    Math.max(1, Math.min(60, Number(e.target.value) || 1)),
+                  )
+                }
               />
             </div>
           </div>
@@ -268,11 +293,15 @@ function Setup() {
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">Who's travelling?</h2>
           <p className="text-sm text-muted-foreground">
-            Add each person. We use kids and seniors to tailor safety tips and QR tags.
+            Add each person. We use kids and seniors to tailor safety tips and
+            QR tags.
           </p>
           <div className="space-y-3">
             {people.map((p, i) => (
-              <div key={i} className="rounded-2xl border border-border bg-card p-4">
+              <div
+                key={i}
+                className="rounded-2xl border border-border bg-card p-4"
+              >
                 <div className="grid grid-cols-[1fr_5rem] gap-2">
                   <Input
                     placeholder="Name"
@@ -280,7 +309,9 @@ function Setup() {
                     maxLength={60}
                     onChange={(e) =>
                       setPeople(
-                        people.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                        people.map((x, j) =>
+                          j === i ? { ...x, name: e.target.value } : x,
+                        ),
                       )
                     }
                   />
@@ -291,7 +322,11 @@ function Setup() {
                     max={120}
                     value={p.age}
                     onChange={(e) =>
-                      setPeople(people.map((x, j) => (j === i ? { ...x, age: e.target.value } : x)))
+                      setPeople(
+                        people.map((x, j) =>
+                          j === i ? { ...x, age: e.target.value } : x,
+                        ),
+                      )
                     }
                   />
                 </div>
@@ -301,7 +336,11 @@ function Setup() {
                       key={c}
                       type="button"
                       onClick={() =>
-                        setPeople(people.map((x, j) => (j === i ? { ...x, category: c } : x)))
+                        setPeople(
+                          people.map((x, j) =>
+                            j === i ? { ...x, category: c } : x,
+                          ),
+                        )
                       }
                       className={`rounded-full px-3 py-1 text-xs capitalize ${
                         p.category === c
@@ -317,7 +356,9 @@ function Setup() {
                       type="button"
                       aria-label="Remove traveller"
                       className="ml-auto text-muted-foreground hover:text-destructive"
-                      onClick={() => setPeople(people.filter((_, j) => j !== i))}
+                      onClick={() =>
+                        setPeople(people.filter((_, j) => j !== i))
+                      }
                     >
                       <Minus className="size-4" />
                     </button>
@@ -329,7 +370,9 @@ function Setup() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => setPeople([...people, { name: "", age: "", category: "adult" }])}
+            onClick={() =>
+              setPeople([...people, { name: "", age: "", category: "adult" }])
+            }
           >
             <Plus className="size-4" /> Add person
           </Button>
@@ -337,7 +380,11 @@ function Setup() {
             <Button type="button" variant="outline" onClick={() => setStep(1)}>
               Back
             </Button>
-            <Button className="flex-1" onClick={() => save.mutate()} disabled={save.isPending}>
+            <Button
+              className="flex-1"
+              onClick={() => save.mutate()}
+              disabled={save.isPending}
+            >
               {save.isPending ? "Saving…" : "Save trip"}
             </Button>
           </div>

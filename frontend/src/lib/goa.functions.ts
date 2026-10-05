@@ -6,7 +6,10 @@ import { coordinateSchema, itineraryInputSchema } from "./travel-schemas";
 export const getPlaceInsights = createServerFn({ method: "POST" })
   .validator((input: unknown) =>
     z
-      .object({ place: z.string().trim().min(2).max(120), localTime: z.string().optional() })
+      .object({
+        place: z.string().trim().min(2).max(120),
+        localTime: z.string().optional(),
+      })
       .parse(input),
   )
   .handler(async ({ data }) => {
@@ -28,4 +31,3 @@ export const getCurrentArea = createServerFn({ method: "POST" })
     const { reverseLocation } = await import("./places.server");
     return reverseLocation(data);
   });
-

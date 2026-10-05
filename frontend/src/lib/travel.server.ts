@@ -1,11 +1,17 @@
 import { z } from "zod";
 import { itineraryInputSchema } from "./travel-schemas";
 import { itinerarySchema, placeInsightsSchema } from "./goa-schemas";
-import { locatePlace, nearbyPlaces, drivingMatrix, fetchJson } from "./places.server";
+import {
+  locatePlace,
+  nearbyPlaces,
+  drivingMatrix,
+  fetchJson,
+} from "./places.server";
 import { scheduleItinerary } from "./itinerary-planner";
 import { CURATED_GOA_PLACES } from "./goa-places-data";
 import { distanceKm, type NearbyPlace } from "./geo";
 
+<<<<<<< Updated upstream
 function matchesInterest(p: NearbyPlace, interest: string): boolean {
   if (p.interests && p.interests.includes(interest)) return true;
   const name = p.name.toLowerCase();
@@ -95,11 +101,40 @@ function matchesInterest(p: NearbyPlace, interest: string): boolean {
     default:
       return false;
   }
+=======
+function interestScore(p: NearbyPlace, interests: string[]) {
+  return interests.reduce(
+    (score, interest) =>
+      score +
+      ((interest === "Local food" && p.category === "restaurant") ||
+      (interest === "Beaches & sunsets" &&
+        ["beach", "viewpoint"].includes(p.kind)) ||
+      (interest === "History & heritage" &&
+        [
+          "museum",
+          "castle",
+          "fort",
+          "monument",
+          "ruins",
+          "archaeological_site",
+        ].includes(p.kind)) ||
+      (interest === "Nature & wildlife" &&
+        ["zoo", "viewpoint", "beach"].includes(p.kind)) ||
+      (interest === "Markets & shopping" && p.kind === "marketplace") ||
+      (interest === "Churches & temples" && p.kind === "place_of_worship")
+        ? 1
+        : 0),
+    0,
+  );
+>>>>>>> Stashed changes
 }
 
-export async function buildItinerary(raw: z.input<typeof itineraryInputSchema>) {
+export async function buildItinerary(
+  raw: z.input<typeof itineraryInputSchema>,
+) {
   const input = itineraryInputSchema.parse(raw);
   const base = input.origin || (await locatePlace(input.place, input.state));
+<<<<<<< Updated upstream
   const searchRadius = Math.min(18, Math.max(5, input.hours * 2));
   let places = await nearbyPlaces(base, searchRadius);
 
@@ -188,6 +223,20 @@ export async function buildItinerary(raw: z.input<typeof itineraryInputSchema>) 
     addCandidate(p);
   }
 
+=======
+  const places = await nearbyPlaces(
+    base,
+    Math.min(15, Math.max(3, input.hours * 1.5)),
+  );
+  const candidates = places
+    .filter((p) => p.category !== "hotel")
+    .sort(
+      (a, b) =>
+        interestScore(b, input.interests) - interestScore(a, input.interests) ||
+        a.distanceKm - b.distanceKm,
+    )
+    .slice(0, 20);
+>>>>>>> Stashed changes
   if (!candidates.length)
     throw new Error(
       "No mapped attractions or restaurants were found nearby. Try a nearby town or another starting point.",
@@ -204,7 +253,10 @@ export async function buildItinerary(raw: z.input<typeof itineraryInputSchema>) 
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": key,
+          },
           body: JSON.stringify({
             systemInstruction: {
               parts: [
@@ -248,7 +300,9 @@ export async function buildItinerary(raw: z.input<typeof itineraryInputSchema>) 
               temperature: 0.6,
               responseMimeType: "application/json",
               maxOutputTokens: 2048,
-              ...(model.startsWith("gemini-2.5-") ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+              ...(model.startsWith("gemini-2.5-")
+                ? { thinkingConfig: { thinkingBudget: 0 } }
+                : {}),
               responseSchema: {
                 type: "OBJECT",
                 required: ["orderedIds"],
@@ -257,7 +311,10 @@ export async function buildItinerary(raw: z.input<typeof itineraryInputSchema>) 
                     type: "ARRAY",
                     minItems: 1,
                     maxItems: candidates.length,
-                    items: { type: "STRING", enum: candidates.map((p) => p.id) },
+                    items: {
+                      type: "STRING",
+                      enum: candidates.map((p) => p.id),
+                    },
                   },
                 },
               },
@@ -267,25 +324,40 @@ export async function buildItinerary(raw: z.input<typeof itineraryInputSchema>) 
         30000,
       )) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
       const answer =
-        response.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+        response.candidates?.[0]?.content?.parts
+          ?.map((p) => p.text || "")
+          .join("") || "";
       const ranked = z
         .object({ orderedIds: z.array(z.string()).min(1).max(20) })
         .parse(JSON.parse(answer));
       const valid = new Set(candidates.map((p) => p.id));
-      if (ranked.orderedIds.some((id) => !valid.has(id))) throw new Error("Ungrounded AI result");
+      if (ranked.orderedIds.some((id) => !valid.has(id)))
+        throw new Error("Ungrounded AI result");
       preferredIds = [...new Set(ranked.orderedIds)];
       aiStatus = "used";
     } catch (error) {
       // Log only a category/status, never provider response bodies, prompts or credentials.
-      const status = error instanceof Error ? error.message.match(/\((\d{3})\)/)?.[1] : undefined;
+      const status =
+        error instanceof Error
+          ? error.message.match(/\((\d{3})\)/)?.[1]
+          : undefined;
       console.warn(
         "AI ranking unavailable:",
-        status ? `HTTP ${status}` : error instanceof Error ? error.name : "Unknown error",
+        status
+          ? `HTTP ${status}`
+          : error instanceof Error
+            ? error.name
+            : "Unknown error",
       );
       // Map-grounded scheduling remains available when AI is unavailable.
     }
   }
-  const schedule = scheduleItinerary({ ...input, candidates, ...matrix, preferredIds });
+  const schedule = scheduleItinerary({
+    ...input,
+    candidates,
+    ...matrix,
+    preferredIds,
+  });
   if (!schedule.stops.length)
     throw new Error(
       "No reachable stop fits this time budget including driving and arrival buffers. Allow more time or choose a closer starting point.",
@@ -333,7 +405,9 @@ export async function loadPlaceInsights(place: string) {
       .slice(0, 6)
       .map(recommend),
     activities: places
-      .filter((p) => ["marketplace", "gallery", "theme_park", "zoo"].includes(p.kind))
+      .filter((p) =>
+        ["marketplace", "gallery", "theme_park", "zoo"].includes(p.kind),
+      )
       .slice(0, 6)
       .map(recommend),
     sights: places

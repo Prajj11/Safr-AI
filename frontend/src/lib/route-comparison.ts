@@ -1,5 +1,9 @@
 import type { Coordinate } from "./geo";
-export type RoadWay = { id?: number | undefined; nodes: number[]; tags: Record<string, string> };
+export type RoadWay = {
+  id?: number | undefined;
+  nodes: number[];
+  tags: Record<string, string>;
+};
 export type RoadLeg = {
   annotation?:
     | {
@@ -49,8 +53,10 @@ export function assessRoadConditions(
   for (const leg of legs) {
     const a = leg.annotation;
     if (!a) continue;
-    const hasWayIds = Array.isArray(a.wayIds) && a.wayIds.length === a.distance.length;
-    const hasNodes = Array.isArray(a.nodes) && a.nodes.length === a.distance.length + 1;
+    const hasWayIds =
+      Array.isArray(a.wayIds) && a.wayIds.length === a.distance.length;
+    const hasNodes =
+      Array.isArray(a.nodes) && a.nodes.length === a.distance.length + 1;
     if (!hasWayIds && !hasNodes) continue;
 
     for (let i = 0; i < a.distance.length; i++) {
@@ -91,7 +97,9 @@ export function assessRoadConditions(
         unpaved += meters;
         basePenalty += meters * 3;
       }
-      if (/^(bad|very_bad|horrible|very_horrible|impassable)$/.test(smoothness)) {
+      if (
+        /^(bad|very_bad|horrible|very_horrible|impassable)$/.test(smoothness)
+      ) {
         rough += meters;
         basePenalty += meters * 4;
       }
@@ -111,7 +119,9 @@ export function assessRoadConditions(
       ) {
         standardRoads += meters;
         basePenalty += meters * 0.5;
-      } else if (/^(unclassified|track|path|service|pedestrian|footway)$/.test(highway)) {
+      } else if (
+        /^(unclassified|track|path|service|pedestrian|footway)$/.test(highway)
+      ) {
         minorRoads += meters;
         basePenalty += meters * 2.5;
       }
@@ -124,8 +134,10 @@ export function assessRoadConditions(
     legs.every((leg) => {
       const a = leg.annotation;
       if (!a) return false;
-      const hasWayIds = Array.isArray(a.wayIds) && a.wayIds.length === a.distance.length;
-      const hasNodes = Array.isArray(a.nodes) && a.nodes.length === a.distance.length + 1;
+      const hasWayIds =
+        Array.isArray(a.wayIds) && a.wayIds.length === a.distance.length;
+      const hasNodes =
+        Array.isArray(a.nodes) && a.nodes.length === a.distance.length + 1;
       return Boolean(hasWayIds || hasNodes);
     });
 
@@ -148,7 +160,9 @@ export function assessRoadConditions(
   ];
 
   if (isNight && !hasLightingCoverage) {
-    reasons.push("Lighting data is incomplete, so night-time lighting was not counted.");
+    reasons.push(
+      "Lighting data is incomplete, so night-time lighting was not counted.",
+    );
   }
 
   reasons.push(
@@ -168,7 +182,11 @@ export function assessRoadConditions(
 }
 
 export function routePreferences<
-  T extends { distanceMeters: number; durationSeconds: number; safety: SafetyEvidence },
+  T extends {
+    distanceMeters: number;
+    durationSeconds: number;
+    safety: SafetyEvidence;
+  },
 >(routes: T[]) {
   if (!routes.length) return { fastest: -1, shortest: -1, safest: -1 };
   const indexes = routes.map((_, i) => i);
@@ -182,7 +200,9 @@ export function routePreferences<
   let safest = -1;
   if (routes.length > 1 && routes.every((r) => r.safety.sufficient)) {
     const ordered = [...indexes].sort(
-      (a, b) => routes[a]!.safety.mappedRiskExposure! - routes[b]!.safety.mappedRiskExposure!,
+      (a, b) =>
+        routes[a]!.safety.mappedRiskExposure! -
+        routes[b]!.safety.mappedRiskExposure!,
     );
     if (
       routes[ordered[0]!]!.safety.mappedRiskExposure! <

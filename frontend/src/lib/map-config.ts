@@ -15,7 +15,11 @@
  *     Free under Creative Commons Attribution 4.0.
  */
 
-import type { StyleSpecification, Map as MapLibreMap, LngLatBoundsLike } from "maplibre-gl";
+import type {
+  StyleSpecification,
+  Map as MapLibreMap,
+  LngLatBoundsLike,
+} from "maplibre-gl";
 
 // ---------------------------------------------------------------------------
 // Style definitions
@@ -31,25 +35,26 @@ export interface MapStyleEntry {
 }
 
 const streetsUrl =
-  (typeof import.meta !== "undefined" ? import.meta.env?.["VITE_MAP_STYLE_STREETS"] : undefined) ||
-  "https://tiles.openfreemap.org/styles/liberty";
+  (typeof import.meta !== "undefined"
+    ? import.meta.env?.["VITE_MAP_STYLE_STREETS"]
+    : undefined) || "https://tiles.openfreemap.org/styles/liberty";
 
 const lightUrl =
-  (typeof import.meta !== "undefined" ? import.meta.env?.["VITE_MAP_STYLE_LIGHT"] : undefined) ||
-  "https://tiles.openfreemap.org/styles/positron";
+  (typeof import.meta !== "undefined"
+    ? import.meta.env?.["VITE_MAP_STYLE_LIGHT"]
+    : undefined) || "https://tiles.openfreemap.org/styles/positron";
 
 const darkUrl =
-  (typeof import.meta !== "undefined" ? import.meta.env?.["VITE_MAP_STYLE_DARK"] : undefined) ||
-  "https://tiles.openfreemap.org/styles/dark";
+  (typeof import.meta !== "undefined"
+    ? import.meta.env?.["VITE_MAP_STYLE_DARK"]
+    : undefined) || "https://tiles.openfreemap.org/styles/dark";
 
 export const OSM_RASTER_STYLE: StyleSpecification = {
   version: 8,
   sources: {
     "osm-tiles": {
       type: "raster",
-      tiles: [
-        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-      ],
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
       tileSize: 256,
       attribution: "© OpenStreetMap contributors",
       maxzoom: 19,
@@ -88,11 +93,29 @@ const SATELLITE_STYLE: StyleSpecification = {
 };
 
 export const MAP_STYLES: MapStyleEntry[] = [
-  { id: "streets", label: "Streets", icon: "🗺️", style: streetsUrl, isVector: true },
+  {
+    id: "streets",
+    label: "Streets",
+    icon: "🗺️",
+    style: streetsUrl,
+    isVector: true,
+  },
   { id: "light", label: "Light", icon: "☀️", style: lightUrl, isVector: true },
   { id: "dark", label: "Dark", icon: "🌙", style: darkUrl, isVector: true },
-  { id: "satellite", label: "Satellite", icon: "🛰️", style: SATELLITE_STYLE, isVector: false },
-  { id: "osm", label: "Standard", icon: "🌍", style: OSM_RASTER_STYLE, isVector: false },
+  {
+    id: "satellite",
+    label: "Satellite",
+    icon: "🛰️",
+    style: SATELLITE_STYLE,
+    isVector: false,
+  },
+  {
+    id: "osm",
+    label: "Standard",
+    icon: "🌍",
+    style: OSM_RASTER_STYLE,
+    isVector: false,
+  },
 ];
 
 /** Pick the initial style: defaults to osm (standard OpenStreetMap tiles, fast & reliable). */
@@ -181,7 +204,12 @@ export function addCustomLayers(
             minzoom: 15,
             paint: {
               "fill-extrusion-color": "hsl(35, 12%, 82%)",
-              "fill-extrusion-height": ["coalesce", ["get", "render_height"], ["get", "height"], 5],
+              "fill-extrusion-height": [
+                "coalesce",
+                ["get", "render_height"],
+                ["get", "height"],
+                5,
+              ],
               "fill-extrusion-base": [
                 "coalesce",
                 ["get", "render_min_height"],

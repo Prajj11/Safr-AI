@@ -7,7 +7,11 @@ declare global {
     google?: {
       translate?: {
         TranslateElement?: new (
-          options: { pageLanguage: string; includedLanguages: string; autoDisplay: boolean },
+          options: {
+            pageLanguage: string;
+            includedLanguages: string;
+            autoDisplay: boolean;
+          },
           elementId: string,
         ) => object;
       };
@@ -29,12 +33,12 @@ function blockPageReloads(): () => void {
   const origReplace = Location.prototype.replace;
   const origHistoryGo = History.prototype.go;
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   Location.prototype.reload = function () {};
 
   Location.prototype.assign = function (url: string) {
     try {
-      if (new URL(url, window.location.href).href === window.location.href) return;
+      if (new URL(url, window.location.href).href === window.location.href)
+        return;
     } catch {
       /* allow */
     }
@@ -43,7 +47,8 @@ function blockPageReloads(): () => void {
 
   Location.prototype.replace = function (url: string) {
     try {
-      if (new URL(url, window.location.href).href === window.location.href) return;
+      if (new URL(url, window.location.href).href === window.location.href)
+        return;
     } catch {
       /* allow */
     }
@@ -169,7 +174,8 @@ export function GoogleTranslate() {
     } else if (!document.getElementById("google-translate-script")) {
       const script = document.createElement("script");
       script.id = "google-translate-script";
-      script.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+      script.src =
+        "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
       script.async = true;
       document.body.appendChild(script);
     }
@@ -228,7 +234,9 @@ export function GoogleTranslate() {
         // ignore – service may not be available
       }
 
-      const select = document.querySelector(".goog-te-combo") as HTMLSelectElement | null;
+      const select = document.querySelector(
+        ".goog-te-combo",
+      ) as HTMLSelectElement | null;
       if (select) {
         select.value = "";
         select.dispatchEvent(new Event("change", { bubbles: true }));
@@ -239,7 +247,9 @@ export function GoogleTranslate() {
 
     // ── Apply translation for non-English languages ──
     const tryApply = (): boolean => {
-      const select = document.querySelector(".goog-te-combo") as HTMLSelectElement | null;
+      const select = document.querySelector(
+        ".goog-te-combo",
+      ) as HTMLSelectElement | null;
       if (!select || select.options.length === 0) return false;
 
       const options = Array.from(select.options);
@@ -319,7 +329,12 @@ export function GoogleTranslate() {
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </div>
 

@@ -46,9 +46,18 @@ type TagRow = {
   created_at: string;
 };
 
-function TagCard({ tag, onDelete }: { tag: TagRow; onDelete: (id: string) => void }) {
+function TagCard({
+  tag,
+  onDelete,
+}: {
+  tag: TagRow;
+  onDelete: (id: string) => void;
+}) {
   const [qr, setQr] = useState<string>("");
-  const url = typeof window === "undefined" ? "" : `${window.location.origin}/t/${tag.token}`;
+  const url =
+    typeof window === "undefined"
+      ? ""
+      : `${window.location.origin}/t/${tag.token}`;
 
   useEffect(() => {
     if (!url) return;
@@ -94,7 +103,9 @@ function TagCard({ tag, onDelete }: { tag: TagRow; onDelete: (id: string) => voi
             </span>
           </div>
 
-          <h3 className="mt-2 text-xl font-bold font-display text-foreground">{tag.person_name}</h3>
+          <h3 className="mt-2 text-xl font-bold font-display text-foreground">
+            {tag.person_name}
+          </h3>
           {tag.person_age != null && (
             <p className="text-xs font-semibold text-muted-foreground">
               Age: {tag.person_age} years
@@ -103,22 +114,25 @@ function TagCard({ tag, onDelete }: { tag: TagRow; onDelete: (id: string) => voi
 
           <div className="mt-3 space-y-1 text-xs text-foreground/90">
             <p className="font-medium">
-              <span className="text-muted-foreground">Guardian:</span> {tag.guardian_name} (
-              {tag.guardian_phone})
+              <span className="text-muted-foreground">Guardian:</span>{" "}
+              {tag.guardian_name} ({tag.guardian_phone})
             </p>
             {tag.alt_phone && (
               <p>
-                <span className="text-muted-foreground">Alt Contact:</span> {tag.alt_phone}
+                <span className="text-muted-foreground">Alt Contact:</span>{" "}
+                {tag.alt_phone}
               </p>
             )}
             {tag.staying_at && (
               <p>
-                <span className="text-muted-foreground">Staying At:</span> {tag.staying_at}
+                <span className="text-muted-foreground">Staying At:</span>{" "}
+                {tag.staying_at}
               </p>
             )}
             {tag.medical_notes && (
               <p className="text-coral font-medium">
-                <span className="text-muted-foreground">Medical Alert:</span> {tag.medical_notes}
+                <span className="text-muted-foreground">Medical Alert:</span>{" "}
+                {tag.medical_notes}
               </p>
             )}
           </div>
@@ -126,8 +140,8 @@ function TagCard({ tag, onDelete }: { tag: TagRow; onDelete: (id: string) => voi
           {/* Wristband Instructions */}
           <div className="mt-4 rounded-2xl bg-amber/10 border border-amber/20 p-3 text-xs leading-relaxed text-amber-900 dark:text-amber-200">
             <p className="font-bold mb-0.5">Printed Wristband Message:</p>
-            "If lost, scan QR or visit <strong>safr.in/find</strong> & enter OTP:{" "}
-            <strong>{tag.token}</strong>"
+            "If lost, scan QR or visit <strong>safr.in/find</strong> & enter
+            OTP: <strong>{tag.token}</strong>"
           </div>
         </div>
       </div>
@@ -228,19 +242,24 @@ function SafetyTags() {
       });
       queryClient.invalidateQueries({ queryKey: ["safety-tags"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to create tag"),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Failed to create tag"),
   });
 
   const deleteTag = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("safety_tags").delete().eq("id", id);
+      const { error } = await supabase
+        .from("safety_tags")
+        .delete()
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.info("SafeTag removed");
       queryClient.invalidateQueries({ queryKey: ["safety-tags"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to delete tag"),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Failed to delete tag"),
   });
 
   return (
@@ -255,21 +274,24 @@ function SafetyTags() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald/10 px-3 py-0.5 text-xs font-bold text-emerald">
-              <ShieldCheck className="size-3.5" /> Zero-Knowledge Privacy Architecture
+              <ShieldCheck className="size-3.5" /> Zero-Knowledge Privacy
+              Architecture
             </span>
             <h2 className="text-2xl sm:text-3xl font-bold font-display text-foreground mt-2">
               Protect Kids & Senior Travelers
             </h2>
             <p className="mt-1.5 text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-xl">
-              Generate water-resistant QR wristbands or short 6-digit OTP tags. If a member gets
-              separated in crowded markets or beaches, finders can notify you instantly without ever
-              seeing your private phone number or hotel address.
+              Generate water-resistant QR wristbands or short 6-digit OTP tags.
+              If a member gets separated in crowded markets or beaches, finders
+              can notify you instantly without ever seeing your private phone
+              number or hotel address.
             </p>
             <div className="mt-3 rounded-2xl bg-secondary/50 border border-border/40 p-3 text-[11px] text-muted-foreground flex items-start gap-2 max-w-xl">
               <Info className="size-4 text-primary shrink-0 mt-0.5" />
               <span>
-                <strong>Twilio WhatsApp Sandbox note:</strong> For alerts via WhatsApp sandbox, the recipient
-                guardian number must have joined your Twilio sandbox keyword. Sandbox memberships expire after
+                <strong>Twilio WhatsApp Sandbox note:</strong> For alerts via
+                WhatsApp sandbox, the recipient guardian number must have joined
+                your Twilio sandbox keyword. Sandbox memberships expire after
                 inactivity—re-send the join code if alerts stop arriving.
               </span>
             </div>
@@ -289,7 +311,9 @@ function SafetyTags() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
           <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-border/60 bg-card p-6 sm:p-8 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-border/40 pb-4">
-              <h3 className="text-xl font-bold font-display text-foreground">New Family SafeTag</h3>
+              <h3 className="text-xl font-bold font-display text-foreground">
+                New Family SafeTag
+              </h3>
               <button
                 onClick={() => setShowForm(false)}
                 className="rounded-full p-2 text-muted-foreground hover:bg-secondary transition-colors"
@@ -317,7 +341,9 @@ function SafetyTags() {
                     id="person_name"
                     required
                     value={form.person_name}
-                    onChange={(e) => setForm({ ...form, person_name: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, person_name: e.target.value })
+                    }
                     placeholder="e.g. Aarav"
                     className="rounded-xl bg-secondary/40 border-border/60"
                   />
@@ -337,20 +363,29 @@ function SafetyTags() {
                     step={1}
                     required
                     aria-invalid={Boolean(
-                      form.person_age && validateAge(form.person_age, form.category),
+                      form.person_age &&
+                      validateAge(form.person_age, form.category),
                     )}
                     aria-describedby="age-error"
                     max={120}
                     value={form.person_age}
-                    onChange={(e) => setForm({ ...form, person_age: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, person_age: e.target.value })
+                    }
                     placeholder="e.g. 7"
                     className="rounded-xl bg-secondary/40 border-border/60"
                   />
                 </div>
               </div>
 
-              <p id="age-error" role="alert" className="text-sm text-destructive">
-                {form.person_age ? validateAge(form.person_age, form.category) : ""}
+              <p
+                id="age-error"
+                role="alert"
+                className="text-sm text-destructive"
+              >
+                {form.person_age
+                  ? validateAge(form.person_age, form.category)
+                  : ""}
               </p>
               <p className="text-xs text-muted-foreground">
                 Child: 0–17 · Adult: 18–59 · Senior: 60–120
@@ -393,7 +428,9 @@ function SafetyTags() {
                     id="guardian_name"
                     required
                     value={form.guardian_name}
-                    onChange={(e) => setForm({ ...form, guardian_name: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, guardian_name: e.target.value })
+                    }
                     placeholder="e.g. Priya Sharma"
                     className="rounded-xl bg-secondary/40 border-border/60"
                   />
@@ -411,7 +448,9 @@ function SafetyTags() {
                     type="tel"
                     required
                     value={form.guardian_phone}
-                    onChange={(e) => setForm({ ...form, guardian_phone: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, guardian_phone: e.target.value })
+                    }
                     placeholder="+91 98765 43210"
                     className="rounded-xl bg-secondary/40 border-border/60 font-mono"
                   />
@@ -428,7 +467,9 @@ function SafetyTags() {
                 <Input
                   id="staying_at"
                   value={form.staying_at}
-                  onChange={(e) => setForm({ ...form, staying_at: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, staying_at: e.target.value })
+                  }
                   placeholder="e.g. Taj Holiday Village, Candolim"
                   className="rounded-xl bg-secondary/40 border-border/60"
                 />
@@ -444,7 +485,9 @@ function SafetyTags() {
                 <Input
                   id="medical_notes"
                   value={form.medical_notes}
-                  onChange={(e) => setForm({ ...form, medical_notes: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, medical_notes: e.target.value })
+                  }
                   placeholder="e.g. Asthmatic, Peanut allergy"
                   className="rounded-xl bg-secondary/40 border-border/60"
                 />
@@ -474,10 +517,12 @@ function SafetyTags() {
         ) : tags.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border/70 p-10 text-center bg-card/40">
             <QrCode className="size-12 mx-auto text-muted-foreground/40 mb-3" />
-            <h4 className="text-base font-bold text-foreground">No SafeTags generated yet</h4>
+            <h4 className="text-base font-bold text-foreground">
+              No SafeTags generated yet
+            </h4>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-              Create printable QR wristbands for your children or elders before heading to busy Goa
-              beaches.
+              Create printable QR wristbands for your children or elders before
+              heading to busy Goa beaches.
             </p>
             <Button
               onClick={() => setShowForm(true)}
@@ -489,7 +534,11 @@ function SafetyTags() {
         ) : (
           <div className="grid gap-6 sm:grid-cols-2">
             {tags.map((tag) => (
-              <TagCard key={tag.id} tag={tag} onDelete={(id) => deleteTag.mutate(id)} />
+              <TagCard
+                key={tag.id}
+                tag={tag}
+                onDelete={(id) => deleteTag.mutate(id)}
+              />
             ))}
           </div>
         )}

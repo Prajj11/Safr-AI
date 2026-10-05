@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { EMERGENCY_NUMBERS } from "@/lib/emergency-contacts";
 
 export const Route = createFileRoute("/t/$token")({
   head: () => ({
@@ -154,16 +155,17 @@ function TagPage() {
             </p>
             <div className="mt-6 space-y-2">
               <a
-                href="tel:112"
+                href={`tel:${EMERGENCY_NUMBERS.police}`}
                 className="inline-flex w-full items-center justify-center rounded-full bg-destructive px-4 py-3.5 text-sm font-bold text-destructive-foreground shadow-md hover:opacity-90 transition-opacity"
               >
-                <Phone className="size-4 mr-2" /> Call Goa Police (112)
+                <Phone className="size-4 mr-2" /> Call Goa Police (
+                {EMERGENCY_NUMBERS.police})
               </a>
               <a
-                href="tel:1098"
+                href={`tel:${EMERGENCY_NUMBERS.childline}`}
                 className="inline-flex w-full items-center justify-center rounded-full bg-secondary px-4 py-3 text-xs font-bold text-foreground hover:bg-secondary/80 transition-colors"
               >
-                Call National Childline (1098)
+                Call National Childline ({EMERGENCY_NUMBERS.childline})
               </a>
             </div>
           </div>
@@ -288,10 +290,10 @@ function TagPage() {
             <div className="mt-6 pt-5 border-t border-border/40 text-xs text-muted-foreground">
               If immediate medical or police assistance is needed, please call{" "}
               <a
-                href="tel:112"
+                href={`tel:${EMERGENCY_NUMBERS.police}`}
                 className="font-bold text-destructive underline"
               >
-                112
+                {EMERGENCY_NUMBERS.police}
               </a>
               .
             </div>
