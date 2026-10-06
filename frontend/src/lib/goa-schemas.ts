@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-export const crowdBand = z.enum(["quiet", "moderate", "busy", "packed", "unknown"]);
+export const crowdBand = z.enum([
+  "quiet",
+  "moderate",
+  "busy",
+  "packed",
+  "unknown",
+]);
 
 export const alternativeSchema = z.object({
   name: z.string(),

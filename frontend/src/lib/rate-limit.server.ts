@@ -19,7 +19,10 @@ function cleanStore(store: Map<string, RateLimitRecord>, now: number) {
   }
 }
 
-export function checkRateLimit(ip: string, code: string): { allowed: boolean; retryAfterSec?: number } {
+export function checkRateLimit(
+  ip: string,
+  code: string,
+): { allowed: boolean; retryAfterSec?: number } {
   const now = Date.now();
   cleanStore(ipStore, now);
   cleanStore(codeStore, now);
@@ -47,7 +50,10 @@ export function checkRateLimit(ip: string, code: string): { allowed: boolean; re
   return { allowed: true };
 }
 
-export function sanitizeText(input: string | null | undefined, maxLength: number): string | null {
+export function sanitizeText(
+  input: string | null | undefined,
+  maxLength: number,
+): string | null {
   if (!input) return null;
   const stripped = input
     .replace(/<[^>]*>/g, "")

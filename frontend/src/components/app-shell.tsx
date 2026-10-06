@@ -1,4 +1,9 @@
-import { Link, useNavigate, useRouter, useLocation } from "@tanstack/react-router";
+import {
+  Link,
+  useNavigate,
+  useRouter,
+  useLocation,
+} from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,
@@ -88,7 +93,9 @@ export function AppShell({
                 {title}
               </h1>
               {subtitle && (
-                <p className="truncate text-xs font-medium text-muted-foreground">{subtitle}</p>
+                <p className="truncate text-xs font-medium text-muted-foreground">
+                  {subtitle}
+                </p>
               )}
             </div>
           </div>
@@ -128,7 +135,9 @@ export function AppShell({
       </header>
 
       {/* Main Content Area */}
-      <main className="relative z-10 mx-auto max-w-4xl px-4 py-6 sm:px-6">{children}</main>
+      <main className="relative z-10 mx-auto max-w-4xl px-4 py-6 sm:px-6">
+        {children}
+      </main>
 
       {/* Floating Bottom Navigation Dock (Mobile-First) */}
       <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md">

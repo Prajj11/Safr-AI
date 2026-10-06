@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { distanceKm, distanceToRoute, type Coordinate, type NearbyPlace } from "./geo";
+import {
+  distanceKm,
+  distanceToRoute,
+  type Coordinate,
+  type NearbyPlace,
+} from "./geo";
 
 export async function fetchJson(
   url: string,
@@ -8,8 +13,15 @@ export async function fetchJson(
 ): Promise<unknown> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
-  headers.set("User-Agent", "Safr/1.0 (Goa travel planner; https://github.com/Prajj11/Ideas)");
-  const response = await fetch(url, { ...init, headers, signal: AbortSignal.timeout(timeout) });
+  headers.set(
+    "User-Agent",
+    "Safr/1.0 (Goa travel planner; https://github.com/Prajj11/Ideas)",
+  );
+  const response = await fetch(url, {
+    ...init,
+    headers,
+    signal: AbortSignal.timeout(timeout),
+  });
   if (!response.ok)
     throw new Error(
       `Map service ${new URL(url).hostname} unavailable (${response.status}). Please retry shortly.`,
@@ -42,10 +54,13 @@ export async function locatePlace(place: string, state = "Goa") {
   const hit = result.features.find(
     (f) =>
       f.properties.state?.toLowerCase() === state.toLowerCase() &&
-      (f.properties.countrycode?.toLowerCase() === "in" || f.properties.country === "India"),
+      (f.properties.countrycode?.toLowerCase() === "in" ||
+        f.properties.country === "India"),
   );
   if (!hit)
-    throw new Error(`Could not locate ${place} in ${state}. Try a nearby town or landmark.`);
+    throw new Error(
+      `Could not locate ${place} in ${state}. Try a nearby town or landmark.`,
+    );
   return {
     lat: hit.geometry.coordinates[1],
     lng: hit.geometry.coordinates[0],
@@ -56,15 +71,24 @@ export async function locatePlace(place: string, state = "Goa") {
 
 export async function reverseLocation(point: Coordinate) {
   const result = photonSchema.parse(
-    await fetchJson(`https://photon.komoot.io/reverse?lat=${point.lat}&lon=${point.lng}&limit=1`),
+    await fetchJson(
+      `https://photon.komoot.io/reverse?lat=${point.lat}&lon=${point.lng}&limit=1`,
+    ),
   );
   const hit = result.features[0]?.properties;
-  if (!hit?.state || (hit.countrycode?.toLowerCase() !== "in" && hit.country !== "India")) {
+  if (
+    !hit?.state ||
+    (hit.countrycode?.toLowerCase() !== "in" && hit.country !== "India")
+  ) {
     throw new Error(
       "Current-location planning is available in India. Choose a destination and state manually.",
     );
   }
-  return { ...point, name: hit.city || hit.name || hit.state, state: hit.state };
+  return {
+    ...point,
+    name: hit.city || hit.name || hit.state,
+    state: hit.state,
+  };
 }
 
 const overpassSchema = z.object({
@@ -89,7 +113,12 @@ export async function nearbyPlaces(
   radiusKm = 5,
   path: Coordinate[] = [],
 ): Promise<NearbyPlace[]> {
-  const key = JSON.stringify([center.lat.toFixed(3), center.lng.toFixed(3), radiusKm, path]);
+  const key = JSON.stringify([
+    center.lat.toFixed(3),
+    center.lng.toFixed(3),
+    radiusKm,
+    path,
+  ]);
   const cached = cache.get(key);
   if (cached && cached.expires > Date.now()) return cached.places;
 
@@ -171,11 +200,11 @@ export async function nearbyPlaces(
         tags["natural"] === "beach"
           ? "beach"
           : tags["tourism"] ||
-            tags["historic"] ||
-            tags["natural"] ||
-            tags["leisure"] ||
-            tags["amenity"] ||
-            "place";
+          tags["historic"] ||
+          tags["natural"] ||
+          tags["leisure"] ||
+          tags["amenity"] ||
+          "place";
       places.push({
         ...point,
         id: `${item.type}/${item.id}`,
@@ -202,17 +231,18 @@ export async function nearbyPlaces(
 }
 
 export async function drivingMatrix(points: Coordinate[]) {
-  const base = (process.env["OSRM_BASE_URL"] || "https://router.project-osrm.org").replace(
-    /\/$/,
-    "",
-  );
+  const base = (
+    process.env["OSRM_BASE_URL"] || "https://router.project-osrm.org"
+  ).replace(/\/$/, "");
   const cell = z.number().nonnegative().nullable();
   const result = z
     .object({
       code: z.string(),
       durations: z.array(z.array(cell)).optional(),
       distances: z.array(z.array(cell)).optional(),
-      sources: z.array(z.object({ distance: z.number() }).nullable()).optional(),
+      sources: z
+        .array(z.object({ distance: z.number() }).nullable())
+        .optional(),
     })
     .parse(
       await fetchJson(
@@ -229,6 +259,12 @@ export async function drivingMatrix(points: Coordinate[]) {
     );
   }
   // Reject remote road snaps (e.g. a waterfall across an inaccessible forest).
-  const reachable = points.map((_, i) => (result.sources?.[i]?.distance ?? Infinity) <= 1000);
-  return { durations: result.durations, distances: result.distances, reachable };
+  const reachable = points.map(
+    (_, i) => (result.sources?.[i]?.distance ?? Infinity) <= 1000,
+  );
+  return {
+    durations: result.durations,
+    distances: result.distances,
+    reachable,
+  };
 }

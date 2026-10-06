@@ -28,7 +28,9 @@ import { generateItinerary, getCurrentArea } from "@/lib/goa.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/itinerary")({
-  validateSearch: (search: Record<string, unknown>): { place?: string; state?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { place?: string; state?: string } => ({
     place: typeof search["place"] === "string" ? search["place"] : "",
     state: typeof search["state"] === "string" ? search["state"] : "Goa",
   }),
@@ -75,9 +77,13 @@ function getWeekendDate(): string {
 
 function ItineraryPage() {
   const searchParams = Route.useSearch();
-  const [place, setPlace] = useState<string>(searchParams.place || "Anjuna Beach");
+  const [place, setPlace] = useState<string>(
+    searchParams.place || "Anjuna Beach",
+  );
   const [state, setState] = useState(searchParams.state || "Goa");
-  const [origin, setOrigin] = useState<{ lat: number; lng: number } | undefined>();
+  const [origin, setOrigin] = useState<
+    { lat: number; lng: number } | undefined
+  >();
   const [returnToStart, setReturnToStart] = useState(false);
   const [locating, setLocating] = useState(false);
   const currentArea = useServerFn(getCurrentArea);
@@ -91,20 +97,29 @@ function ItineraryPage() {
       async (position) => {
         try {
           const result = await currentArea({
-            data: { lat: position.coords.latitude, lng: position.coords.longitude },
+            data: {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            },
           });
           setPlace(result.name);
           setState(result.state);
           setOrigin({ lat: result.lat, lng: result.lng });
         } catch (error) {
-          toast.error(error instanceof Error ? error.message : "Could not detect your area");
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Could not detect your area",
+          );
         } finally {
           setLocating(false);
         }
       },
       () => {
         setLocating(false);
-        toast.error("Location permission unavailable. Enter a destination and state instead.");
+        toast.error(
+          "Location permission unavailable. Enter a destination and state instead.",
+        );
       },
       { timeout: 10000 },
     );
@@ -127,8 +142,13 @@ function ItineraryPage() {
   const [date, setDate] = useState<string>(getTodayDate());
   const [hours, setHours] = useState(6);
   const [startTime, setStartTime] = useState("09:00");
-  const [pace, setPace] = useState<"relaxed" | "balanced" | "packed">("balanced");
-  const [interests, setInterests] = useState<string[]>(["Local food", "Beaches & sunsets"]);
+  const [pace, setPace] = useState<"relaxed" | "balanced" | "packed">(
+    "balanced",
+  );
+  const [interests, setInterests] = useState<string[]>([
+    "Local food",
+    "Beaches & sunsets",
+  ]);
   const [notes, setNotes] = useState("");
 
   const [visitedStops, setVisitedStops] = useState<Record<number, boolean>>({});
@@ -162,11 +182,14 @@ function ItineraryPage() {
           plan: result as unknown as never,
         });
         if (error)
-          toast.warning("Your plan is ready, but could not be saved. Print it to keep a copy.");
+          toast.warning(
+            "Your plan is ready, but could not be saved. Print it to keep a copy.",
+          );
       }
       return result;
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not build itinerary"),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Could not build itinerary"),
   });
 
   const handlePrint = () => {
@@ -201,7 +224,9 @@ function ItineraryPage() {
             <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
               Time-Budget Planner
             </span>
-            <h3 className="text-xl font-bold font-display text-foreground">Plan Your Day</h3>
+            <h3 className="text-xl font-bold font-display text-foreground">
+              Plan Your Day
+            </h3>
           </div>
           <Sparkles className="size-6 text-primary" />
         </div>
@@ -212,7 +237,8 @@ function ItineraryPage() {
             htmlFor="place"
             className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"
           >
-            <MapPin className="size-3.5 text-primary" /> Destination or Starting Area
+            <MapPin className="size-3.5 text-primary" /> Destination or Starting
+            Area
           </Label>
           <Input
             id="place"
@@ -248,9 +274,15 @@ function ItineraryPage() {
               disabled={locating}
               onClick={handleCurrentLocation}
             >
-              {locating ? "Finding your area…" : "Use my current location & state"}
+              {locating
+                ? "Finding your area…"
+                : "Use my current location & state"}
             </Button>
-            <Button type="button" variant="outline" onClick={() => void handleTripDestination()}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleTripDestination()}
+            >
               Use saved trip destination
             </Button>
           </div>
@@ -346,7 +378,9 @@ function ItineraryPage() {
               min={1}
               max={24}
               value={hours}
-              onChange={(e) => setHours(Math.max(1, Math.min(24, Number(e.target.value) || 1)))}
+              onChange={(e) =>
+                setHours(Math.max(1, Math.min(24, Number(e.target.value) || 1)))
+              }
               className="h-11 rounded-2xl bg-secondary/40 border-border/60 font-bold"
             />
           </div>
@@ -391,7 +425,11 @@ function ItineraryPage() {
                   key={i}
                   type="button"
                   onClick={() =>
-                    setInterests(isSelected ? interests.filter((x) => x !== i) : [...interests, i])
+                    setInterests(
+                      isSelected
+                        ? interests.filter((x) => x !== i)
+                        : [...interests, i],
+                    )
                   }
                   className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
                     isSelected
@@ -433,7 +471,8 @@ function ItineraryPage() {
         >
           {plan.isPending ? (
             <>
-              <Loader2 className="size-4 animate-spin mr-2" /> Synthesizing Itinerary…
+              <Loader2 className="size-4 animate-spin mr-2" /> Synthesizing
+              Itinerary…
             </>
           ) : (
             <>
@@ -445,8 +484,8 @@ function ItineraryPage() {
 
       {plan.isPending && (
         <p role="status" className="my-6 flex items-center gap-2 text-sm">
-          <Loader2 className="size-4 animate-spin" /> Finding mapped places and checking road travel
-          times against your time budget…
+          <Loader2 className="size-4 animate-spin" /> Finding mapped places and
+          checking road travel times against your time budget…
         </p>
       )}
 
@@ -461,7 +500,9 @@ function ItineraryPage() {
                   Time-Budgeted Schedule
                 </span>
                 <span className="rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold">
-                  {plan.data.aiStatus === "used" ? "AI + OSRM" : "Map-based fallback"}
+                  {plan.data.aiStatus === "used"
+                    ? "AI + OSRM"
+                    : "Map-based fallback"}
                 </span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold font-display text-foreground mt-1.5">
@@ -499,7 +540,9 @@ function ItineraryPage() {
                 </span>
               )}
               {plan.data.liveWeather && plan.data.liveSwell && (
-                <span className="text-muted-foreground hidden sm:inline">·</span>
+                <span className="text-muted-foreground hidden sm:inline">
+                  ·
+                </span>
               )}
               {plan.data.liveSwell && (
                 <span className="font-semibold flex items-center gap-1.5">
@@ -528,7 +571,9 @@ function ItineraryPage() {
                         ? "bg-emerald-500 text-white scale-110 ring-2 ring-emerald-300"
                         : "bg-primary text-primary-foreground group-hover:scale-110"
                     }`}
-                    title={isVisited ? "Mark as not visited" : "Mark as visited"}
+                    title={
+                      isVisited ? "Mark as not visited" : "Mark as visited"
+                    }
                   >
                     {isVisited ? "✓" : i + 1}
                   </button>
@@ -581,11 +626,13 @@ function ItineraryPage() {
                         )}
 
                         {/* Transit Distance pill */}
-                        {stop.distanceKm !== undefined && stop.distanceKm > 0 && (
-                          <span className="rounded-full bg-secondary/80 px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
-                            📍 {stop.distanceKm} km · ~{stop.transitMin}m travel + buffer
-                          </span>
-                        )}
+                        {stop.distanceKm !== undefined &&
+                          stop.distanceKm > 0 && (
+                            <span className="rounded-full bg-secondary/80 px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                              📍 {stop.distanceKm} km · ~{stop.transitMin}m
+                              travel + buffer
+                            </span>
+                          )}
                       </div>
 
                       {/* Direct Turn-by-Turn Safe Route & Google Maps Actions */}
@@ -601,7 +648,10 @@ function ItineraryPage() {
                             search={{
                               dest: stop.title,
                               ...(stop.lat != null && stop.lng != null
-                                ? { lat: String(stop.lat), lng: String(stop.lng) }
+                                ? {
+                                    lat: String(stop.lat),
+                                    lng: String(stop.lng),
+                                  }
                                 : {}),
                             }}
                           >
@@ -637,7 +687,11 @@ function ItineraryPage() {
 
                     <h3 className="mt-2.5 text-base font-bold text-foreground flex items-center gap-2">
                       <span>{typeEmoji[stop.type] ?? "📍"}</span>
-                      <span className={isVisited ? "line-through text-muted-foreground" : ""}>
+                      <span
+                        className={
+                          isVisited ? "line-through text-muted-foreground" : ""
+                        }
+                      >
                         {stop.title}
                       </span>
                     </h3>

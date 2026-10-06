@@ -42,30 +42,61 @@ export function SafrLogo({
             className="h-full w-full"
           >
             <defs>
-              <linearGradient id="tourism-sky" x1="0%" y1="0%" x2="100%" y2="100%">
+              <linearGradient
+                id="tourism-sky"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="100%"
+              >
                 <stop offset="0%" stopColor="#06B6D4" />
                 <stop offset="55%" stopColor="#14B8A6" />
                 <stop offset="100%" stopColor="#FB7185" />
               </linearGradient>
 
-              <linearGradient id="tourism-sun" x1="0%" y1="0%" x2="0%" y2="100%">
+              <linearGradient
+                id="tourism-sun"
+                x1="0%"
+                y1="0%"
+                x2="0%"
+                y2="100%"
+              >
                 <stop offset="0%" stopColor="#FEF08A" />
                 <stop offset="100%" stopColor="#F59E0B" />
               </linearGradient>
 
-              <linearGradient id="tourism-wave1" x1="0%" y1="0%" x2="100%" y2="0%">
+              <linearGradient
+                id="tourism-wave1"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="0%"
+              >
                 <stop offset="0%" stopColor="#BAE6FD" />
                 <stop offset="100%" stopColor="#38BDF8" />
               </linearGradient>
 
-              <linearGradient id="tourism-wave2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <linearGradient
+                id="tourism-wave2"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="0%"
+              >
                 <stop offset="0%" stopColor="#38BDF8" />
                 <stop offset="100%" stopColor="#0284C7" />
               </linearGradient>
             </defs>
 
             {/* Squircle Sky Background */}
-            <rect x="0" y="0" width="48" height="48" rx="13" fill="url(#tourism-sky)" />
+            <rect
+              x="0"
+              y="0"
+              width="48"
+              height="48"
+              rx="13"
+              fill="url(#tourism-sky)"
+            />
 
             {/* Golden Setting Sun */}
             <circle cx="19" cy="27" r="7.5" fill="url(#tourism-sun)" />

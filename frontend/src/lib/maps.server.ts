@@ -38,7 +38,9 @@ export async function searchGoaPlaces(query: string): Promise<PlaceHit[]> {
             city: z.string().optional(),
             state: z.string().optional(),
           }),
-          geometry: z.object({ coordinates: z.tuple([z.number(), z.number()]) }),
+          geometry: z.object({
+            coordinates: z.tuple([z.number(), z.number()]),
+          }),
         }),
       ),
     })
@@ -50,8 +52,9 @@ export async function searchGoaPlaces(query: string): Promise<PlaceHit[]> {
       id: `${f.properties.osm_type || "place"}/${f.properties.osm_id}`,
       name: f.properties.name ?? "Unnamed place",
       address:
-        [f.properties.street, f.properties.city, f.properties.state].filter(Boolean).join(", ") ||
-        "Goa, India",
+        [f.properties.street, f.properties.city, f.properties.state]
+          .filter(Boolean)
+          .join(", ") || "Goa, India",
       lat: f.geometry.coordinates[1],
       lng: f.geometry.coordinates[0],
     }));
@@ -119,8 +122,11 @@ export type ScoredRoute = {
 };
 
 function formatManeuverInstruction(step: OSRMStep): string {
-  const name = step.name && step.name.trim().length > 0 ? step.name : "the road";
-  const modifier = step.maneuver.modifier ? step.maneuver.modifier.replace("-", " ") : "";
+  const name =
+    step.name && step.name.trim().length > 0 ? step.name : "the road";
+  const modifier = step.maneuver.modifier
+    ? step.maneuver.modifier.replace("-", " ")
+    : "";
   const type = step.maneuver.type;
 
   switch (type) {
@@ -184,7 +190,9 @@ function scoreRoute(
             maneuverType: s.maneuver.type ?? "continue",
             maneuverModifier: s.maneuver.modifier,
             name: s.name || "Road",
-            location: s.maneuver.location ? [s.maneuver.location[1], s.maneuver.location[0]] : undefined,
+            location: s.maneuver.location
+              ? [s.maneuver.location[1], s.maneuver.location[0]]
+              : undefined,
             legIndex: idx,
           }));
 
@@ -245,8 +253,13 @@ function scoreRoute(
     isShortest: false,
     isSafest: false,
     reasons,
-    summary: route.legs?.[0]?.summary || steps.find((s) => s.name)?.name || "Local Road Route",
-    polyline: JSON.stringify(route.geometry.coordinates.map((c) => [c[1], c[0]])),
+    summary:
+      route.legs?.[0]?.summary ||
+      steps.find((s) => s.name)?.name ||
+      "Local Road Route",
+    polyline: JSON.stringify(
+      route.geometry.coordinates.map((c) => [c[1], c[0]]),
+    ),
     steps,
     legs: routeLegs,
     googleMapsUrl,
@@ -262,14 +275,18 @@ async function fetchOSRMRoutes(
 ): Promise<InternalRoute[]> {
   const coordsList = [origin, ...waypoints, destination];
   const coordsStr = coordsList.map((p) => `${p.lng},${p.lat}`).join(";");
-  const baseUrl = (process.env["OSRM_BASE_URL"] || "https://router.project-osrm.org").replace(/\/$/, "");
+  const baseUrl = (
+    process.env["OSRM_BASE_URL"] || "https://router.project-osrm.org"
+  ).replace(/\/$/, "");
   const url = `${baseUrl}/route/v1/driving/${coordsStr}?overview=full&geometries=geojson&alternatives=3&steps=true&annotations=nodes,distance`;
   const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
 
   if (!response.ok) {
     const body = await response.text();
     console.error(`OSRM routes failed [${response.status}]: ${body}`);
-    throw new Error("Could not work out routes for that trip. Please try again.");
+    throw new Error(
+      "Could not work out routes for that trip. Please try again.",
+    );
   }
 
   const json = (await response.json()) as {
@@ -277,7 +294,11 @@ async function fetchOSRMRoutes(
     routes?: InternalRoute[];
     waypoints?: { distance: number }[];
   };
-  if (json.waypoints?.some((point) => !Number.isFinite(point.distance) || point.distance > 1000)) {
+  if (
+    json.waypoints?.some(
+      (point) => !Number.isFinite(point.distance) || point.distance > 1000,
+    )
+  ) {
     throw new Error(
       "A location is more than 1 km from a routable road. Choose its road entrance or a nearby accessible starting point.",
     );
@@ -313,7 +334,9 @@ export async function computeSafeRoutes(
     try {
       raw = await fetchValhallaRoutes(origin, destination, waypoints, mode);
       if (raw.length === 0) {
-        console.warn("[routing] Valhalla returned 0 routes, falling back to OSRM");
+        console.warn(
+          "[routing] Valhalla returned 0 routes, falling back to OSRM",
+        );
         raw = await fetchOSRMRoutes(origin, destination, waypoints);
       }
     } catch (err: unknown) {
@@ -321,7 +344,10 @@ export async function computeSafeRoutes(
       if (message.includes("more than 1 km from a routable road")) {
         throw err;
       }
-      console.error("[routing] Valhalla routing failed, falling back to OSRM:", err);
+      console.error(
+        "[routing] Valhalla routing failed, falling back to OSRM:",
+        err,
+      );
       raw = await fetchOSRMRoutes(origin, destination, waypoints);
     }
   } else {
@@ -334,7 +360,8 @@ export async function computeSafeRoutes(
     (route, i) =>
       raw.findIndex(
         (r) =>
-          JSON.stringify(r.geometry.coordinates) === JSON.stringify(route.geometry.coordinates),
+          JSON.stringify(r.geometry.coordinates) ===
+          JSON.stringify(route.geometry.coordinates),
       ) === i,
   );
   let ways: RoadWay[] = [];
@@ -345,13 +372,21 @@ export async function computeSafeRoutes(
     const bounds = roadBounds(points);
     // Bound public-service work for very long trips; unknown coverage is explicit.
     if (
-      Math.max(...points.map((p) => p.lat)) - Math.min(...points.map((p) => p.lat)) < 1 &&
-      Math.max(...points.map((p) => p.lng)) - Math.min(...points.map((p) => p.lng)) < 1
+      Math.max(...points.map((p) => p.lat)) -
+        Math.min(...points.map((p) => p.lat)) <
+        1 &&
+      Math.max(...points.map((p) => p.lng)) -
+        Math.min(...points.map((p) => p.lng)) <
+        1
     ) {
       const overpass = new URL(
-        process.env["OVERPASS_URL"] || "https://overpass-api.de/api/interpreter",
+        process.env["OVERPASS_URL"] ||
+          "https://overpass-api.de/api/interpreter",
       );
-      overpass.searchParams.set("data", `[out:json][timeout:12];way(${bounds})[highway];out body;`);
+      overpass.searchParams.set(
+        "data",
+        `[out:json][timeout:12];way(${bounds})[highway];out body;`,
+      );
       const data = z
         .object({
           remark: z.string().optional(),
@@ -383,10 +418,10 @@ export async function computeSafeRoutes(
   return candidates.map((r, i) => ({
     ...r,
     kind: i === best.fastest ? "fastest" : i === best.safest ? "safer" : "alt",
-    label: i === best.fastest ? "Fastest available route" : `Alternative ${i + 1}`,
+    label:
+      i === best.fastest ? "Fastest available route" : `Alternative ${i + 1}`,
     isFastest: i === best.fastest,
     isShortest: i === best.shortest,
     isSafest: i === best.safest,
   }));
 }
-

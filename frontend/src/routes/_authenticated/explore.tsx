@@ -62,8 +62,10 @@ type SavedPlace = Database["public"]["Tables"]["saved_places"]["Row"];
 
 const bandStyles: Record<string, string> = {
   unknown: "bg-secondary text-muted-foreground",
-  quiet: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30",
-  moderate: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30",
+  quiet:
+    "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30",
+  moderate:
+    "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30",
   busy: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border border-orange-500/30",
   packed: "bg-destructive/15 text-destructive border border-destructive/30",
 };
@@ -142,15 +144,50 @@ const ALL_FEATURED = [
 ];
 
 const EXPLORE_CATEGORIES = [
-  { label: "Beaches", query: "Goa Beach", icon: Umbrella, color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-  { label: "Forts & Heritage", query: "Goa Fort", icon: Camera, color: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-  { label: "Waterfalls & Nature", query: "Goa Waterfall", icon: Palmtree, color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
-  { label: "Markets & Fleas", query: "Goa Market", icon: MapPin, color: "bg-pink-500/10 text-pink-600 border-pink-500/20" },
-  { label: "Cafes & Dining", query: "Goa Cafe", icon: Coffee, color: "bg-rose-500/10 text-rose-600 border-rose-500/20" },
-  { label: "Nightlife & Clubs", query: "Goa Club", icon: Music, color: "bg-purple-500/10 text-purple-600 border-purple-500/20" },
+  {
+    label: "Beaches",
+    query: "Goa Beach",
+    icon: Umbrella,
+    color: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  },
+  {
+    label: "Forts & Heritage",
+    query: "Goa Fort",
+    icon: Camera,
+    color: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  },
+  {
+    label: "Waterfalls & Nature",
+    query: "Goa Waterfall",
+    icon: Palmtree,
+    color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  },
+  {
+    label: "Markets & Fleas",
+    query: "Goa Market",
+    icon: MapPin,
+    color: "bg-pink-500/10 text-pink-600 border-pink-500/20",
+  },
+  {
+    label: "Cafes & Dining",
+    query: "Goa Cafe",
+    icon: Coffee,
+    color: "bg-rose-500/10 text-rose-600 border-rose-500/20",
+  },
+  {
+    label: "Nightlife & Clubs",
+    query: "Goa Club",
+    icon: Music,
+    color: "bg-purple-500/10 text-purple-600 border-purple-500/20",
+  },
 ];
 
-function calculateHaversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+function calculateHaversineDistanceKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
@@ -208,14 +245,23 @@ function Explore() {
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [query, setQuery] = useState("");
   const [shuffledPlaces, setShuffledPlaces] = useState<string[]>([]);
-  const [shuffledFeatured, setShuffledFeatured] = useState<typeof ALL_FEATURED>([]);
+  const [shuffledFeatured, setShuffledFeatured] = useState<typeof ALL_FEATURED>(
+    [],
+  );
 
   // Bucket list search & filters
   const [savedSearch, setSavedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "want" | "planned" | "visited">("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "want" | "planned" | "visited"
+  >("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name" | "priority" | "nearest">("newest");
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [sortBy, setSortBy] = useState<
+    "newest" | "oldest" | "name" | "priority" | "nearest"
+  >("newest");
+  const [userLocation, setUserLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
 
   // Multi-select mode
   const [isMultiSelect, setIsMultiSelect] = useState(false);
@@ -251,7 +297,10 @@ function Explore() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          setUserLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          });
         },
         () => {
           // Default fallback to central Goa
@@ -281,7 +330,10 @@ function Explore() {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) {
-        console.warn("Could not fetch saved places from supabase, fallback to empty", error);
+        console.warn(
+          "Could not fetch saved places from supabase, fallback to empty",
+          error,
+        );
         return [];
       }
       return data as SavedPlace[];
@@ -309,9 +361,14 @@ function Explore() {
         return;
       }
 
-      const existing = savedPlaces.find((p) => p.place_name.toLowerCase() === name.toLowerCase());
+      const existing = savedPlaces.find(
+        (p) => p.place_name.toLowerCase() === name.toLowerCase(),
+      );
       if (existing) {
-        const { error } = await supabase.from("saved_places").delete().eq("id", existing.id);
+        const { error } = await supabase
+          .from("saved_places")
+          .delete()
+          .eq("id", existing.id);
         if (error) throw error;
         toast.info(`Removed ${name} from your bucket list`);
         return;
@@ -324,7 +381,12 @@ function Explore() {
       if (resolvedLat == null || resolvedLng == null) {
         try {
           const geo = await searchPlacesFn({ data: { query: name } });
-          if (geo && geo.length > 0 && geo[0]?.lat != null && geo[0]?.lng != null) {
+          if (
+            geo &&
+            geo.length > 0 &&
+            geo[0]?.lat != null &&
+            geo[0]?.lng != null
+          ) {
             resolvedLat = geo[0].lat;
             resolvedLng = geo[0].lng;
           }
@@ -349,7 +411,8 @@ function Explore() {
     },
     onMutate: async (newPlace) => {
       await queryClient.cancelQueries({ queryKey: ["saved-places"] });
-      const previous = queryClient.getQueryData<SavedPlace[]>(["saved-places"]) || [];
+      const previous =
+        queryClient.getQueryData<SavedPlace[]>(["saved-places"]) || [];
       const existingIndex = previous.findIndex(
         (p) => p.place_name.toLowerCase() === newPlace.name.toLowerCase(),
       );
@@ -384,7 +447,9 @@ function Explore() {
       if (context?.previous) {
         queryClient.setQueryData(["saved-places"], context.previous);
       }
-      toast.error(err instanceof Error ? err.message : "Could not update saved place");
+      toast.error(
+        err instanceof Error ? err.message : "Could not update saved place",
+      );
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-places"] });
@@ -400,13 +465,19 @@ function Explore() {
       id: string;
       updates: Partial<Database["public"]["Tables"]["saved_places"]["Update"]>;
     }) => {
-      const { error } = await supabase.from("saved_places").update(updates).eq("id", id);
+      const { error } = await supabase
+        .from("saved_places")
+        .update(updates)
+        .eq("id", id);
       if (error) throw error;
     },
     onMutate: async ({ id, updates }) => {
       await queryClient.cancelQueries({ queryKey: ["saved-places"] });
-      const previous = queryClient.getQueryData<SavedPlace[]>(["saved-places"]) || [];
-      const updatedList = previous.map((p) => (p.id === id ? { ...p, ...updates } : p));
+      const previous =
+        queryClient.getQueryData<SavedPlace[]>(["saved-places"]) || [];
+      const updatedList = previous.map((p) =>
+        p.id === id ? { ...p, ...updates } : p,
+      );
       queryClient.setQueryData(["saved-places"], updatedList);
       return { previous };
     },
@@ -414,7 +485,9 @@ function Explore() {
       if (context?.previous) {
         queryClient.setQueryData(["saved-places"], context.previous);
       }
-      toast.error(err instanceof Error ? err.message : "Failed to update place");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update place",
+      );
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-places"] });
@@ -441,7 +514,9 @@ function Explore() {
   };
 
   const isSaved = (name: string) => {
-    return savedPlaces.some((p) => p.place_name.toLowerCase() === name.toLowerCase());
+    return savedPlaces.some(
+      (p) => p.place_name.toLowerCase() === name.toLowerCase(),
+    );
   };
 
   const insights = useMutation({
@@ -451,9 +526,12 @@ function Explore() {
       } catch {
         // ignore
       }
-      return (await insightsFn({ data: { place, localTime: new Date().toString() } })) as PlaceInsights;
+      return (await insightsFn({
+        data: { place, localTime: new Date().toString() },
+      })) as PlaceInsights;
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not load this place"),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Could not load this place"),
   });
 
   const data = insights.data;
@@ -477,13 +555,17 @@ function Explore() {
     }
 
     if (categoryFilter !== "all") {
-      list = list.filter((p) => p.category.toLowerCase() === categoryFilter.toLowerCase());
+      list = list.filter(
+        (p) => p.category.toLowerCase() === categoryFilter.toLowerCase(),
+      );
     }
 
     list.sort((a, b) => {
       if (sortBy === "priority") {
         if (a.priority === b.priority) {
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
         }
         return b.priority - a.priority;
       }
@@ -491,32 +573,54 @@ function Explore() {
         return a.place_name.localeCompare(b.place_name);
       }
       if (sortBy === "oldest") {
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        return (
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
       }
       if (sortBy === "nearest" && userLocation) {
         const distA =
           a.lat != null && a.lng != null
-            ? calculateHaversineDistanceKm(userLocation.lat, userLocation.lng, a.lat, a.lng)
+            ? calculateHaversineDistanceKm(
+                userLocation.lat,
+                userLocation.lng,
+                a.lat,
+                a.lng,
+              )
             : 99999;
         const distB =
           b.lat != null && b.lng != null
-            ? calculateHaversineDistanceKm(userLocation.lat, userLocation.lng, b.lat, b.lng)
+            ? calculateHaversineDistanceKm(
+                userLocation.lat,
+                userLocation.lng,
+                b.lat,
+                b.lng,
+              )
             : 99999;
         return distA - distB;
       }
       // default: newest
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return (
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
     });
 
     return list;
-  }, [savedPlaces, savedSearch, statusFilter, categoryFilter, sortBy, userLocation]);
+  }, [
+    savedPlaces,
+    savedSearch,
+    statusFilter,
+    categoryFilter,
+    sortBy,
+    userLocation,
+  ]);
 
   // Visited Progress Metrics
   const totalCount = savedPlaces.length;
   const visitedCount = savedPlaces.filter((p) => p.status === "visited").length;
   const plannedCount = savedPlaces.filter((p) => p.status === "planned").length;
   const wantCount = savedPlaces.filter((p) => p.status === "want").length;
-  const progressPercent = totalCount > 0 ? Math.round((visitedCount / totalCount) * 100) : 0;
+  const progressPercent =
+    totalCount > 0 ? Math.round((visitedCount / totalCount) * 100) : 0;
 
   // Categories list extracted from saved places
   const availableCategories = useMemo(() => {
@@ -529,7 +633,11 @@ function Explore() {
 
   // Embedded Map initialization and cluster setup
   useEffect(() => {
-    if (activeTab !== "saved" || viewMode !== "map" || !mapContainerRef.current) {
+    if (
+      activeTab !== "saved" ||
+      viewMode !== "map" ||
+      !mapContainerRef.current
+    ) {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -538,7 +646,8 @@ function Explore() {
     }
 
     const placesWithCoords = savedPlaces.filter(
-      (p): p is SavedPlace & { lat: number; lng: number } => p.lat != null && p.lng != null,
+      (p): p is SavedPlace & { lat: number; lng: number } =>
+        p.lat != null && p.lng != null,
     );
 
     let cancelled = false;
@@ -554,7 +663,10 @@ function Explore() {
       });
 
       mapInstanceRef.current = map;
-      map.addControl(new ml.NavigationControl({ showCompass: true }), "top-right");
+      map.addControl(
+        new ml.NavigationControl({ showCompass: true }),
+        "top-right",
+      );
 
       map.on("load", () => {
         const geojson: GeoJSON.FeatureCollection = {
@@ -600,7 +712,15 @@ function Explore() {
               10,
               "#e11d48",
             ],
-            "circle-radius": ["step", ["get", "point_count"], 18, 5, 24, 10, 30],
+            "circle-radius": [
+              "step",
+              ["get", "point_count"],
+              18,
+              5,
+              24,
+              10,
+              30,
+            ],
             "circle-stroke-width": 3,
             "circle-stroke-color": "#ffffff",
           },
@@ -647,7 +767,9 @@ function Explore() {
 
         // Zoom into cluster on click
         map.on("click", "clusters", (e: any) => {
-          const features = map.queryRenderedFeatures(e.point, { layers: ["clusters"] });
+          const features = map.queryRenderedFeatures(e.point, {
+            layers: ["clusters"],
+          });
           const clusterId = features[0]?.properties?.["cluster_id"];
           if (clusterId == null) return;
 
@@ -668,7 +790,10 @@ function Explore() {
           const feature = e.features?.[0];
           if (!feature || feature.geometry.type !== "Point") return;
 
-          const coordinates = feature.geometry.coordinates.slice() as [number, number];
+          const coordinates = feature.geometry.coordinates.slice() as [
+            number,
+            number,
+          ];
           const props = feature.properties as {
             name: string;
             category: string;
@@ -681,7 +806,8 @@ function Explore() {
           popupEl.className = "p-2 min-w-[200px] text-slate-900";
 
           const title = document.createElement("h4");
-          title.className = "font-bold text-sm text-slate-950 flex items-center gap-1.5";
+          title.className =
+            "font-bold text-sm text-slate-950 flex items-center gap-1.5";
           title.textContent = props.name;
           popupEl.appendChild(title);
 
@@ -689,7 +815,8 @@ function Explore() {
           badgeRow.className = "flex items-center gap-2 mt-1 mb-2";
 
           const catBadge = document.createElement("span");
-          catBadge.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700";
+          catBadge.className =
+            "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700";
           catBadge.textContent = props.category;
           badgeRow.appendChild(catBadge);
 
@@ -708,25 +835,46 @@ function Explore() {
 
           if (props.notes) {
             const notesEl = document.createElement("p");
-            notesEl.className = "text-xs text-slate-600 mb-2 italic line-clamp-2";
+            notesEl.className =
+              "text-xs text-slate-600 mb-2 italic line-clamp-2";
             notesEl.textContent = props.notes;
             popupEl.appendChild(notesEl);
           }
 
           const navLink = document.createElement("a");
-          navLink.className = "inline-flex items-center gap-1 text-xs font-bold text-teal-600 hover:text-teal-700 underline";
+          navLink.className =
+            "inline-flex items-center gap-1 text-xs font-bold text-teal-600 hover:text-teal-700 underline";
           navLink.textContent = "Get directions in Map →";
           navLink.href = `/map?dest=${encodeURIComponent(props.name)}&lat=${coordinates[1]}&lng=${coordinates[0]}`;
           popupEl.appendChild(navLink);
 
-          new ml.Popup({ offset: 12 }).setDOMContent(popupEl).setLngLat(coordinates).addTo(map);
+          new ml.Popup({ offset: 12 })
+            .setDOMContent(popupEl)
+            .setLngLat(coordinates)
+            .addTo(map);
         });
 
         // Cursor pointer effects
-        map.on("mouseenter", "clusters", () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", "clusters", () => (map.getCanvas().style.cursor = ""));
-        map.on("mouseenter", "unclustered-point", () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", "unclustered-point", () => (map.getCanvas().style.cursor = ""));
+        map.on(
+          "mouseenter",
+          "clusters",
+          () => (map.getCanvas().style.cursor = "pointer"),
+        );
+        map.on(
+          "mouseleave",
+          "clusters",
+          () => (map.getCanvas().style.cursor = ""),
+        );
+        map.on(
+          "mouseenter",
+          "unclustered-point",
+          () => (map.getCanvas().style.cursor = "pointer"),
+        );
+        map.on(
+          "mouseleave",
+          "unclustered-point",
+          () => (map.getCanvas().style.cursor = ""),
+        );
 
         // Fit map to show all places
         if (placesWithCoords.length > 0) {
@@ -767,16 +915,21 @@ function Explore() {
   const handlePlanRouteThroughSelected = () => {
     const selectedPlaces = savedPlaces.filter((p) => selectedIds.has(p.id));
     const validCoords = selectedPlaces.filter(
-      (p): p is SavedPlace & { lat: number; lng: number } => p.lat != null && p.lng != null,
+      (p): p is SavedPlace & { lat: number; lng: number } =>
+        p.lat != null && p.lng != null,
     );
 
     if (validCoords.length < 2) {
-      toast.error("Please select at least 2 saved places with valid map coordinates to plan a route.");
+      toast.error(
+        "Please select at least 2 saved places with valid map coordinates to plan a route.",
+      );
       return;
     }
 
     if (validCoords.length > 7) {
-      toast.warning("Routing supports origin, destination, and up to 5 intermediate stops. Taking the first 7 selected.");
+      toast.warning(
+        "Routing supports origin, destination, and up to 5 intermediate stops. Taking the first 7 selected.",
+      );
     }
 
     const routeStops = validCoords.slice(0, 7);
@@ -787,11 +940,13 @@ function Explore() {
       return;
     }
 
-    const intermediates = routeStops.slice(1, routeStops.length - 1).map((s) => ({
-      lat: s.lat,
-      lng: s.lng,
-      name: s.place_name,
-    }));
+    const intermediates = routeStops
+      .slice(1, routeStops.length - 1)
+      .map((s) => ({
+        lat: s.lat,
+        lng: s.lng,
+        name: s.place_name,
+      }));
 
     const searchParams: {
       dest: string;
@@ -842,7 +997,10 @@ function Explore() {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     try {
-      const { error } = await supabase.from("saved_places").delete().in("id", ids);
+      const { error } = await supabase
+        .from("saved_places")
+        .delete()
+        .in("id", ids);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["saved-places"] });
       toast.info(`Removed ${ids.length} places from your bucket list`);
@@ -920,10 +1078,12 @@ function Explore() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h3 className="text-xl font-bold flex items-center gap-2">
-                  <Heart className="size-5 fill-rose-500 text-rose-500" /> Your Goa Bucket List
+                  <Heart className="size-5 fill-rose-500 text-rose-500" /> Your
+                  Goa Bucket List
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Track must-visit spots, set travel priorities, and plan multi-stop routes.
+                  Track must-visit spots, set travel priorities, and plan
+                  multi-stop routes.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -937,7 +1097,11 @@ function Explore() {
                       setSelectedIds(new Set());
                     }}
                   >
-                    {isMultiSelect ? <Check className="size-3.5" /> : <CheckSquare className="size-3.5" />}
+                    {isMultiSelect ? (
+                      <Check className="size-3.5" />
+                    ) : (
+                      <CheckSquare className="size-3.5" />
+                    )}
                     {isMultiSelect ? "Done Selecting" : "Select Mode"}
                   </Button>
                 )}
@@ -957,7 +1121,8 @@ function Explore() {
               <div className="mt-5 pt-5 border-t border-border/40">
                 <div className="flex items-center justify-between text-xs mb-2">
                   <span className="font-semibold text-foreground flex items-center gap-1.5">
-                    <Sparkles className="size-3.5 text-amber-500" /> Travel Completion Progress
+                    <Sparkles className="size-3.5 text-amber-500" /> Travel
+                    Completion Progress
                   </span>
                   <span className="font-bold text-primary">
                     {visitedCount} of {totalCount} visited ({progressPercent}%)
@@ -971,13 +1136,16 @@ function Explore() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1.5">
-                    <span className="size-2.5 rounded-full bg-emerald-500" /> {visitedCount} Visited
+                    <span className="size-2.5 rounded-full bg-emerald-500" />{" "}
+                    {visitedCount} Visited
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="size-2.5 rounded-full bg-amber-500" /> {plannedCount} Planned
+                    <span className="size-2.5 rounded-full bg-amber-500" />{" "}
+                    {plannedCount} Planned
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="size-2.5 rounded-full bg-teal-500" /> {wantCount} Want to visit
+                    <span className="size-2.5 rounded-full bg-teal-500" />{" "}
+                    {wantCount} Want to visit
                   </span>
                 </div>
               </div>
@@ -990,8 +1158,9 @@ function Explore() {
               <Bookmark className="size-12 mx-auto text-muted-foreground/40 mb-3" />
               <h4 className="text-lg font-bold">Your bucket list is empty</h4>
               <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-                Explore popular beaches, historic forts, lush waterfalls, and cafes in Goa. Click the
-                heart icon to save destinations and organize your itinerary!
+                Explore popular beaches, historic forts, lush waterfalls, and
+                cafes in Goa. Click the heart icon to save destinations and
+                organize your itinerary!
               </p>
               <Button
                 onClick={() => setActiveTab("explore")}
@@ -1106,7 +1275,9 @@ function Explore() {
                       ) : (
                         <Square className="size-4" />
                       )}
-                      {selectedIds.size === filteredSavedPlaces.length ? "Deselect All" : "Select All"}
+                      {selectedIds.size === filteredSavedPlaces.length
+                        ? "Deselect All"
+                        : "Select All"}
                     </button>
                     <span className="text-xs text-muted-foreground">
                       ({selectedIds.size} selected)
@@ -1148,18 +1319,26 @@ function Explore() {
               {viewMode === "map" ? (
                 <div className="space-y-4">
                   <div className="relative rounded-3xl overflow-hidden border border-border/50 shadow-md">
-                    <div ref={mapContainerRef} className="h-[480px] w-full bg-secondary/30" />
+                    <div
+                      ref={mapContainerRef}
+                      className="h-[480px] w-full bg-secondary/30"
+                    />
                     <div className="absolute bottom-3 left-3 bg-card/90 backdrop-blur-md px-3 py-2 rounded-xl border border-border/50 text-xs shadow-md space-y-1">
-                      <p className="font-bold text-foreground">Map Pins Legend</p>
+                      <p className="font-bold text-foreground">
+                        Map Pins Legend
+                      </p>
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1 text-emerald-600 font-medium">
-                          <span className="size-2.5 rounded-full bg-emerald-500" /> Visited
+                          <span className="size-2.5 rounded-full bg-emerald-500" />{" "}
+                          Visited
                         </span>
                         <span className="flex items-center gap-1 text-amber-600 font-medium">
-                          <span className="size-2.5 rounded-full bg-amber-500" /> Planned
+                          <span className="size-2.5 rounded-full bg-amber-500" />{" "}
+                          Planned
                         </span>
                         <span className="flex items-center gap-1 text-teal-600 font-medium">
-                          <span className="size-2.5 rounded-full bg-teal-500" /> Want to visit
+                          <span className="size-2.5 rounded-full bg-teal-500" />{" "}
+                          Want to visit
                         </span>
                       </div>
                     </div>
@@ -1170,7 +1349,8 @@ function Explore() {
                     <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
                       <p className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
                         <AlertTriangle className="size-4 shrink-0" />
-                        Some places are not shown on the map because they lack pinned coordinates:
+                        Some places are not shown on the map because they lack
+                        pinned coordinates:
                       </p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {savedPlaces
@@ -1181,7 +1361,8 @@ function Explore() {
                               onClick={() => locateMissingCoords(place)}
                               className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-card border border-amber-500/40 hover:bg-amber-500/20 text-foreground transition-all"
                             >
-                              <LocateFixed className="size-3 text-amber-600" /> Locate {place.place_name}
+                              <LocateFixed className="size-3 text-amber-600" />{" "}
+                              Locate {place.place_name}
                             </button>
                           ))}
                       </div>
@@ -1222,11 +1403,17 @@ function Explore() {
                             )
                           : null;
 
-                      const directionsSearch: { dest: string; lat?: string; lng?: string } = {
+                      const directionsSearch: {
+                        dest: string;
+                        lat?: string;
+                        lng?: string;
+                      } = {
                         dest: place.place_name,
                       };
-                      if (place.lat != null) directionsSearch.lat = String(place.lat);
-                      if (place.lng != null) directionsSearch.lng = String(place.lng);
+                      if (place.lat != null)
+                        directionsSearch.lat = String(place.lat);
+                      if (place.lng != null)
+                        directionsSearch.lng = String(place.lng);
 
                       return (
                         <div
@@ -1258,7 +1445,8 @@ function Explore() {
                                 </span>
                                 {distance != null && (
                                   <span className="text-[10px] font-semibold text-muted-foreground flex items-center gap-0.5">
-                                    <Compass className="size-3 text-teal-600" /> {distance} km
+                                    <Compass className="size-3 text-teal-600" />{" "}
+                                    {distance} km
                                   </span>
                                 )}
                               </div>
@@ -1277,7 +1465,11 @@ function Explore() {
                                       ? "text-amber-500 hover:bg-amber-500/10"
                                       : "text-muted-foreground/50 hover:text-muted-foreground hover:bg-secondary"
                                   }`}
-                                  title={isPriority ? "Must-visit priority" : "Mark as priority"}
+                                  title={
+                                    isPriority
+                                      ? "Must-visit priority"
+                                      : "Mark as priority"
+                                  }
                                 >
                                   <Star
                                     className={`size-4 ${isPriority ? "fill-amber-500" : ""}`}
@@ -1286,7 +1478,11 @@ function Explore() {
 
                                 {/* Remove Button */}
                                 <button
-                                  onClick={() => toggleSavePlace.mutate({ name: place.place_name })}
+                                  onClick={() =>
+                                    toggleSavePlace.mutate({
+                                      name: place.place_name,
+                                    })
+                                  }
                                   className="rounded-full bg-rose-500/10 p-1.5 text-rose-600 hover:bg-rose-500/20 transition-colors"
                                   title="Remove from saved"
                                 >
@@ -1305,11 +1501,14 @@ function Explore() {
                                   onClick={() => locateMissingCoords(place)}
                                   className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-0.5 hover:underline"
                                 >
-                                  <LocateFixed className="size-3" /> No map pin — click to locate
+                                  <LocateFixed className="size-3" /> No map pin
+                                  — click to locate
                                 </button>
                               ) : (
                                 <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                                  <MapPin className="size-3 text-emerald-500" /> Lat {place.lat.toFixed(4)}, Lng {place.lng.toFixed(4)}
+                                  <MapPin className="size-3 text-emerald-500" />{" "}
+                                  Lat {place.lat.toFixed(4)}, Lng{" "}
+                                  {place.lng.toFixed(4)}
                                 </p>
                               )}
                             </div>
@@ -1323,13 +1522,16 @@ function Explore() {
                                 <select
                                   value={place.status}
                                   onChange={(e) => {
-                                    const nextStatus = e.target.value as "want" | "planned" | "visited";
+                                    const nextStatus = e.target.value as
+                                      "want" | "planned" | "visited";
                                     updateSavedPlace.mutate({
                                       id: place.id,
                                       updates: {
                                         status: nextStatus,
                                         visited_at:
-                                          nextStatus === "visited" ? new Date().toISOString() : null,
+                                          nextStatus === "visited"
+                                            ? new Date().toISOString()
+                                            : null,
                                       },
                                     });
                                   }}
@@ -1356,7 +1558,9 @@ function Explore() {
                                   onChange={(e) =>
                                     updateSavedPlace.mutate({
                                       id: place.id,
-                                      updates: { planned_date: e.target.value || null },
+                                      updates: {
+                                        planned_date: e.target.value || null,
+                                      },
                                     })
                                   }
                                   aria-label={`Target travel date for ${place.place_name}`}
@@ -1371,7 +1575,9 @@ function Explore() {
                                 <div className="space-y-2">
                                   <textarea
                                     value={notesDraft}
-                                    onChange={(e) => setNotesDraft(e.target.value)}
+                                    onChange={(e) =>
+                                      setNotesDraft(e.target.value)
+                                    }
                                     placeholder="Add tips, sunset spots, restaurant orders, parking advice..."
                                     rows={2}
                                     className="w-full text-xs p-2 rounded-xl bg-background border border-border focus:ring-1 focus:ring-primary focus:outline-none"
@@ -1391,7 +1597,9 @@ function Explore() {
                                       onClick={() => {
                                         updateSavedPlace.mutate({
                                           id: place.id,
-                                          updates: { notes: notesDraft.trim() || null },
+                                          updates: {
+                                            notes: notesDraft.trim() || null,
+                                          },
                                         });
                                         setEditingNotesId(null);
                                       }}
@@ -1409,7 +1617,8 @@ function Explore() {
                                   className="group/note flex items-center justify-between text-xs p-2 rounded-xl bg-secondary/30 hover:bg-secondary/60 cursor-pointer border border-border/30 transition-colors"
                                 >
                                   <p className="text-muted-foreground line-clamp-1 italic">
-                                    {place.notes || "Click to add personal notes or reminders…"}
+                                    {place.notes ||
+                                      "Click to add personal notes or reminders…"}
                                   </p>
                                   <Edit3 className="size-3 text-muted-foreground opacity-50 group-hover/note:opacity-100 shrink-0 ml-1" />
                                 </div>
@@ -1472,7 +1681,11 @@ function Explore() {
               onChange={(e) => setQuery(e.target.value)}
               className="h-12 text-base rounded-full bg-card/70 border-border/50"
             />
-            <Button type="submit" disabled={insights.isPending} className="h-12 px-6 rounded-full font-bold">
+            <Button
+              type="submit"
+              disabled={insights.isPending}
+              className="h-12 px-6 rounded-full font-bold"
+            >
               <Search className="size-4 mr-1.5" /> Explore
             </Button>
           </form>
@@ -1498,7 +1711,9 @@ function Explore() {
 
           {/* Quick Suggestions Chips */}
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-muted-foreground mr-1">Trending:</span>
+            <span className="text-xs font-bold text-muted-foreground mr-1">
+              Trending:
+            </span>
             {shuffledPlaces.map((p) => (
               <button
                 key={p}
@@ -1527,7 +1742,8 @@ function Explore() {
               <section>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-bold tracking-tight flex items-center gap-2">
-                    <Star className="text-orange-500 w-5 h-5 fill-orange-500" /> Featured Goa Destinations
+                    <Star className="text-orange-500 w-5 h-5 fill-orange-500" />{" "}
+                    Featured Goa Destinations
                   </h3>
                   <button
                     onClick={shuffleFeatured}
@@ -1570,7 +1786,9 @@ function Explore() {
                                 </span>
                               )}
                             </h4>
-                            <p className="text-white/80 text-xs mt-1 line-clamp-1">{place.desc}</p>
+                            <p className="text-white/80 text-xs mt-1 line-clamp-1">
+                              {place.desc}
+                            </p>
                           </div>
                         </div>
 
@@ -1591,9 +1809,15 @@ function Explore() {
                               ? "bg-rose-500 text-white shadow-md shadow-rose-500/30"
                               : "bg-black/40 text-white hover:bg-black/60"
                           }`}
-                          title={saved ? "Saved in bucket list" : "Save to bucket list"}
+                          title={
+                            saved
+                              ? "Saved in bucket list"
+                              : "Save to bucket list"
+                          }
                         >
-                          <Heart className={`size-4 ${saved ? "fill-white" : ""}`} />
+                          <Heart
+                            className={`size-4 ${saved ? "fill-white" : ""}`}
+                          />
                         </button>
                       </div>
                     );
@@ -1607,7 +1831,9 @@ function Explore() {
           {insights.isPending && (
             <div className="mt-16 flex flex-col items-center gap-3 text-muted-foreground animate-in fade-in">
               <Loader2 className="size-8 animate-spin text-primary" />
-              <p className="text-sm font-medium">Gathering travel intel on {query}…</p>
+              <p className="text-sm font-medium">
+                Gathering travel intel on {query}…
+              </p>
             </div>
           )}
 
@@ -1643,25 +1869,41 @@ function Explore() {
                           : "bg-secondary text-foreground hover:bg-rose-500/10 hover:text-rose-600 border border-border/50"
                       }`}
                     >
-                      <Heart className={`size-4 ${isSaved(data.place) ? "fill-white" : ""}`} />
-                      {isSaved(data.place) ? "Saved in Bucket List" : "Save to Bucket List"}
+                      <Heart
+                        className={`size-4 ${isSaved(data.place) ? "fill-white" : ""}`}
+                      />
+                      {isSaved(data.place)
+                        ? "Saved in Bucket List"
+                        : "Save to Bucket List"}
                     </button>
 
                     <Button asChild variant="outline" className="rounded-full">
-                      <Link to="/itinerary" search={{ place: data.place, state: "Goa" }}>
+                      <Link
+                        to="/itinerary"
+                        search={{ place: data.place, state: "Goa" }}
+                      >
                         Plan time here
                       </Link>
                     </Button>
 
                     {/* Open on Map Button */}
                     {(() => {
-                      const searchMap: { dest: string; lat?: string; lng?: string } = {
+                      const searchMap: {
+                        dest: string;
+                        lat?: string;
+                        lng?: string;
+                      } = {
                         dest: data.place,
                       };
-                      if (data.sights?.[0]?.lat != null) searchMap.lat = String(data.sights[0].lat);
-                      if (data.sights?.[0]?.lng != null) searchMap.lng = String(data.sights[0].lng);
+                      if (data.sights?.[0]?.lat != null)
+                        searchMap.lat = String(data.sights[0].lat);
+                      if (data.sights?.[0]?.lng != null)
+                        searchMap.lng = String(data.sights[0].lng);
                       return (
-                        <Button asChild className="rounded-full font-bold shadow-md gap-1.5">
+                        <Button
+                          asChild
+                          className="rounded-full font-bold shadow-md gap-1.5"
+                        >
                           <Link to="/map" search={searchMap}>
                             <Navigation className="size-4" /> Open on Map
                           </Link>
@@ -1696,7 +1938,8 @@ function Explore() {
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
                     <div className="rounded-2xl border border-border/40 bg-secondary/30 p-4">
                       <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1">
-                        <DollarSign className="size-3.5 text-emerald-500" /> Estimated Cost
+                        <DollarSign className="size-3.5 text-emerald-500" />{" "}
+                        Estimated Cost
                       </span>
                       <p className="text-sm font-bold text-foreground mt-1">
                         {data.transport_advice.estimated_cost}
@@ -1705,7 +1948,8 @@ function Explore() {
 
                     <div className="rounded-2xl border border-border/40 bg-secondary/30 p-4">
                       <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1">
-                        <ParkingCircle className="size-3.5 text-blue-500" /> Parking Availability
+                        <ParkingCircle className="size-3.5 text-blue-500" />{" "}
+                        Parking Availability
                       </span>
                       <p className="text-sm font-bold text-foreground mt-1 capitalize">
                         {data.transport_advice.parking_ease}
@@ -1717,7 +1961,8 @@ function Explore() {
 
                     <div className="rounded-2xl border border-border/40 bg-secondary/30 p-4">
                       <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1">
-                        <Compass className="size-3.5 text-orange-500" /> Road Conditions
+                        <Compass className="size-3.5 text-orange-500" /> Road
+                        Conditions
                       </span>
                       <p className="text-xs font-medium text-foreground mt-1">
                         {data.transport_advice.road_condition}
@@ -1775,7 +2020,9 @@ function Explore() {
                   {data.crowd.reason}
                 </p>
                 <p className="mt-1 text-sm font-medium text-foreground">
-                  <span className="text-primary font-bold">Best visiting time today:</span>{" "}
+                  <span className="text-primary font-bold">
+                    Best visiting time today:
+                  </span>{" "}
                   {data.crowd.best_time_today}
                 </p>
 
@@ -1830,7 +2077,11 @@ function Explore() {
                   )}
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
                     {items.map((item) => {
-                      const itemSearch: { dest: string; lat?: string; lng?: string } = {
+                      const itemSearch: {
+                        dest: string;
+                        lat?: string;
+                        lng?: string;
+                      } = {
                         dest: item.name,
                       };
                       if (item.lat != null) itemSearch.lat = String(item.lat);
@@ -1842,7 +2093,9 @@ function Explore() {
                           className="rounded-2xl border border-border/40 bg-secondary/30 p-4 flex flex-col justify-between"
                         >
                           <div>
-                            <p className="font-bold text-sm text-foreground">{item.name}</p>
+                            <p className="font-bold text-sm text-foreground">
+                              {item.name}
+                            </p>
                             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                               {item.description}
                             </p>
@@ -1866,82 +2119,98 @@ function Explore() {
                               onClick={() =>
                                 toggleSavePlace.mutate({
                                   name: item.name,
-                                  category: heading.includes("Eat") ? "food" : "sight",
+                                  category: heading.includes("Eat")
+                                    ? "food"
+                                    : "sight",
                                   lat: item.lat,
                                   lng: item.lng,
                                 })
                               }
                               className={`p-1.5 rounded-full transition-colors ${
                                 isSaved(item.name)
-                                ? "text-rose-500 bg-rose-500/10"
-                                : "text-muted-foreground hover:text-rose-500 hover:bg-secondary"
-                            }`}
-                            title="Save to bucket list"
-                          >
-                            <Heart className={`size-3.5 ${isSaved(item.name) ? "fill-rose-500" : ""}`} />
-                          </button>
+                                  ? "text-rose-500 bg-rose-500/10"
+                                  : "text-muted-foreground hover:text-rose-500 hover:bg-secondary"
+                              }`}
+                              title="Save to bucket list"
+                            >
+                              <Heart
+                                className={`size-3.5 ${isSaved(item.name) ? "fill-rose-500" : ""}`}
+                              />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+
+              {/* Local Rules & Safety Warnings */}
+              <section className="rounded-3xl border border-border/50 bg-card/80 backdrop-blur-xl p-6 shadow-sm">
+                <h3 className="font-bold text-lg mb-4">
+                  Visitor Guidance for {data.place}
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-2">
+                      Visitor Guidance
+                    </p>
+                    <ul className="space-y-2">
+                      {data.rules.allowed.map((r) => (
+                        <li
+                          key={r}
+                          className="flex gap-2 text-sm text-emerald-950 dark:text-emerald-300"
+                        >
+                          <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />{" "}
+                          {r}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="rounded-2xl bg-red-500/5 border border-red-500/20 p-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-red-700 dark:text-red-400 mb-2">
+                      Respect Access Restrictions
+                    </p>
+                    <ul className="space-y-2">
+                      {data.rules.not_allowed.map((r) => (
+                        <li
+                          key={r}
+                          className="flex gap-2 text-sm text-red-950 dark:text-red-300"
+                        >
+                          <Ban className="mt-0.5 size-4 shrink-0 text-red-600" />{" "}
+                          {r}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </section>
-            ))}
 
-            {/* Local Rules & Safety Warnings */}
-            <section className="rounded-3xl border border-border/50 bg-card/80 backdrop-blur-xl p-6 shadow-sm">
-              <h3 className="font-bold text-lg mb-4">Visitor Guidance for {data.place}</h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-4">
-                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-2">
-                    Visitor Guidance
-                  </p>
-                  <ul className="space-y-2">
-                    {data.rules.allowed.map((r) => (
-                      <li
-                        key={r}
-                        className="flex gap-2 text-sm text-emerald-950 dark:text-emerald-300"
-                      >
-                        <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" /> {r}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="rounded-2xl bg-red-500/5 border border-red-500/20 p-4">
-                  <p className="text-xs font-bold uppercase tracking-wider text-red-700 dark:text-red-400 mb-2">
-                    Respect Access Restrictions
-                  </p>
-                  <ul className="space-y-2">
-                    {data.rules.not_allowed.map((r) => (
-                      <li key={r} className="flex gap-2 text-sm text-red-950 dark:text-red-300">
-                        <Ban className="mt-0.5 size-4 shrink-0 text-red-600" /> {r}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </section>
-
-            {/* Safety Warnings */}
-            <section className="space-y-3">
-              <h3 className="flex items-center gap-2 font-bold text-lg">
-                <AlertTriangle className="size-5 text-destructive" /> Safety Warnings & Local Advisories
-              </h3>
-              {data.warnings.map((w) => (
-                <div
-                  key={w.title}
-                  className={`rounded-2xl border-l-4 bg-card p-5 shadow-sm ${severityStyles[w.severity]}`}
-                >
-                  <p className="font-bold text-sm text-foreground">{w.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{w.detail}</p>
-                </div>
-              ))}
-            </section>
-          </div>
-        )}
-      </>
-    )}
-  </AppShell>
-);
+              {/* Safety Warnings */}
+              <section className="space-y-3">
+                <h3 className="flex items-center gap-2 font-bold text-lg">
+                  <AlertTriangle className="size-5 text-destructive" /> Safety
+                  Warnings & Local Advisories
+                </h3>
+                {data.warnings.map((w) => (
+                  <div
+                    key={w.title}
+                    className={`rounded-2xl border-l-4 bg-card p-5 shadow-sm ${severityStyles[w.severity]}`}
+                  >
+                    <p className="font-bold text-sm text-foreground">
+                      {w.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      {w.detail}
+                    </p>
+                  </div>
+                ))}
+              </section>
+            </div>
+          )}
+        </>
+      )}
+    </AppShell>
+  );
 }

@@ -1,7 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Compass, ArrowLeft, Loader2, Sparkles, ShieldCheck } from "lucide-react";
+import {
+  Compass,
+  ArrowLeft,
+  Loader2,
+  Sparkles,
+  ShieldCheck,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +27,10 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign In | Safr — AI Travel Safety Companion" },
-      { name: "description", content: "Sign in or create an account to plan safer trips across Goa." },
+      {
+        name: "description",
+        content: "Sign in or create an account to plan safer trips across Goa.",
+      },
     ],
   }),
   component: AuthPage,
@@ -30,7 +39,9 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">(search.mode || "signin");
+  const [mode, setMode] = useState<"signin" | "signup">(
+    search.mode || "signin",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -51,7 +62,10 @@ function AuthPage() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" || (event === "USER_UPDATED" && session?.user)) {
+      if (
+        event === "SIGNED_IN" ||
+        (event === "USER_UPDATED" && session?.user)
+      ) {
         if (search.verified) {
           toast.success("Email verified successfully! Welcome to Safr.");
         }
@@ -100,13 +114,18 @@ function AuthPage() {
         toast.success("Account created successfully!");
         navigate({ to: "/dashboard" });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
         if (error) throw error;
         toast.success("Welcome back! Signed in successfully.");
         navigate({ to: "/dashboard" });
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Authentication error");
+      toast.error(
+        error instanceof Error ? error.message : "Authentication error",
+      );
     } finally {
       setBusy(false);
     }
@@ -122,11 +141,19 @@ function AuthPage() {
           <div className="size-12 rounded-2xl bg-emerald/10 text-emerald flex items-center justify-center mx-auto mb-4">
             <Sparkles className="size-6" />
           </div>
-          <h1 className="text-2xl font-bold font-display tracking-tight text-foreground">Check your email</h1>
+          <h1 className="text-2xl font-bold font-display tracking-tight text-foreground">
+            Check your email
+          </h1>
           <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-            We sent a secure confirmation link to <span className="font-bold text-foreground">{email}</span>. Click it to finish setting up your account.
+            We sent a secure confirmation link to{" "}
+            <span className="font-bold text-foreground">{email}</span>. Click it
+            to finish setting up your account.
           </p>
-          <Button variant="outline" className="mt-6 w-full rounded-full font-bold text-xs" onClick={() => setSent(false)}>
+          <Button
+            variant="outline"
+            className="mt-6 w-full rounded-full font-bold text-xs"
+            onClick={() => setSent(false)}
+          >
             Back to Sign In
           </Button>
         </div>
@@ -152,8 +179,12 @@ function AuthPage() {
           <div className="flex items-center gap-3 mb-6">
             <SafrLogo size={42} />
             <div>
-              <span className="text-xl font-bold font-display tracking-tight">Safr</span>
-              <span className="ml-1.5 text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">Goa</span>
+              <span className="text-xl font-bold font-display tracking-tight">
+                Safr
+              </span>
+              <span className="ml-1.5 text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                Goa
+              </span>
             </div>
           </div>
 
@@ -161,13 +192,18 @@ function AuthPage() {
             {mode === "signin" ? "Welcome back" : "Create account"}
           </h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            {mode === "signin" ? "Sign in to access your Goa safety dashboard." : "One account to keep your family safe across India."}
+            {mode === "signin"
+              ? "Sign in to access your Goa safety dashboard."
+              : "One account to keep your family safe across India."}
           </p>
 
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             {mode === "signup" && (
               <div className="space-y-1.5">
-                <Label htmlFor="name" className="text-xs font-bold uppercase text-muted-foreground">
+                <Label
+                  htmlFor="name"
+                  className="text-xs font-bold uppercase text-muted-foreground"
+                >
                   Your Full Name
                 </Label>
                 <Input
@@ -182,7 +218,10 @@ function AuthPage() {
             )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-xs font-bold uppercase text-muted-foreground">
+              <Label
+                htmlFor="email"
+                className="text-xs font-bold uppercase text-muted-foreground"
+              >
                 Email Address
               </Label>
               <Input
@@ -198,7 +237,10 @@ function AuthPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-xs font-bold uppercase text-muted-foreground">
+              <Label
+                htmlFor="password"
+                className="text-xs font-bold uppercase text-muted-foreground"
+              >
                 Password
               </Label>
               <Input
@@ -234,7 +276,9 @@ function AuthPage() {
             className="mt-5 w-full text-center text-xs font-semibold text-muted-foreground hover:text-primary transition-colors"
             onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
           >
-            {mode === "signin" ? "Don't have an account? Create one" : "Already registered? Sign in"}
+            {mode === "signin"
+              ? "Don't have an account? Create one"
+              : "Already registered? Sign in"}
           </button>
         </div>
       </div>

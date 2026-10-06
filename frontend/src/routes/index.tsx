@@ -1,5 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Compass, ShieldCheck, ChevronRight, Sparkles, QrCode, Waves } from "lucide-react";
+import {
+  Compass,
+  ShieldCheck,
+  ChevronRight,
+  Sparkles,
+  QrCode,
+  Waves,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -32,38 +39,124 @@ export const Route = createFileRoute("/")({
 /* Minimalist Coastal Doodle SVGs matching the reference aesthetic */
 function SunDoodle({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 64" fill="none" className={className} stroke="currentColor">
+    <svg
+      viewBox="0 0 64 64"
+      fill="none"
+      className={className}
+      stroke="currentColor"
+    >
       <circle cx="32" cy="32" r="14" strokeWidth="2.8" strokeLinecap="round" />
-      <line x1="32" y1="6" x2="32" y2="12" strokeWidth="3" strokeLinecap="round" />
-      <line x1="32" y1="52" x2="32" y2="58" strokeWidth="3" strokeLinecap="round" />
-      <line x1="6" y1="32" x2="12" y2="32" strokeWidth="3" strokeLinecap="round" />
-      <line x1="52" y1="32" x2="58" y2="32" strokeWidth="3" strokeLinecap="round" />
-      <line x1="13.5" y1="13.5" x2="18" y2="18" strokeWidth="3" strokeLinecap="round" />
-      <line x1="46" y1="46" x2="50.5" y2="50.5" strokeWidth="3" strokeLinecap="round" />
-      <line x1="13.5" y1="50.5" x2="18" y2="46" strokeWidth="3" strokeLinecap="round" />
-      <line x1="46" y1="18" x2="50.5" y2="13.5" strokeWidth="3" strokeLinecap="round" />
+      <line
+        x1="32"
+        y1="6"
+        x2="32"
+        y2="12"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <line
+        x1="32"
+        y1="52"
+        x2="32"
+        y2="58"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <line
+        x1="6"
+        y1="32"
+        x2="12"
+        y2="32"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <line
+        x1="52"
+        y1="32"
+        x2="58"
+        y2="32"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <line
+        x1="13.5"
+        y1="13.5"
+        x2="18"
+        y2="18"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <line
+        x1="46"
+        y1="46"
+        x2="50.5"
+        y2="50.5"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <line
+        x1="13.5"
+        y1="50.5"
+        x2="18"
+        y2="46"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <line
+        x1="46"
+        y1="18"
+        x2="50.5"
+        y2="13.5"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 
 function UmbrellaDoodle({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 64" fill="none" className={className} stroke="currentColor">
-      <line x1="32" y1="9" x2="32" y2="6" strokeWidth="2.8" strokeLinecap="round" />
+    <svg
+      viewBox="0 0 64 64"
+      fill="none"
+      className={className}
+      stroke="currentColor"
+    >
+      <line
+        x1="32"
+        y1="9"
+        x2="32"
+        y2="6"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+      />
       <path
         d="M12 30 C12 18, 21 10, 32 10 C43 10, 52 18, 52 30 C47 28, 42 28, 37 30 C32 28, 27 28, 22 30 C17 28, 12 28, 12 30 Z"
         strokeWidth="2.8"
         strokeLinejoin="round"
       />
-      <path d="M32 30 L32 46 C32 51 36.5 53 40 50" strokeWidth="2.8" strokeLinecap="round" />
+      <path
+        d="M32 30 L32 46 C32 51 36.5 53 40 50"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 
 function PalmTreeDoodle({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 64" fill="none" className={className} stroke="currentColor">
-      <path d="M32 58 C31 46 29 36 26 26" strokeWidth="3.2" strokeLinecap="round" />
+    <svg
+      viewBox="0 0 64 64"
+      fill="none"
+      className={className}
+      stroke="currentColor"
+    >
+      <path
+        d="M32 58 C31 46 29 36 26 26"
+        strokeWidth="3.2"
+        strokeLinecap="round"
+      />
       <path
         d="M26 26 C16 22 8 28 6 38 C10 32 18 30 26 28"
         strokeWidth="2.8"
@@ -100,7 +193,12 @@ function PalmTreeDoodle({ className }: { className?: string }) {
 
 function WavesDoodle({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 64" fill="none" className={className} stroke="currentColor">
+    <svg
+      viewBox="0 0 64 64"
+      fill="none"
+      className={className}
+      stroke="currentColor"
+    >
       <path
         d="M6 18 C12 12 18 24 24 18 C30 12 36 24 42 18 C48 12 54 24 60 18"
         strokeWidth="3.2"
@@ -122,7 +220,12 @@ function WavesDoodle({ className }: { className?: string }) {
 
 function ShellDoodle({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 64" fill="none" className={className} stroke="currentColor">
+    <svg
+      viewBox="0 0 64 64"
+      fill="none"
+      className={className}
+      stroke="currentColor"
+    >
       <path
         d="M32 32 C32 28 28 26 25 28 C21 31 22 37 26 40 C32 44 40 40 42 33 C44 24 36 16 27 17 C16 18 10 29 12 40 C14 52 28 58 41 55 C53 52 59 38 56 25 C53 11 38 4 23 7"
         strokeWidth="2.8"
@@ -217,7 +320,8 @@ function Landing() {
               className="rounded-full btn-warm-teal text-xs py-1.5 px-3.5 shadow-sm active:scale-95"
             >
               <Link to="/find">
-                <ShieldCheck className="size-3.5 mr-1 text-teal-600" /> Enter OTP
+                <ShieldCheck className="size-3.5 mr-1 text-teal-600" /> Enter
+                OTP
               </Link>
             </Button>
             <Button
@@ -244,9 +348,9 @@ function Landing() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-base sm:text-lg text-stone-600 leading-relaxed font-normal">
-            Road routes, local do's and don'ts, printable QR safety tags for your family, and an
-            AI plan for every free hour you have — built for travel across India, currently piloted
-            in Goa.
+            Road routes, local do's and don'ts, printable QR safety tags for
+            your family, and an AI plan for every free hour you have — built for
+            travel across India, currently piloted in Goa.
           </p>
 
           {/* Action CTAs: Matching the 3 buttons in the screenshot */}
@@ -285,21 +389,33 @@ function Landing() {
           {/* Trust Stat Badges */}
           <div className="mt-14 pt-10 border-t border-stone-200/60 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
             <div className="bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-stone-200/70 shadow-sm hover:shadow-md hover:border-orange-200 hover:-translate-y-0.5 transition-all duration-300">
-              <p className="text-2xl font-black font-display text-orange-600">100%</p>
-              <p className="text-xs font-semibold text-stone-600 mt-0.5">Zero-Knowledge Privacy</p>
+              <p className="text-2xl font-black font-display text-orange-600">
+                100%
+              </p>
+              <p className="text-xs font-semibold text-stone-600 mt-0.5">
+                Zero-Knowledge Privacy
+              </p>
             </div>
             <div className="bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-stone-200/70 shadow-sm hover:shadow-md hover:border-rose-200 hover:-translate-y-0.5 transition-all duration-300">
-              <p className="text-2xl font-black font-display text-rose-600">112 Hub</p>
-              <p className="text-xs font-semibold text-stone-600 mt-0.5">Goa Police & Ambulance</p>
+              <p className="text-2xl font-black font-display text-rose-600">
+                112 Hub
+              </p>
+              <p className="text-xs font-semibold text-stone-600 mt-0.5">
+                Goa Police & Ambulance
+              </p>
             </div>
             <div className="bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-stone-200/70 shadow-sm hover:shadow-md hover:border-teal-200 hover:-translate-y-0.5 transition-all duration-300">
-              <p className="text-2xl font-black font-display text-teal-600">Weather</p>
+              <p className="text-2xl font-black font-display text-teal-600">
+                Weather
+              </p>
               <p className="text-xs font-semibold text-stone-600 mt-0.5">
                 Forecast & Beach Guidance
               </p>
             </div>
             <div className="bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-stone-200/70 shadow-sm hover:shadow-md hover:border-emerald-200 hover:-translate-y-0.5 transition-all duration-300">
-              <p className="text-2xl font-black font-display text-emerald-600">10 Languages</p>
+              <p className="text-2xl font-black font-display text-emerald-600">
+                10 Languages
+              </p>
               <p className="text-xs font-semibold text-stone-600 mt-0.5">
                 Indian Languages Support
               </p>
@@ -318,8 +434,8 @@ function Landing() {
             Designed for carefree Goan adventures
           </h2>
           <p className="text-stone-600 text-sm sm:text-base mt-2 max-w-xl mx-auto">
-            Everything you need for peace of mind while exploring coastal roads, bustling markets,
-            and serene beaches.
+            Everything you need for peace of mind while exploring coastal roads,
+            bustling markets, and serene beaches.
           </p>
         </div>
 
@@ -338,7 +454,8 @@ function Landing() {
                 Road Routes & Navigation
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed mt-2">
-                Find OSRM driving routes with turn-by-turn steps and compare route options before you set off.
+                Find OSRM driving routes with turn-by-turn steps and compare
+                route options before you set off.
               </p>
             </div>
             <Link
@@ -364,8 +481,9 @@ function Landing() {
                 Weather & Beach Guidance
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed mt-2">
-                Weather, UV and rain forecasts for your current location. Check posted beach flags
-                and local lifeguard advice for swimming conditions.
+                Weather, UV and rain forecasts for your current location. Check
+                posted beach flags and local lifeguard advice for swimming
+                conditions.
               </p>
             </div>
             <Link
@@ -391,8 +509,9 @@ function Landing() {
                 Family QR Safety Wristbands
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed mt-2">
-                Printable QR tags & 6-character OTP codes for kids and seniors. Strangers can notify
-                guardians without ever seeing phone numbers or private details.
+                Printable QR tags & 6-character OTP codes for kids and seniors.
+                Strangers can notify guardians without ever seeing phone numbers
+                or private details.
               </p>
             </div>
             <Link
@@ -418,8 +537,9 @@ function Landing() {
                 AI Hour-by-Hour Schedules
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed mt-2">
-                Have 4 or 8 free hours? Instantly build a personalized Goan itinerary matching your
-                pace, interests, and transit notes with 1-click stop navigation.
+                Have 4 or 8 free hours? Instantly build a personalized Goan
+                itinerary matching your pace, interests, and transit notes with
+                1-click stop navigation.
               </p>
             </div>
             <Link
@@ -437,12 +557,17 @@ function Landing() {
       <footer className="mt-20 border-t border-stone-200/60 bg-white/50 py-10 px-6 backdrop-blur-xl relative z-20">
         <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-600">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-stone-900">Safr (Goa Guide Buddy)</span>
+            <span className="font-bold text-stone-900">
+              Safr (Goa Guide Buddy)
+            </span>
             <span>·</span>
             <span>Piloted in Goa, built for India.</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link to="/emergency" className="hover:text-stone-900 transition-colors">
+            <Link
+              to="/emergency"
+              className="hover:text-stone-900 transition-colors"
+            >
               Emergency Directory
             </Link>
             <Link to="/find" className="hover:text-stone-900 transition-colors">

@@ -100,6 +100,21 @@ const server = http.createServer((req, res) => {
         console.error('Error reading static file:', err);
       }
     }
+  } else if (pathname === '/sw.js') {
+    const swPath = path.join(clientDir, 'sw.js');
+    if (fs.existsSync(swPath)) {
+      try {
+        const stat = fs.statSync(swPath);
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Service-Worker-Allowed', '/');
+        res.setHeader('Content-Type', 'application/javascript');
+        res.setHeader('Content-Length', stat.size);
+        fs.createReadStream(swPath).pipe(res);
+        return;
+      } catch (err) {
+        console.error('Error reading sw.js:', err);
+      }
+    }
   }
 
   // Delegate all dynamic routes & server functions to TanStack Start SSR

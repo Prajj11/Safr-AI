@@ -24,7 +24,9 @@ export const getRoutes = createServerFn({ method: "POST" })
         origin: coordinateSchema.extend({ name: z.string().optional() }),
         destination: coordinateSchema.extend({ name: z.string().optional() }),
         waypoints: z.array(waypointSchema).max(5).default([]),
-        mode: z.enum(["car", "motor_scooter", "bicycle", "walking"]).default("car"),
+        mode: z
+          .enum(["car", "motor_scooter", "bicycle", "walking"])
+          .default("car"),
         isNight: z.boolean().default(false),
       })
       .parse(input),
@@ -40,13 +42,15 @@ export const getRoutes = createServerFn({ method: "POST" })
     );
   });
 
-export const getRoutingConfig = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const provider = (process.env["ROUTING_PROVIDER"] || "valhalla").toLowerCase();
-    const isValhalla = provider === "valhalla" || Boolean(process.env["VALHALLA_BASE_URL"]);
+export const getRoutingConfig = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const provider = (process.env["ROUTING_PROVIDER"] || "osrm").toLowerCase();
     return {
-      provider: isValhalla ? "valhalla" : provider,
-      supportedModes: ["car", "motor_scooter", "bicycle", "walking"] as const,
+      provider,
+      supportedModes:
+        provider === "valhalla"
+          ? (["car", "motor_scooter", "bicycle", "walking"] as const)
+          : (["car"] as const),
     };
-  });
-
+  },
+);

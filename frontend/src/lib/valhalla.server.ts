@@ -7,23 +7,27 @@ export type InternalRoute = {
   geometry: { coordinates: [number, number][] }; // [lng, lat][]
   legs: Array<{
     summary?: string | undefined;
-    steps?: Array<{
-      name: string;
-      distance: number;
-      duration: number;
-      maneuver: {
-        type: string;
-        modifier?: string | undefined;
-        location?: [number, number] | undefined;
-        exit?: number | undefined;
-      };
-    }> | undefined;
+    steps?:
+      | Array<{
+          name: string;
+          distance: number;
+          duration: number;
+          maneuver: {
+            type: string;
+            modifier?: string | undefined;
+            location?: [number, number] | undefined;
+            exit?: number | undefined;
+          };
+        }>
+      | undefined;
     routeSteps?: RouteStep[] | undefined;
-    annotation?: {
-      nodes?: number[] | undefined;
-      wayIds?: number[] | undefined;
-      distance: number[];
-    } | undefined;
+    annotation?:
+      | {
+          nodes?: number[] | undefined;
+          wayIds?: number[] | undefined;
+          distance: number[];
+        }
+      | undefined;
   }>;
 };
 
@@ -161,7 +165,8 @@ export function areRoutesDuplicate(
 
   // Check if they share >= 95% of their points
   if (aCoords.length > 0 && bCoords.length > 0) {
-    const key = (c: [number, number]) => `${c[0].toFixed(5)},${c[1].toFixed(5)}`;
+    const key = (c: [number, number]) =>
+      `${c[0].toFixed(5)},${c[1].toFixed(5)}`;
     const setA = new Set(aCoords.map(key));
     let sharedB = 0;
     for (const c of bCoords) {
@@ -193,7 +198,8 @@ async function fetchValhallaTripBundle(
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
-      "User-Agent": "Safr/1.0 (Goa travel planner; https://github.com/Prajj11/Ideas)",
+      "User-Agent":
+        "Safr/1.0 (Goa travel planner; https://github.com/Prajj11/Ideas)",
     },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(15000),
@@ -218,23 +224,27 @@ async function fetchValhallaTripBundle(
       );
     }
 
-    throw new Error(`Valhalla route request failed [${response.status}]: ${errorBody}`);
+    throw new Error(
+      `Valhalla route request failed [${response.status}]: ${errorBody}`,
+    );
   }
 
   const json = (await response.json()) as ValhallaRouteResponse;
-  const rawTrips: ValhallaTrip[] = [json.trip, ...(json.alternates?.map((a) => a.trip) ?? [])].filter(
-    (t): t is ValhallaTrip =>
-      Boolean(
-        t &&
-          t.summary &&
-          Number.isFinite(t.summary.length) &&
-          t.summary.length >= 0 &&
-          Number.isFinite(t.summary.time) &&
-          t.summary.time >= 0 &&
-          t.legs &&
-          t.legs.length > 0 &&
-          typeof t.legs[0]?.shape === "string",
-      ),
+  const rawTrips: ValhallaTrip[] = [
+    json.trip,
+    ...(json.alternates?.map((a) => a.trip) ?? []),
+  ].filter((t): t is ValhallaTrip =>
+    Boolean(
+      t &&
+      t.summary &&
+      Number.isFinite(t.summary.length) &&
+      t.summary.length >= 0 &&
+      Number.isFinite(t.summary.time) &&
+      t.summary.time >= 0 &&
+      t.legs &&
+      t.legs.length > 0 &&
+      typeof t.legs[0]?.shape === "string",
+    ),
   );
   return rawTrips;
 }
@@ -252,16 +262,19 @@ export async function fetchValhallaRoutes(
   waypoints: Array<Coordinate & { name?: string | undefined }> = [],
   mode: string = "car",
 ): Promise<InternalRoute[]> {
-  const baseUrl = (process.env["VALHALLA_BASE_URL"] || "https://valhalla1.openstreetmap.de").replace(
-    /\/$/,
-    "",
-  );
+  const baseUrl = (
+    process.env["VALHALLA_BASE_URL"] || "https://valhalla1.openstreetmap.de"
+  ).replace(/\/$/, "");
 
   const costing = VALHALLA_COSTINGS[mode] || "auto";
 
   const locations = [
     { lat: origin.lat, lon: origin.lng },
-    ...waypoints.map((w) => ({ lat: w.lat, lon: w.lng, type: "break" as const })),
+    ...waypoints.map((w) => ({
+      lat: w.lat,
+      lon: w.lng,
+      type: "break" as const,
+    })),
     { lat: destination.lat, lon: destination.lng },
   ];
   const directionsOptions = { units: "kilometers", language: "en-US" };
@@ -310,7 +323,9 @@ export async function fetchValhallaRoutes(
   if (results.every((r) => r.status === "rejected")) {
     const reasons = results.map((r) => (r as PromiseRejectedResult).reason);
     const distanceErr = reasons.find(
-      (err) => err instanceof Error && err.message.includes("more than 1 km from a routable road"),
+      (err) =>
+        err instanceof Error &&
+        err.message.includes("more than 1 km from a routable road"),
     );
     if (distanceErr) throw distanceErr;
     throw reasons[0] || new Error("All Valhalla route requests failed.");
@@ -325,7 +340,11 @@ export async function fetchValhallaRoutes(
 
   const uniqueCandidates: UniqueCandidate[] = [];
   const counts = { fastest: 0, shortest: 0, low_highways: 0 };
-  const names: Array<keyof typeof counts> = ["fastest", "shortest", "low_highways"];
+  const names: Array<keyof typeof counts> = [
+    "fastest",
+    "shortest",
+    "low_highways",
+  ];
 
   results.forEach((res, idx) => {
     if (res.status !== "fulfilled") return;
@@ -359,11 +378,15 @@ export async function fetchValhallaRoutes(
         }
 
         const expectedStart = legIdx === 0 ? origin : waypoints[legIdx - 1]!;
-        const expectedEnd = legIdx === trip.legs.length - 1 ? destination : waypoints[legIdx]!;
+        const expectedEnd =
+          legIdx === trip.legs.length - 1 ? destination : waypoints[legIdx]!;
         const startCoord = legCoords[0]!;
         const endCoord = legCoords[legCoords.length - 1]!;
         if (
-          distanceKm(expectedStart, { lat: startCoord[1], lng: startCoord[0] }) > 1.0 ||
+          distanceKm(expectedStart, {
+            lat: startCoord[1],
+            lng: startCoord[0],
+          }) > 1.0 ||
           distanceKm(expectedEnd, { lat: endCoord[1], lng: endCoord[0] }) > 1.0
         ) {
           throw new Error(
@@ -384,11 +407,23 @@ export async function fetchValhallaRoutes(
       const durSeconds = Math.round(trip.summary.time);
 
       const isDup = uniqueCandidates.some((c) =>
-        areRoutesDuplicate(c.coords, c.distMeters, c.durSeconds, allCoords, distMeters, durSeconds),
+        areRoutesDuplicate(
+          c.coords,
+          c.distMeters,
+          c.durSeconds,
+          allCoords,
+          distMeters,
+          durSeconds,
+        ),
       );
 
       if (!isDup) {
-        uniqueCandidates.push({ trip, coords: allCoords, distMeters, durSeconds });
+        uniqueCandidates.push({
+          trip,
+          coords: allCoords,
+          distMeters,
+          durSeconds,
+        });
         counts[reqName]++;
       }
     }
@@ -413,7 +448,9 @@ export async function fetchValhallaRoutes(
                 ? m.begin_shape_index
                 : 0;
             const pt = legCoords[beginIdx];
-            const location: [number, number] | undefined = pt ? [pt[1], pt[0]] : undefined;
+            const location: [number, number] | undefined = pt
+              ? [pt[1], pt[0]]
+              : undefined;
             const name = m.street_names?.[0] || "the road";
 
             return {
@@ -437,7 +474,8 @@ export async function fetchValhallaRoutes(
               headers: {
                 "Content-Type": "application/json",
                 Accept: "application/json",
-                "User-Agent": "Safr/1.0 (Goa travel planner; https://github.com/Prajj11/Ideas)",
+                "User-Agent":
+                  "Safr/1.0 (Goa travel planner; https://github.com/Prajj11/Ideas)",
               },
               body: JSON.stringify({
                 encoded_polyline: leg.shape,
@@ -451,9 +489,14 @@ export async function fetchValhallaRoutes(
               const traceData = (await traceRes.json()) as {
                 edges?: Array<{ way_id?: number; length?: number }>;
               };
-              if (Array.isArray(traceData.edges) && traceData.edges.length > 0) {
+              if (
+                Array.isArray(traceData.edges) &&
+                traceData.edges.length > 0
+              ) {
                 wayIds = traceData.edges.map((e) => e.way_id || 0);
-                edgeDistances = traceData.edges.map((e) => Math.round((e.length ?? 0) * 1000));
+                edgeDistances = traceData.edges.map((e) =>
+                  Math.round((e.length ?? 0) * 1000),
+                );
               }
             } else {
               console.warn(
@@ -473,14 +516,17 @@ export async function fetchValhallaRoutes(
             wayIds.length === edgeDistances.length;
 
           const summary =
-            leg.maneuvers?.find((m) => m.street_names?.[0])?.street_names?.[0] ||
+            leg.maneuvers?.find((m) => m.street_names?.[0])
+              ?.street_names?.[0] ||
             routeSteps.find((s) => s.name && s.name !== "the road")?.name ||
             (trip.legs.length > 1 ? `Leg ${legIdx + 1}` : "Local Road Route");
 
           return {
             summary,
             routeSteps,
-            annotation: hasCompleteAnnotation ? { wayIds, distance: edgeDistances } : undefined,
+            annotation: hasCompleteAnnotation
+              ? { wayIds, distance: edgeDistances }
+              : undefined,
           };
         }),
       );

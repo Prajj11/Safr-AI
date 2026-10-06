@@ -40,10 +40,15 @@ export function scheduleItinerary(input: {
     deadline = start + input.hours * 60;
   let clock = start,
     previous = 0;
-  const stops: PlanStop[] = [];
-  const remaining = input.candidates.map((place, i) => ({ place, index: i + 1 }));
-  const buffer = input.pace === "relaxed" ? 15 : input.pace === "balanced" ? 10 : 5;
-  const visit = input.pace === "relaxed" ? 75 : input.pace === "balanced" ? 50 : 30;
+  const stops = [];
+  const remaining = input.candidates.map((place, i) => ({
+    place,
+    index: i + 1,
+  }));
+  const buffer =
+    input.pace === "relaxed" ? 15 : input.pace === "balanced" ? 10 : 5;
+  const visit =
+    input.pace === "relaxed" ? 75 : input.pace === "balanced" ? 50 : 30;
   while (remaining.length && stops.length < 12) {
     const options = remaining
       .flatMap(({ place, index }) => {
@@ -61,15 +66,24 @@ export function scheduleItinerary(input: {
           return [];
         const drive = Math.ceil(seconds / 60),
           transit = drive + buffer;
-        const preferredDuration = place.category === "restaurant" ? Math.max(40, visit) : visit;
+        const preferredDuration =
+          place.category === "restaurant" ? Math.max(40, visit) : visit;
         const available =
-          deadline - clock - transit - (input.returnToStart ? Math.ceil(back / 60) + buffer : 0);
+          deadline -
+          clock -
+          transit -
+          (input.returnToStart ? Math.ceil(back / 60) + buffer : 0);
         // A short budget can still support one worthwhile visit; never invent tiny visits to fill it.
         const duration =
-          stops.length === 0 ? Math.min(preferredDuration, available) : preferredDuration;
+          stops.length === 0
+            ? Math.min(preferredDuration, available)
+            : preferredDuration;
         if (duration < (place.category === "restaurant" ? 30 : 20)) return [];
         if (
-          clock + transit + duration + (input.returnToStart ? Math.ceil(back / 60) + buffer : 0) >
+          clock +
+          transit +
+          duration +
+          (input.returnToStart ? Math.ceil(back / 60) + buffer : 0) >
           deadline
         )
           return [];

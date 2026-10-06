@@ -19,7 +19,9 @@ export const itineraryInputSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .refine((s) => {
       const date = new Date(`${s}T00:00:00Z`);
-      return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === s;
+      return (
+        Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === s
+      );
     }, "Choose a valid date")
     .optional(),
   notes: z.string().trim().max(400).optional(),
