@@ -164,7 +164,6 @@ For in-depth blueprints covering database architecture, RLS security policies, m
 ## 👥 Authors & Credits
 
 * **Development Team**: Team KoS
-* **Lead Engineer**: Prajwal ([@Prajj11](https://github.com/Prajj11))
 * **Initiative**: Safr (Smart Travel Safety Companion for India)
 
 ---
