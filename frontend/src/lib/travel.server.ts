@@ -11,7 +11,6 @@ import { scheduleItinerary } from "./itinerary-planner";
 import { CURATED_GOA_PLACES } from "./goa-places-data";
 import { distanceKm, type NearbyPlace } from "./geo";
 
-<<<<<<< Updated upstream
 function matchesInterest(p: NearbyPlace, interest: string): boolean {
   if (p.interests && p.interests.includes(interest)) return true;
   const name = p.name.toLowerCase();
@@ -29,6 +28,7 @@ function matchesInterest(p: NearbyPlace, interest: string): boolean {
         name.includes("thali") ||
         name.includes("shack")
       );
+
     case "Beaches & sunsets":
       if (isRestaurant) return false;
       return (
@@ -39,16 +39,26 @@ function matchesInterest(p: NearbyPlace, interest: string): boolean {
         name.includes("sunset") ||
         name.includes("cove")
       );
+
     case "History & heritage":
       if (isRestaurant) return false;
       return (
-        ["museum", "castle", "fort", "monument", "ruins", "archaeological_site", "historic"].includes(kind) ||
+        [
+          "museum",
+          "castle",
+          "fort",
+          "monument",
+          "ruins",
+          "archaeological_site",
+          "historic",
+        ].includes(kind) ||
         name.includes("fort") ||
         name.includes("museum") ||
         name.includes("heritage") ||
         name.includes("ruins") ||
         name.includes("palace")
       );
+
     case "Nightlife":
       return (
         ["bar", "pub", "nightclub", "lounge"].includes(kind) ||
@@ -58,6 +68,7 @@ function matchesInterest(p: NearbyPlace, interest: string): boolean {
         name.includes("lounge") ||
         name.includes("nightlife")
       );
+
     case "Nature & wildlife":
       if (isRestaurant) return false;
       return (
@@ -69,6 +80,7 @@ function matchesInterest(p: NearbyPlace, interest: string): boolean {
         name.includes("lake") ||
         name.includes("wildlife")
       );
+
     case "Markets & shopping":
       if (isRestaurant) return false;
       return (
@@ -78,6 +90,7 @@ function matchesInterest(p: NearbyPlace, interest: string): boolean {
         name.includes("flea") ||
         name.includes("mall")
       );
+
     case "Churches & temples":
       if (isRestaurant) return false;
       return (
@@ -87,10 +100,17 @@ function matchesInterest(p: NearbyPlace, interest: string): boolean {
         name.includes("cathedral") ||
         name.includes("basilica")
       );
+
     case "Water sports":
       if (isRestaurant) return false;
       return (
-        ["water_sports", "water_park", "sports_centre", "scuba_diving", "surfing"].includes(kind) ||
+        [
+          "water_sports",
+          "water_park",
+          "sports_centre",
+          "scuba_diving",
+          "surfing",
+        ].includes(kind) ||
         name.includes("water sports") ||
         name.includes("scuba") ||
         name.includes("surf") ||
@@ -98,35 +118,35 @@ function matchesInterest(p: NearbyPlace, interest: string): boolean {
         name.includes("parasailing") ||
         name.includes("jet ski")
       );
+
     default:
       return false;
   }
-=======
+}
 function interestScore(p: NearbyPlace, interests: string[]) {
   return interests.reduce(
     (score, interest) =>
       score +
       ((interest === "Local food" && p.category === "restaurant") ||
-      (interest === "Beaches & sunsets" &&
-        ["beach", "viewpoint"].includes(p.kind)) ||
-      (interest === "History & heritage" &&
-        [
-          "museum",
-          "castle",
-          "fort",
-          "monument",
-          "ruins",
-          "archaeological_site",
-        ].includes(p.kind)) ||
-      (interest === "Nature & wildlife" &&
-        ["zoo", "viewpoint", "beach"].includes(p.kind)) ||
-      (interest === "Markets & shopping" && p.kind === "marketplace") ||
-      (interest === "Churches & temples" && p.kind === "place_of_worship")
+        (interest === "Beaches & sunsets" &&
+          ["beach", "viewpoint"].includes(p.kind)) ||
+        (interest === "History & heritage" &&
+          [
+            "museum",
+            "castle",
+            "fort",
+            "monument",
+            "ruins",
+            "archaeological_site",
+          ].includes(p.kind)) ||
+        (interest === "Nature & wildlife" &&
+          ["zoo", "viewpoint", "beach"].includes(p.kind)) ||
+        (interest === "Markets & shopping" && p.kind === "marketplace") ||
+        (interest === "Churches & temples" && p.kind === "place_of_worship")
         ? 1
         : 0),
     0,
   );
->>>>>>> Stashed changes
 }
 
 export async function buildItinerary(
@@ -134,7 +154,8 @@ export async function buildItinerary(
 ) {
   const input = itineraryInputSchema.parse(raw);
   const base = input.origin || (await locatePlace(input.place, input.state));
-<<<<<<< Updated upstream
+
+
   const searchRadius = Math.min(18, Math.max(5, input.hours * 2));
   let places = await nearbyPlaces(base, searchRadius);
 
@@ -223,20 +244,6 @@ export async function buildItinerary(
     addCandidate(p);
   }
 
-=======
-  const places = await nearbyPlaces(
-    base,
-    Math.min(15, Math.max(3, input.hours * 1.5)),
-  );
-  const candidates = places
-    .filter((p) => p.category !== "hotel")
-    .sort(
-      (a, b) =>
-        interestScore(b, input.interests) - interestScore(a, input.interests) ||
-        a.distanceKm - b.distanceKm,
-    )
-    .slice(0, 20);
->>>>>>> Stashed changes
   if (!candidates.length)
     throw new Error(
       "No mapped attractions or restaurants were found nearby. Try a nearby town or another starting point.",

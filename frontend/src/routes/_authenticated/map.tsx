@@ -1614,9 +1614,8 @@ function MapPage() {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <div
-                  className={`size-2.5 rounded-full shrink-0 ${
-                    isGpsOrigin ? "bg-emerald-500 animate-pulse" : "bg-primary"
-                  }`}
+                  className={`size-2.5 rounded-full shrink-0 ${isGpsOrigin ? "bg-emerald-500 animate-pulse" : "bg-primary"
+                    }`}
                 />
                 <div className="text-xs truncate">
                   <span className="text-muted-foreground">From: </span>
@@ -2044,15 +2043,11 @@ function MapPage() {
                   { id: "walking", label: "Walking", icon: Footprints },
                 ].map((modeItem) => {
                   const isSupported = routingConfig?.supportedModes
-<<<<<<< Updated upstream
-                    ? (routingConfig.supportedModes as readonly string[]).includes(modeItem.id)
-                    : true;
-=======
+
                     ? (
-                        routingConfig.supportedModes as readonly string[]
-                      ).includes(modeItem.id)
+                      routingConfig.supportedModes as readonly string[]
+                    ).includes(modeItem.id)
                     : modeItem.id === "car";
->>>>>>> Stashed changes
                   const isSelected = travelMode === modeItem.id;
                   const Icon = modeItem.icon;
 
@@ -2061,15 +2056,11 @@ function MapPage() {
                       key={modeItem.id}
                       type="button"
                       disabled={!isSupported}
-<<<<<<< Updated upstream
-                      title={modeItem.label}
-=======
                       title={
                         !isSupported
                           ? "Requires Valhalla routing provider"
                           : modeItem.label
                       }
->>>>>>> Stashed changes
                       aria-label={`Travel mode: ${modeItem.label}`}
                       onClick={() => {
                         setTravelMode(modeItem.id as any);
@@ -2082,11 +2073,10 @@ function MapPage() {
                           );
                         }
                       }}
-                      className={`flex flex-col items-center justify-center p-2 rounded-2xl border text-xs font-semibold transition-all ${
-                        isSelected
-                          ? "bg-primary/15 border-primary text-primary shadow-xs"
-                          : "bg-secondary/40 border-border/50 text-foreground hover:bg-secondary/70"
-                      }`}
+                      className={`flex flex-col items-center justify-center p-2 rounded-2xl border text-xs font-semibold transition-all ${isSelected
+                        ? "bg-primary/15 border-primary text-primary shadow-xs"
+                        : "bg-secondary/40 border-border/50 text-foreground hover:bg-secondary/70"
+                        }`}
                     >
                       <Icon className="size-4 mb-1" />
                       <span className="text-[10px]">{modeItem.label}</span>
@@ -2094,15 +2084,12 @@ function MapPage() {
                   );
                 })}
               </div>
-<<<<<<< Updated upstream
-=======
               {routingConfig?.provider === "osrm" && (
                 <p className="mt-1 text-[10px] text-muted-foreground">
                   (OSRM mode is active: scooter, bike & walk routing require
                   Valhalla)
                 </p>
               )}
->>>>>>> Stashed changes
             </div>
 
             {/* Departure Time */}
@@ -2124,11 +2111,10 @@ function MapPage() {
                           travelMode,
                         );
                     }}
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-colors ${
-                      departureMode === "now"
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground"
-                    }`}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-colors ${departureMode === "now"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground"
+                      }`}
                   >
                     Leave Now
                   </button>
@@ -2144,11 +2130,10 @@ function MapPage() {
                           travelMode,
                         );
                     }}
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-colors ${
-                      departureMode === "custom"
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground"
-                    }`}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-colors ${departureMode === "custom"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground"
+                      }`}
                   >
                     Leave At
                   </button>
@@ -2338,11 +2323,10 @@ function MapPage() {
                           setActiveStepIndex(null);
                         }
                       }}
-                      className={`rounded-2xl border p-3.5 text-left transition-all ${
-                        isCur
-                          ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-xs"
-                          : "border-border/60 bg-card hover:border-primary/40"
-                      }`}
+                      className={`rounded-2xl border p-3.5 text-left transition-all ${isCur
+                        ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-xs"
+                        : "border-border/60 bg-card hover:border-primary/40"
+                        }`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-xs text-foreground">
@@ -2481,11 +2465,10 @@ function MapPage() {
                           <div
                             key={sIdx}
                             onClick={() => handleStepClick(step, sIdx)}
-                            className={`flex items-start gap-2.5 p-2 rounded-xl cursor-pointer transition-all ${
-                              isActive
-                                ? "bg-primary/20 border border-primary/40 shadow-xs"
-                                : "hover:bg-muted/60"
-                            }`}
+                            className={`flex items-start gap-2.5 p-2 rounded-xl cursor-pointer transition-all ${isActive
+                              ? "bg-primary/20 border border-primary/40 shadow-xs"
+                              : "hover:bg-muted/60"
+                              }`}
                           >
                             <div className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-card border border-border/60 mt-0.5">
                               {getManeuverIcon(
