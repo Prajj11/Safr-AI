@@ -54,3 +54,18 @@ export const getRoutingConfig = createServerFn({ method: "GET" }).handler(
     };
   },
 );
+
+export const getPlaceDetails = createServerFn({ method: "POST" })
+  .validator((input: unknown) =>
+    z
+      .object({
+        lat: z.number().min(-90).max(90),
+        lng: z.number().min(-180).max(180),
+        name: z.string().trim().min(1).max(200),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getPlaceDetailsServer } = await import("./places.server");
+    return getPlaceDetailsServer(data);
+  });

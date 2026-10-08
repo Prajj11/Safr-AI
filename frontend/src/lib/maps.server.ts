@@ -327,7 +327,9 @@ export async function computeSafeRoutes(
   waypoints: Waypoint[] = [],
   mode: string = "car",
 ): Promise<ScoredRoute[]> {
-  const provider = (process.env["ROUTING_PROVIDER"] || "valhalla").toLowerCase();
+  const provider = (
+    process.env["ROUTING_PROVIDER"] || "valhalla"
+  ).toLowerCase();
   let raw: InternalRoute[] = [];
 
   if (provider === "valhalla" || mode !== "car") {

@@ -81,9 +81,9 @@ export function scheduleItinerary(input: {
         if (duration < (place.category === "restaurant" ? 30 : 20)) return [];
         if (
           clock +
-          transit +
-          duration +
-          (input.returnToStart ? Math.ceil(back / 60) + buffer : 0) >
+            transit +
+            duration +
+            (input.returnToStart ? Math.ceil(back / 60) + buffer : 0) >
           deadline
         )
           return [];
@@ -96,7 +96,7 @@ export function scheduleItinerary(input: {
             diversityPenalty += 80;
           } else if (
             (lastStop.type === "beach" && place.kind === "beach") ||
-            (lastStop.title === place.name)
+            lastStop.title === place.name
           ) {
             diversityPenalty += 25;
           }
@@ -123,7 +123,12 @@ export function scheduleItinerary(input: {
         ? ("food" as const)
         : next.place.kind === "beach"
           ? ("beach" as const)
-          : ["water_sports", "water_park", "sports_centre", "nightclub"].includes(next.place.kind)
+          : [
+                "water_sports",
+                "water_park",
+                "sports_centre",
+                "nightclub",
+              ].includes(next.place.kind)
             ? ("activity" as const)
             : ("sight" as const);
     stops.push({
