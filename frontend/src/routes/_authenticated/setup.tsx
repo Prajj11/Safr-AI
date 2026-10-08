@@ -1,5 +1,9 @@
 import { validateAge } from "@/lib/age-validation";
-import { validatePhone, normalizePhone, validateOptionalPhone } from "@/lib/phone-validation";
+import {
+  validatePhone,
+  normalizePhone,
+  validateOptionalPhone,
+} from "@/lib/phone-validation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, User, Users } from "lucide-react";
@@ -40,20 +44,28 @@ function Setup() {
   const [phoneErrors, setPhoneErrors] = useState<Record<number, string>>({});
   const [phoneTouched, setPhoneTouched] = useState<Record<number, boolean>>({});
 
-  const validatePersonPhone = (index: number, val: string, allPeople: Person[], ownerPhoneVal: string) => {
+  const validatePersonPhone = (
+    index: number,
+    val: string,
+    allPeople: Person[],
+    ownerPhoneVal: string,
+  ) => {
     const normalized = normalizePhone(val);
     if (!normalized) return null;
     if (!allPeople[index]?.name.trim()) return "Add a name for this number";
-    
+
     const ownerNormalized = normalizePhone(ownerPhoneVal);
     if (normalized === ownerNormalized) return "This is your own number";
 
     for (let j = 0; j < allPeople.length; j++) {
-      if (j !== index && normalizePhone(allPeople[j]?.phone || "") === normalized) {
-        return `This number is already used for ${allPeople[j]?.name.trim() || 'another person'}`;
+      if (
+        j !== index &&
+        normalizePhone(allPeople[j]?.phone || "") === normalized
+      ) {
+        return `This number is already used for ${allPeople[j]?.name.trim() || "another person"}`;
       }
     }
-    
+
     return validateOptionalPhone(normalized);
   };
 
@@ -111,7 +123,7 @@ function Setup() {
           if (!person) continue;
           const hasName = !!person.name.trim();
           const hasPhone = !!normalizePhone(person.phone);
-          
+
           if (!hasName && !hasPhone) continue;
 
           if (hasName) {
@@ -121,19 +133,26 @@ function Setup() {
 
           const pErr = validatePersonPhone(i, person.phone, people, phone);
           if (pErr) {
-             newErrors[i] = pErr;
-             if (firstInvalidIndex === -1) firstInvalidIndex = i;
+            newErrors[i] = pErr;
+            if (firstInvalidIndex === -1) firstInvalidIndex = i;
           }
         }
 
         if (firstInvalidIndex !== -1) {
-           setPhoneErrors(newErrors);
-           setPhoneTouched(Object.keys(newErrors).reduce((acc, k) => ({...acc, [Number(k)]: true}), {}));
-           setTimeout(() => {
-             const el = document.getElementById(`person-phone-${firstInvalidIndex}`);
-             if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-           }, 100);
-           throw new Error("Please fix the errors before saving.");
+          setPhoneErrors(newErrors);
+          setPhoneTouched(
+            Object.keys(newErrors).reduce(
+              (acc, k) => ({ ...acc, [Number(k)]: true }),
+              {},
+            ),
+          );
+          setTimeout(() => {
+            const el = document.getElementById(
+              `person-phone-${firstInvalidIndex}`,
+            );
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 100);
+          throw new Error("Please fix the errors before saving.");
         }
       }
       const { data: userData } = await supabase.auth.getUser();
@@ -357,7 +376,8 @@ function Setup() {
             Add each person. We use kids and seniors to tailor safety tips and
             QR tags.
             <br />
-            Only the phone numbers you add here can be tracked later. Add a number for anyone you want to be able to find if you get separated.
+            Only the phone numbers you add here can be tracked later. Add a
+            number for anyone you want to be able to find if you get separated.
           </p>
           <div className="space-y-3">
             {people.map((p, i) => (
@@ -402,31 +422,47 @@ function Setup() {
                     placeholder="Phone number (optional)"
                     value={p.phone}
                     aria-invalid={!!phoneErrors[i]}
-                    aria-describedby={phoneErrors[i] ? `phone-error-${i}` : undefined}
+                    aria-describedby={
+                      phoneErrors[i] ? `phone-error-${i}` : undefined
+                    }
                     onChange={(e) => {
                       const newPeople = people.map((x, j) =>
                         j === i ? { ...x, phone: e.target.value } : x,
                       );
                       setPeople(newPeople);
                       if (phoneTouched[i] && phoneErrors[i]) {
-                        const err = validatePersonPhone(i, e.target.value, newPeople, phone);
-                        setPhoneErrors(prev => ({ ...prev, [i]: err || "" }));
+                        const err = validatePersonPhone(
+                          i,
+                          e.target.value,
+                          newPeople,
+                          phone,
+                        );
+                        setPhoneErrors((prev) => ({ ...prev, [i]: err || "" }));
                       }
                     }}
                     onBlur={() => {
-                      setPhoneTouched(prev => ({ ...prev, [i]: true }));
-                      const err = validatePersonPhone(i, p.phone, people, phone);
-                      setPhoneErrors(prev => ({ ...prev, [i]: err || "" }));
+                      setPhoneTouched((prev) => ({ ...prev, [i]: true }));
+                      const err = validatePersonPhone(
+                        i,
+                        p.phone,
+                        people,
+                        phone,
+                      );
+                      setPhoneErrors((prev) => ({ ...prev, [i]: err || "" }));
                     }}
                   />
                   {phoneErrors[i] && (
-                    <p id={`phone-error-${i}`} className="mt-1 text-sm text-destructive">
+                    <p
+                      id={`phone-error-${i}`}
+                      className="mt-1 text-sm text-destructive"
+                    >
                       {phoneErrors[i]}
                     </p>
                   )}
                   {p.phone.trim() !== "" && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Only numbers added here can be tracked. They must agree to share their location on their own phone.
+                      Only numbers added here can be tracked. They must agree to
+                      share their location on their own phone.
                     </p>
                   )}
                 </div>
@@ -471,7 +507,10 @@ function Setup() {
             type="button"
             variant="outline"
             onClick={() =>
-              setPeople([...people, { name: "", age: "", category: "adult", phone: "" }])
+              setPeople([
+                ...people,
+                { name: "", age: "", category: "adult", phone: "" },
+              ])
             }
           >
             <Plus className="size-4" /> Add person

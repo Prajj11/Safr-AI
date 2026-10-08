@@ -19,7 +19,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417937",
     interests: ["History & heritage", "Beaches & sunsets"],
     bestTime: "sunset",
-    highlight: "Panoramic red-laterite ramparts overlooking Vagator Beach and Chapora river mouth.",
+    highlight:
+      "Panoramic red-laterite ramparts overlooking Vagator Beach and Chapora river mouth.",
   },
   {
     id: "curated/fort_aguada",
@@ -32,7 +33,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417938",
     interests: ["History & heritage", "Beaches & sunsets"],
     bestTime: "morning",
-    highlight: "17th-century Portuguese coastal bastion with a freshwater spring and 4-storey lighthouse.",
+    highlight:
+      "17th-century Portuguese coastal bastion with a freshwater spring and 4-storey lighthouse.",
   },
   {
     id: "curated/reis_magos_fort",
@@ -45,7 +47,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417939",
     interests: ["History & heritage"],
     bestTime: "morning",
-    highlight: "Restored riverfront citadel with Mario Miranda art gallery and Mandovi estuary vistas.",
+    highlight:
+      "Restored riverfront citadel with Mario Miranda art gallery and Mandovi estuary vistas.",
   },
   {
     id: "curated/basilica_bom_jesus",
@@ -58,7 +61,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417940",
     interests: ["History & heritage", "Churches & temples"],
     bestTime: "morning",
-    highlight: "UNESCO World Heritage Baroque church holding the sacred relics of St. Francis Xavier.",
+    highlight:
+      "UNESCO World Heritage Baroque church holding the sacred relics of St. Francis Xavier.",
   },
   {
     id: "curated/se_cathedral",
@@ -71,7 +75,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417941",
     interests: ["History & heritage", "Churches & temples"],
     bestTime: "morning",
-    highlight: "One of Asia's largest churches featuring Portuguese-Manueline architecture and the Golden Bell.",
+    highlight:
+      "One of Asia's largest churches featuring Portuguese-Manueline architecture and the Golden Bell.",
   },
   {
     id: "curated/cabo_de_rama",
@@ -84,7 +89,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417942",
     interests: ["History & heritage", "Beaches & sunsets"],
     bestTime: "sunset",
-    highlight: "Dramatic South Goa sea-cliff ramparts steeped in mythology and stunning Arabian Sea views.",
+    highlight:
+      "Dramatic South Goa sea-cliff ramparts steeped in mythology and stunning Arabian Sea views.",
   },
   {
     id: "curated/houses_of_goa",
@@ -97,7 +103,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417943",
     interests: ["History & heritage"],
     bestTime: "afternoon",
-    highlight: "Architect Gerard da Cunha's triangular brick museum showcasing Goan domestic heritage.",
+    highlight:
+      "Architect Gerard da Cunha's triangular brick museum showcasing Goan domestic heritage.",
   },
 
   // --- Local Food ---
@@ -113,7 +120,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417944",
     interests: ["Local food"],
     bestTime: "afternoon",
-    highlight: "Legendary local favorite near Assagao/Anjuna fields known for authentic Goan fish curry thali.",
+    highlight:
+      "Legendary local favorite near Assagao/Anjuna fields known for authentic Goan fish curry thali.",
   },
   {
     id: "curated/gunpowder",
@@ -127,7 +135,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417945",
     interests: ["Local food"],
     bestTime: "evening",
-    highlight: "Heritage Portuguese house courtyard serving Kerala beef roast, appams and coastal delicacies.",
+    highlight:
+      "Heritage Portuguese house courtyard serving Kerala beef roast, appams and coastal delicacies.",
   },
   {
     id: "curated/ritz_classic",
@@ -141,7 +150,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417946",
     interests: ["Local food"],
     bestTime: "afternoon",
-    highlight: "The benchmark for traditional Goan fish thali with kingfish fry and crab xacuti in Panaji.",
+    highlight:
+      "The benchmark for traditional Goan fish thali with kingfish fry and crab xacuti in Panaji.",
   },
   {
     id: "curated/fishermans_wharf",
@@ -155,7 +165,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417947",
     interests: ["Local food", "Nightlife"],
     bestTime: "evening",
-    highlight: "River Sal waterfront dining with live Goan music and prawn balchão.",
+    highlight:
+      "River Sal waterfront dining with live Goan music and prawn balchão.",
   },
   {
     id: "curated/souza_lobo",
@@ -169,7 +180,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417948",
     interests: ["Local food", "Beaches & sunsets"],
     bestTime: "afternoon",
-    highlight: "Historic 1932 beach restaurant known for crab masala, masala fried pomfret and bebinca.",
+    highlight:
+      "Historic 1932 beach restaurant known for crab masala, masala fried pomfret and bebinca.",
   },
   {
     id: "curated/martins_corner",
@@ -183,7 +195,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417949",
     interests: ["Local food"],
     bestTime: "evening",
-    highlight: "South Goa institution famous for butter garlic crab, pork vindaloo and warm Goan hospitality.",
+    highlight:
+      "South Goa institution famous for butter garlic crab, pork vindaloo and warm Goan hospitality.",
   },
   {
     id: "curated/kokni_kanteen",
@@ -197,7 +210,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417950",
     interests: ["Local food", "History & heritage"],
     bestTime: "afternoon",
-    highlight: "Nostalgic 1970s eatery serving brass-plate Konkani fish thalis and feni cocktails.",
+    highlight:
+      "Nostalgic 1970s eatery serving brass-plate Konkani fish thalis and feni cocktails.",
   },
 
   // --- Beaches & Sunsets ---
@@ -212,7 +226,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417951",
     interests: ["Beaches & sunsets", "Markets & shopping"],
     bestTime: "sunset",
-    highlight: "Iconic red laterite headland beach with rocky coves, beach shacks, and mesmerizing sunsets.",
+    highlight:
+      "Iconic red laterite headland beach with rocky coves, beach shacks, and mesmerizing sunsets.",
   },
   {
     id: "curated/vagator_beach",
@@ -225,7 +240,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417952",
     interests: ["Beaches & sunsets"],
     bestTime: "sunset",
-    highlight: "Dramatic cliffs, the carved Shiva Rock, and sunset viewpoints below Chapora Fort.",
+    highlight:
+      "Dramatic cliffs, the carved Shiva Rock, and sunset viewpoints below Chapora Fort.",
   },
   {
     id: "curated/baga_beach",
@@ -238,7 +254,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417953",
     interests: ["Beaches & sunsets", "Water sports", "Nightlife"],
     bestTime: "afternoon",
-    highlight: "Vibrant beach hub with active water sports shacks, parasailing boats, and lively evening cafes.",
+    highlight:
+      "Vibrant beach hub with active water sports shacks, parasailing boats, and lively evening cafes.",
   },
   {
     id: "curated/candolim_beach",
@@ -251,7 +268,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417954",
     interests: ["Beaches & sunsets", "Water sports"],
     bestTime: "morning",
-    highlight: "Long sandy coastline with pristine dunes, calm swimming zones, and parasailing operators.",
+    highlight:
+      "Long sandy coastline with pristine dunes, calm swimming zones, and parasailing operators.",
   },
   {
     id: "curated/palolem_beach",
@@ -264,7 +282,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417955",
     interests: ["Beaches & sunsets", "Water sports", "Nightlife"],
     bestTime: "sunset",
-    highlight: "Picture-perfect crescent bay lined with palm trees, gentle turquoise waters and dolphin spotting.",
+    highlight:
+      "Picture-perfect crescent bay lined with palm trees, gentle turquoise waters and dolphin spotting.",
   },
   {
     id: "curated/agonda_beach",
@@ -277,7 +296,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417956",
     interests: ["Beaches & sunsets", "Nature & wildlife"],
     bestTime: "sunset",
-    highlight: "Peaceful, uncrowded 3km shoreline designated as an Olive Ridley sea turtle nesting sanctuary.",
+    highlight:
+      "Peaceful, uncrowded 3km shoreline designated as an Olive Ridley sea turtle nesting sanctuary.",
   },
   {
     id: "curated/morjim_beach",
@@ -290,7 +310,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417957",
     interests: ["Beaches & sunsets", "Nature & wildlife", "Water sports"],
     bestTime: "morning",
-    highlight: "Broad white sand beach known as Little Russia with kite surfing schools and turtle nesting sites.",
+    highlight:
+      "Broad white sand beach known as Little Russia with kite surfing schools and turtle nesting sites.",
   },
   {
     id: "curated/arambol_beach",
@@ -303,7 +324,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417958",
     interests: ["Beaches & sunsets", "Nature & wildlife"],
     bestTime: "sunset",
-    highlight: "Bohemian beach featuring sunset drum circles and a hidden freshwater lake nestled against green cliffs.",
+    highlight:
+      "Bohemian beach featuring sunset drum circles and a hidden freshwater lake nestled against green cliffs.",
   },
 
   // --- Nightlife ---
@@ -319,7 +341,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417959",
     interests: ["Nightlife", "Local food", "Beaches & sunsets"],
     bestTime: "sunset",
-    highlight: "Goa's original seaside institution offering ocean breezes, rooftop lounge beats, and cold beers.",
+    highlight:
+      "Goa's original seaside institution offering ocean breezes, rooftop lounge beats, and cold beers.",
   },
   {
     id: "curated/titos_lane",
@@ -332,7 +355,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417960",
     interests: ["Nightlife"],
     bestTime: "evening",
-    highlight: "The heart of North Goa nightlife with Club Tito's, Cafe Mambo, neon lights and DJ sets.",
+    highlight:
+      "The heart of North Goa nightlife with Club Tito's, Cafe Mambo, neon lights and DJ sets.",
   },
   {
     id: "curated/hilltop_vagator",
@@ -345,7 +369,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417961",
     interests: ["Nightlife"],
     bestTime: "evening",
-    highlight: "Legendary open-air psychedelic trance haven amidst palm groves with artisan flea stalls.",
+    highlight:
+      "Legendary open-air psychedelic trance haven amidst palm groves with artisan flea stalls.",
   },
   {
     id: "curated/cohiba_sinquerim",
@@ -359,7 +384,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417962",
     interests: ["Nightlife", "Local food"],
     bestTime: "evening",
-    highlight: "Spacious open-air lounge famous for retro nights, live salsa music, and craft cocktails.",
+    highlight:
+      "Spacious open-air lounge famous for retro nights, live salsa music, and craft cocktails.",
   },
   {
     id: "curated/thalassa_siolim",
@@ -373,7 +399,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417963",
     interests: ["Nightlife", "Local food", "Beaches & sunsets"],
     bestTime: "sunset",
-    highlight: "Riverside Greek open-air taverna with fire dancers, sunset cocktails, and celebratory music.",
+    highlight:
+      "Riverside Greek open-air taverna with fire dancers, sunset cocktails, and celebratory music.",
   },
 
   // --- Nature & Wildlife ---
@@ -388,7 +415,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/node/40417964",
     interests: ["Nature & wildlife"],
     bestTime: "morning",
-    highlight: "Majestic 310m four-tiered white waterfall cascading through Western Ghats jungle and rail bridges.",
+    highlight:
+      "Majestic 310m four-tiered white waterfall cascading through Western Ghats jungle and rail bridges.",
   },
   {
     id: "curated/salim_ali_sanctuary",
@@ -401,7 +429,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417965",
     interests: ["Nature & wildlife"],
     bestTime: "morning",
-    highlight: "Estuarine mangrove haven on Chorao Island reached by ferry, home to kingfishers and mudskippers.",
+    highlight:
+      "Estuarine mangrove haven on Chorao Island reached by ferry, home to kingfishers and mudskippers.",
   },
   {
     id: "curated/bondla_sanctuary",
@@ -414,7 +443,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417966",
     interests: ["Nature & wildlife"],
     bestTime: "morning",
-    highlight: "Verdant reserve in Ponda foothills with botanical gardens, deer park and lush nature trails.",
+    highlight:
+      "Verdant reserve in Ponda foothills with botanical gardens, deer park and lush nature trails.",
   },
 
   // --- Markets & Shopping ---
@@ -429,7 +459,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417967",
     interests: ["Markets & shopping"],
     bestTime: "afternoon",
-    highlight: "Famous bazaar with bohemian apparel, silver jewelry, handicrafts, and spice stalls.",
+    highlight:
+      "Famous bazaar with bohemian apparel, silver jewelry, handicrafts, and spice stalls.",
   },
   {
     id: "curated/mapusa_market",
@@ -442,7 +473,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417968",
     interests: ["Markets & shopping", "Local food"],
     bestTime: "morning",
-    highlight: "Authentic municipal bazaar with Goan pork sausages (chorizo), fresh cashews, feni, and spices.",
+    highlight:
+      "Authentic municipal bazaar with Goan pork sausages (chorizo), fresh cashews, feni, and spices.",
   },
   {
     id: "curated/fontainhas_shops",
@@ -455,7 +487,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417969",
     interests: ["Markets & shopping", "History & heritage"],
     bestTime: "afternoon",
-    highlight: "Pastel colonial lanes filled with azulejo hand-painted tiles, artisanal bakeries, and boutiques.",
+    highlight:
+      "Pastel colonial lanes filled with azulejo hand-painted tiles, artisanal bakeries, and boutiques.",
   },
 
   // --- Churches & Temples ---
@@ -470,7 +503,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417970",
     interests: ["Churches & temples", "History & heritage"],
     bestTime: "morning",
-    highlight: "Gleaming white double-flight zigzag stairs in Panjim's main square, built in 1541.",
+    highlight:
+      "Gleaming white double-flight zigzag stairs in Panjim's main square, built in 1541.",
   },
   {
     id: "curated/mangueshi_temple",
@@ -483,7 +517,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417971",
     interests: ["Churches & temples", "History & heritage"],
     bestTime: "morning",
-    highlight: "450-year-old Shiva temple known for its 7-storey octagonal Deepstambha (lamp tower) and sacred tank.",
+    highlight:
+      "450-year-old Shiva temple known for its 7-storey octagonal Deepstambha (lamp tower) and sacred tank.",
   },
   {
     id: "curated/shanta_durga_temple",
@@ -496,7 +531,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417972",
     interests: ["Churches & temples", "History & heritage"],
     bestTime: "morning",
-    highlight: "Revered temple complex dedicated to the goddess of peace, blending Hindu and Portuguese styles.",
+    highlight:
+      "Revered temple complex dedicated to the goddess of peace, blending Hindu and Portuguese styles.",
   },
 
   // --- Water Sports ---
@@ -511,7 +547,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417973",
     interests: ["Water sports", "Beaches & sunsets"],
     bestTime: "morning",
-    highlight: "High-octane parasailing, jet skiing, bumper rides and banana boat tours over Arabian Sea waves.",
+    highlight:
+      "High-octane parasailing, jet skiing, bumper rides and banana boat tours over Arabian Sea waves.",
   },
   {
     id: "curated/grand_island_scuba",
@@ -524,7 +561,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417974",
     interests: ["Water sports", "Nature & wildlife"],
     bestTime: "morning",
-    highlight: "Offshore boat expeditions for coral reef snorkeling, scuba diving, and wild dolphin spotting.",
+    highlight:
+      "Offshore boat expeditions for coral reef snorkeling, scuba diving, and wild dolphin spotting.",
   },
   {
     id: "curated/morjim_surf",
@@ -537,7 +575,8 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417975",
     interests: ["Water sports", "Beaches & sunsets"],
     bestTime: "morning",
-    highlight: "Certified surfing lessons and stand-up paddle boarding across gentle beginner-friendly beach breaks.",
+    highlight:
+      "Certified surfing lessons and stand-up paddle boarding across gentle beginner-friendly beach breaks.",
   },
   {
     id: "curated/palolem_kayaking",
@@ -550,6 +589,7 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     sourceUrl: "https://www.openstreetmap.org/way/40417976",
     interests: ["Water sports", "Nature & wildlife"],
     bestTime: "morning",
-    highlight: "Single and tandem sea kayak rentals to explore Monkey Island and peaceful freshwater estuaries.",
+    highlight:
+      "Single and tandem sea kayak rentals to explore Monkey Island and peaceful freshwater estuaries.",
   },
 ];

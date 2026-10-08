@@ -124,17 +124,19 @@ export async function nearbyPlaces(
 
   // Gather curated places within search range
   const searchLimit = Math.max(radiusKm * 1.5, 15);
-  const curatedMatches: NearbyPlace[] = CURATED_GOA_PLACES
-    .map((p) => {
-      const dist = distanceKm(center, p);
-      const fromRoute = path.length ? distanceToRoute(p, path) : undefined;
-      return {
-        ...p,
-        distanceKm: dist,
-        routeDistanceKm: fromRoute,
-      };
-    })
-    .filter((p) => (p.routeDistanceKm != null ? p.routeDistanceKm <= 2.5 : p.distanceKm <= searchLimit));
+  const curatedMatches: NearbyPlace[] = CURATED_GOA_PLACES.map((p) => {
+    const dist = distanceKm(center, p);
+    const fromRoute = path.length ? distanceToRoute(p, path) : undefined;
+    return {
+      ...p,
+      distanceKm: dist,
+      routeDistanceKm: fromRoute,
+    };
+  }).filter((p) =>
+    p.routeDistanceKm != null
+      ? p.routeDistanceKm <= 2.5
+      : p.distanceKm <= searchLimit,
+  );
 
   // A bounding-box lookup is substantially cheaper than Overpass's many-segment
   // around query. Filter the results against the actual road geometry below.
@@ -145,7 +147,8 @@ export async function nearbyPlaces(
       ? `${Math.min(...path.map((p) => p.lat)) - latPad},${Math.min(...path.map((p) => p.lng)) - lngPad},${Math.max(...path.map((p) => p.lat)) + latPad},${Math.max(...path.map((p) => p.lng)) + lngPad}`
       : `around:${radiusKm * 1000},${center.lat},${center.lng}`;
   const query = `[out:json][timeout:20];nwr(${around})["name"]->.nearby;(nwr.nearby["amenity"~"^(restaurant|cafe|fast_food|food_court|bar|pub|nightclub|marketplace|place_of_worship)$"];nwr.nearby["tourism"~"^(hotel|guest_house|hostel|motel|attraction|museum|viewpoint|gallery|zoo|theme_park)$"];nwr.nearby["historic"~"^(castle|fort|monument|ruins|archaeological_site)$"];nwr.nearby["natural"~"^(beach|waterfall)$"];nwr.nearby["leisure"~"^(water_park|sports_centre|park|nature_reserve)$"];);out center tags 500;`;
-  const endpoint = process.env["OVERPASS_URL"] || "https://overpass-api.de/api/interpreter";
+  const endpoint =
+    process.env["OVERPASS_URL"] || "https://overpass-api.de/api/interpreter";
   const url = new URL(endpoint);
   url.searchParams.set("data", query);
 
@@ -154,7 +157,9 @@ export async function nearbyPlaces(
     rawResult = await fetchJson(url.toString(), {}, 25000);
   } catch (err) {
     if (curatedMatches.length > 0) {
-      console.warn("Overpass unavailable; using curated destination landmarks.");
+      console.warn(
+        "Overpass unavailable; using curated destination landmarks.",
+      );
       rawResult = { elements: [] };
     } else {
       throw err;
@@ -186,11 +191,16 @@ export async function nearbyPlaces(
         continue;
       const point = { lat, lng };
       const normalized = name.toLowerCase();
-      if (seen.get(normalized)?.some((p) => distanceKm(p, point) < 0.2)) continue;
+      if (seen.get(normalized)?.some((p) => distanceKm(p, point) < 0.2))
+        continue;
       seen.set(normalized, [...(seen.get(normalized) || []), point]);
-      const category = /^(hotel|guest_house|hostel|motel)$/.test(tags["tourism"] || "")
+      const category = /^(hotel|guest_house|hostel|motel)$/.test(
+        tags["tourism"] || "",
+      )
         ? "hotel"
-        : /^(restaurant|cafe|fast_food|food_court|bar|pub)$/.test(tags["amenity"] || "")
+        : /^(restaurant|cafe|fast_food|food_court|bar|pub)$/.test(
+              tags["amenity"] || "",
+            )
           ? "restaurant"
           : "attraction";
       const fromRoute = path.length ? distanceToRoute(point, path) : undefined;
@@ -200,11 +210,11 @@ export async function nearbyPlaces(
         tags["natural"] === "beach"
           ? "beach"
           : tags["tourism"] ||
-          tags["historic"] ||
-          tags["natural"] ||
-          tags["leisure"] ||
-          tags["amenity"] ||
-          "place";
+            tags["historic"] ||
+            tags["natural"] ||
+            tags["leisure"] ||
+            tags["amenity"] ||
+            "place";
       places.push({
         ...point,
         id: `${item.type}/${item.id}`,

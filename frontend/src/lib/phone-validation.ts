@@ -1,5 +1,8 @@
 export function normalizePhone(raw: string): string {
-  return raw.trim().replace(/[\s\-\.\(\)]/g, "").replace(/^\+/, "");
+  return raw
+    .trim()
+    .replace(/[\s.()-]/g, "")
+    .replace(/^\+/, "");
 }
 
 export function validatePhone(raw: string): string | null {

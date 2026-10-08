@@ -21,7 +21,9 @@ function matchesInterest(p: NearbyPlace, interest: string): boolean {
     case "Local food":
       return (
         isRestaurant ||
-        ["restaurant", "cafe", "fast_food", "food_court", "bar"].includes(kind) ||
+        ["restaurant", "cafe", "fast_food", "food_court", "bar"].includes(
+          kind,
+        ) ||
         name.includes("restaurant") ||
         name.includes("cafe") ||
         name.includes("bakery") ||
@@ -72,7 +74,9 @@ function matchesInterest(p: NearbyPlace, interest: string): boolean {
     case "Nature & wildlife":
       if (isRestaurant) return false;
       return (
-        ["zoo", "viewpoint", "nature_reserve", "park", "waterfall"].includes(kind) ||
+        ["zoo", "viewpoint", "nature_reserve", "park", "waterfall"].includes(
+          kind,
+        ) ||
         name.includes("waterfall") ||
         name.includes("falls") ||
         name.includes("sanctuary") ||
@@ -128,21 +132,21 @@ function interestScore(p: NearbyPlace, interests: string[]) {
     (score, interest) =>
       score +
       ((interest === "Local food" && p.category === "restaurant") ||
-        (interest === "Beaches & sunsets" &&
-          ["beach", "viewpoint"].includes(p.kind)) ||
-        (interest === "History & heritage" &&
-          [
-            "museum",
-            "castle",
-            "fort",
-            "monument",
-            "ruins",
-            "archaeological_site",
-          ].includes(p.kind)) ||
-        (interest === "Nature & wildlife" &&
-          ["zoo", "viewpoint", "beach"].includes(p.kind)) ||
-        (interest === "Markets & shopping" && p.kind === "marketplace") ||
-        (interest === "Churches & temples" && p.kind === "place_of_worship")
+      (interest === "Beaches & sunsets" &&
+        ["beach", "viewpoint"].includes(p.kind)) ||
+      (interest === "History & heritage" &&
+        [
+          "museum",
+          "castle",
+          "fort",
+          "monument",
+          "ruins",
+          "archaeological_site",
+        ].includes(p.kind)) ||
+      (interest === "Nature & wildlife" &&
+        ["zoo", "viewpoint", "beach"].includes(p.kind)) ||
+      (interest === "Markets & shopping" && p.kind === "marketplace") ||
+      (interest === "Churches & temples" && p.kind === "place_of_worship")
         ? 1
         : 0),
     0,
@@ -155,16 +159,16 @@ export async function buildItinerary(
   const input = itineraryInputSchema.parse(raw);
   const base = input.origin || (await locatePlace(input.place, input.state));
 
-
   const searchRadius = Math.min(18, Math.max(5, input.hours * 2));
   let places = await nearbyPlaces(base, searchRadius);
 
   // Merge curated Goa destinations unless running in mock single-node test mode
   const isMockTest = places.length === 1 && places[0]?.id === "node/41";
   if (!isMockTest) {
-    const curatedNear = CURATED_GOA_PLACES
-      .map((p) => ({ ...p, distanceKm: distanceKm(base, p) }))
-      .filter((p) => p.distanceKm <= searchRadius * 1.5);
+    const curatedNear = CURATED_GOA_PLACES.map((p) => ({
+      ...p,
+      distanceKm: distanceKm(base, p),
+    })).filter((p) => p.distanceKm <= searchRadius * 1.5);
     const existingIds = new Set(places.map((p) => p.id));
     const merged = [...places];
     for (const c of curatedNear) {
@@ -181,10 +185,25 @@ export async function buildItinerary(
   if (notesLower.length > 2) {
     const keywords = notesLower
       .split(/[\s,.;]+/)
-      .filter((w) => w.length > 3 && !["want", "need", "like", "with", "have", "some", "time", "visit", "trip"].includes(w));
+      .filter(
+        (w) =>
+          w.length > 3 &&
+          ![
+            "want",
+            "need",
+            "like",
+            "with",
+            "have",
+            "some",
+            "time",
+            "visit",
+            "trip",
+          ].includes(w),
+      );
     for (const p of places) {
       if (p.category === "hotel") continue;
-      const combined = `${p.name} ${p.kind} ${p.cuisine || ""} ${p.highlight || ""}`.toLowerCase();
+      const combined =
+        `${p.name} ${p.kind} ${p.cuisine || ""} ${p.highlight || ""}`.toLowerCase();
       if (keywords.some((k) => combined.includes(k))) {
         noteMatchedPlaces.push(p);
       }
@@ -218,7 +237,10 @@ export async function buildItinerary(
   }
 
   // Round-robin interest allocation so every selected interest gets 3-4 top candidates
-  const quotaPerInterest = Math.max(2, Math.floor(16 / Math.max(1, input.interests.length)));
+  const quotaPerInterest = Math.max(
+    2,
+    Math.floor(16 / Math.max(1, input.interests.length)),
+  );
   for (const [_, bucket] of selectedInterestBuckets) {
     let taken = 0;
     for (const p of bucket) {
@@ -234,8 +256,12 @@ export async function buildItinerary(
   const remainingPool = places
     .filter((p) => p.category !== "hotel" && !candidateSet.has(p.id))
     .sort((a, b) => {
-      const aScore = input.interests.filter((i) => matchesInterest(a, i)).length;
-      const bScore = input.interests.filter((i) => matchesInterest(b, i)).length;
+      const aScore = input.interests.filter((i) =>
+        matchesInterest(a, i),
+      ).length;
+      const bScore = input.interests.filter((i) =>
+        matchesInterest(b, i),
+      ).length;
       return bScore - aScore || a.distanceKm - b.distanceKm;
     });
 
@@ -268,7 +294,8 @@ export async function buildItinerary(
             systemInstruction: {
               parts: [
                 {
-                  text: "You are an expert travel itinerary planner. Rank and sequence the supplied map places for a tourist day trip.\n" +
+                  text:
+                    "You are an expert travel itinerary planner. Rank and sequence the supplied map places for a tourist day trip.\n" +
                     "CRITICAL RULES:\n" +
                     "1. Return only JSON with 'orderedIds', an array of unique place IDs from the supplied list. Never invent IDs.\n" +
                     "2. Variety & Diversity: Do NOT schedule multiple consecutive restaurants or food venues back-to-back. Sequence realistically: sights/activities -> meal/cafe -> scenic beach/viewpoint -> sunset/evening relaxation.\n" +

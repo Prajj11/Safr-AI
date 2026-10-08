@@ -43,10 +43,13 @@ import { toast } from "sonner";
 import type {
   Map as MapLibreMap,
   Marker as MapLibreMarker,
-  GeolocateControl,
   IControl,
 } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
+
+import "@/features/map/components/user-location.css";
+import { useUserLocation } from "@/features/map/hooks/useUserLocation";
+import { RecenterButton } from "@/features/map/components/RecenterButton";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -257,7 +260,6 @@ function MapPage() {
   const destMarkerRef = useRef<MapLibreMarker | null>(null);
   const stopMarkersRef = useRef<MapLibreMarker[]>([]);
   const stepMarkerRef = useRef<MapLibreMarker | null>(null);
-  const geolocateRef = useRef<GeolocateControl | null>(null);
 
   const [originLabel, setOriginLabel] = useState("Detecting location…");
   const [locationReady, setLocationReady] = useState(false);
@@ -310,6 +312,12 @@ function MapPage() {
   activeStyleIdRef.current = activeStyleId;
   const is3dRef = useRef(is3d);
   is3dRef.current = is3d;
+
+  const userLocation = useUserLocation({
+    mapRef,
+    ready,
+    maplibreRef,
+  });
 
   const isNightTime =
     departureMode === "now" ? isGoaNight() : isGoaNight(customTime);
@@ -422,6 +430,7 @@ function MapPage() {
         // ignore
       }
 
+      userLocation.start();
       if (!isAutomatic) toast.success(`Starting point updated to ${label}`);
       if (destination) {
         calculateCurrentRoute(coords, destination, waypoints, travelMode);
@@ -832,13 +841,6 @@ function MapPage() {
         "top-right",
       );
       map.addControl(new ml.FullscreenControl(), "top-right");
-
-      const geolocate = new ml.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-      });
-      geolocateRef.current = geolocate;
-      map.addControl(geolocate, "top-right");
 
       // Style switcher (top-left)
       const switcherDiv = document.createElement("div");
@@ -1614,8 +1616,9 @@ function MapPage() {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <div
-                  className={`size-2.5 rounded-full shrink-0 ${isGpsOrigin ? "bg-emerald-500 animate-pulse" : "bg-primary"
-                    }`}
+                  className={`size-2.5 rounded-full shrink-0 ${
+                    isGpsOrigin ? "bg-emerald-500 animate-pulse" : "bg-primary"
+                  }`}
                 />
                 <div className="text-xs truncate">
                   <span className="text-muted-foreground">From: </span>
@@ -2043,10 +2046,9 @@ function MapPage() {
                   { id: "walking", label: "Walking", icon: Footprints },
                 ].map((modeItem) => {
                   const isSupported = routingConfig?.supportedModes
-
                     ? (
-                      routingConfig.supportedModes as readonly string[]
-                    ).includes(modeItem.id)
+                        routingConfig.supportedModes as readonly string[]
+                      ).includes(modeItem.id)
                     : modeItem.id === "car";
                   const isSelected = travelMode === modeItem.id;
                   const Icon = modeItem.icon;
@@ -2073,10 +2075,11 @@ function MapPage() {
                           );
                         }
                       }}
-                      className={`flex flex-col items-center justify-center p-2 rounded-2xl border text-xs font-semibold transition-all ${isSelected
-                        ? "bg-primary/15 border-primary text-primary shadow-xs"
-                        : "bg-secondary/40 border-border/50 text-foreground hover:bg-secondary/70"
-                        }`}
+                      className={`flex flex-col items-center justify-center p-2 rounded-2xl border text-xs font-semibold transition-all ${
+                        isSelected
+                          ? "bg-primary/15 border-primary text-primary shadow-xs"
+                          : "bg-secondary/40 border-border/50 text-foreground hover:bg-secondary/70"
+                      }`}
                     >
                       <Icon className="size-4 mb-1" />
                       <span className="text-[10px]">{modeItem.label}</span>
@@ -2111,10 +2114,11 @@ function MapPage() {
                           travelMode,
                         );
                     }}
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-colors ${departureMode === "now"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground"
-                      }`}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-colors ${
+                      departureMode === "now"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground"
+                    }`}
                   >
                     Leave Now
                   </button>
@@ -2130,10 +2134,11 @@ function MapPage() {
                           travelMode,
                         );
                     }}
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-colors ${departureMode === "custom"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground"
-                      }`}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-colors ${
+                      departureMode === "custom"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground"
+                    }`}
                   >
                     Leave At
                   </button>
@@ -2323,10 +2328,11 @@ function MapPage() {
                           setActiveStepIndex(null);
                         }
                       }}
-                      className={`rounded-2xl border p-3.5 text-left transition-all ${isCur
-                        ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-xs"
-                        : "border-border/60 bg-card hover:border-primary/40"
-                        }`}
+                      className={`rounded-2xl border p-3.5 text-left transition-all ${
+                        isCur
+                          ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-xs"
+                          : "border-border/60 bg-card hover:border-primary/40"
+                      }`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-xs text-foreground">
@@ -2465,10 +2471,11 @@ function MapPage() {
                           <div
                             key={sIdx}
                             onClick={() => handleStepClick(step, sIdx)}
-                            className={`flex items-start gap-2.5 p-2 rounded-xl cursor-pointer transition-all ${isActive
-                              ? "bg-primary/20 border border-primary/40 shadow-xs"
-                              : "hover:bg-muted/60"
-                              }`}
+                            className={`flex items-start gap-2.5 p-2 rounded-xl cursor-pointer transition-all ${
+                              isActive
+                                ? "bg-primary/20 border border-primary/40 shadow-xs"
+                                : "hover:bg-muted/60"
+                            }`}
                           >
                             <div className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-card border border-border/60 mt-0.5">
                               {getManeuverIcon(
@@ -2505,6 +2512,16 @@ function MapPage() {
         {/* RIGHT COLUMN: STICKY FULL-HEIGHT MAP */}
         <div className="relative w-full h-[55vh] min-h-[360px] lg:h-[calc(100vh-8rem)] lg:sticky lg:top-24 rounded-3xl border border-border/60 bg-secondary/40 shadow-inner overflow-hidden z-0">
           <div ref={mapEl} className="h-full w-full" />
+
+          {/* Live User Location Recenter Control */}
+          <div className="absolute top-[146px] right-2.5 z-10 pointer-events-auto">
+            <RecenterButton
+              followMode={userLocation.followMode}
+              pannedAway={userLocation.pannedAway}
+              hasPosition={userLocation.position !== null}
+              onCycle={userLocation.cycleFollow}
+            />
+          </div>
 
           {/* Loading Shimmer Overlay */}
           {isLoadingMap && !mapLoadError && (
