@@ -1,5 +1,5 @@
 import { validateAge } from "@/lib/age-validation";
-import { validatePhone } from "@/lib/phone-validation";
+import { validatePhone, normalizePhone, validateOptionalPhone } from "@/lib/phone-validation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, User, Users } from "lucide-react";
@@ -21,6 +21,7 @@ type Person = {
   name: string;
   age: string;
   category: "adult" | "kid" | "senior";
+  phone: string;
 };
 
 function Setup() {
@@ -34,8 +35,27 @@ function Setup() {
   const [startDate, setStartDate] = useState("");
   const [days, setDays] = useState(3);
   const [people, setPeople] = useState<Person[]>([
-    { name: "", age: "", category: "adult" },
+    { name: "", age: "", category: "adult", phone: "" },
   ]);
+  const [phoneErrors, setPhoneErrors] = useState<Record<number, string>>({});
+  const [phoneTouched, setPhoneTouched] = useState<Record<number, boolean>>({});
+
+  const validatePersonPhone = (index: number, val: string, allPeople: Person[], ownerPhoneVal: string) => {
+    const normalized = normalizePhone(val);
+    if (!normalized) return null;
+    if (!allPeople[index]?.name.trim()) return "Add a name for this number";
+    
+    const ownerNormalized = normalizePhone(ownerPhoneVal);
+    if (normalized === ownerNormalized) return "This is your own number";
+
+    for (let j = 0; j < allPeople.length; j++) {
+      if (j !== index && normalizePhone(allPeople[j]?.phone || "") === normalized) {
+        return `This number is already used for ${allPeople[j]?.name.trim() || 'another person'}`;
+      }
+    }
+    
+    return validateOptionalPhone(normalized);
+  };
 
   const { data: existing } = useQuery({
     queryKey: ["trip"],
@@ -63,6 +83,7 @@ function Setup() {
       name: string;
       age: number | null;
       category: string;
+      phone_number: string | null;
     }>;
     if (t.length > 0) {
       setPeople(
@@ -70,6 +91,7 @@ function Setup() {
           name: p.name,
           age: p.age != null ? String(p.age) : "",
           category: p.category as Person["category"],
+          phone: p.phone_number ?? "",
         })),
       );
     }
@@ -77,14 +99,43 @@ function Setup() {
 
   const save = useMutation({
     mutationFn: async () => {
-      const phoneError = validatePhone(phone);
+      const phoneError = validatePhone(normalizePhone(phone));
       if (phoneError) throw new Error(phoneError);
 
-      if (style === "group")
-        for (const person of people.filter((p) => p.name.trim())) {
-          const error = validateAge(person.age, person.category);
-          if (error) throw new Error(`${person.name}: ${error}`);
+      if (style === "group") {
+        let firstInvalidIndex = -1;
+        const newErrors: Record<number, string> = {};
+
+        for (let i = 0; i < people.length; i++) {
+          const person = people[i];
+          if (!person) continue;
+          const hasName = !!person.name.trim();
+          const hasPhone = !!normalizePhone(person.phone);
+          
+          if (!hasName && !hasPhone) continue;
+
+          if (hasName) {
+            const ageError = validateAge(person.age, person.category);
+            if (ageError) throw new Error(`${person.name}: ${ageError}`);
+          }
+
+          const pErr = validatePersonPhone(i, person.phone, people, phone);
+          if (pErr) {
+             newErrors[i] = pErr;
+             if (firstInvalidIndex === -1) firstInvalidIndex = i;
+          }
         }
+
+        if (firstInvalidIndex !== -1) {
+           setPhoneErrors(newErrors);
+           setPhoneTouched(Object.keys(newErrors).reduce((acc, k) => ({...acc, [Number(k)]: true}), {}));
+           setTimeout(() => {
+             const el = document.getElementById(`person-phone-${firstInvalidIndex}`);
+             if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+           }, 100);
+           throw new Error("Please fix the errors before saving.");
+        }
+      }
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       if (!userId) throw new Error("Not signed in");
@@ -93,7 +144,7 @@ function Setup() {
         user_id: userId,
         travel_style: style,
         traveller_name: name.trim(),
-        phone_number: phone.trim(),
+        phone_number: normalizePhone(phone),
         destination,
         start_date: startDate || null,
         days,
@@ -123,13 +174,14 @@ function Setup() {
 
       if (style === "group") {
         const rows = people
-          .filter((p) => p.name.trim())
+          .filter((p) => p.name.trim() || normalizePhone(p.phone))
           .map((p) => ({
             trip_id: tripId!,
             user_id: userId,
             name: p.name.trim(),
             age: p.age ? Number(p.age) : null,
             category: p.category,
+            phone_number: normalizePhone(p.phone) || null,
           }));
         if (rows.length > 0) {
           const { error } = await supabase.from("travellers").insert(rows);
@@ -143,8 +195,17 @@ function Setup() {
       toast.success("Trip saved");
       navigate({ to: "/dashboard" });
     },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Could not save trip"),
+    onError: (e) => {
+      let msg = e instanceof Error ? e.message : "Could not save trip";
+      if (msg.includes("travellers_trip_phone_unique")) {
+        msg = "That phone number is already used in this trip";
+      } else if (msg.includes("Traveller phone number cannot match")) {
+        msg = "Traveller phone number cannot match the trip owner phone number";
+      } else if (msg.includes("travellers_phone_number_format")) {
+        msg = "Invalid phone number format";
+      }
+      toast.error(msg);
+    },
   });
 
   return (
@@ -201,7 +262,7 @@ function Setup() {
               toast.error("Please add your name");
               return;
             }
-            const phoneError = validatePhone(phone);
+            const phoneError = validatePhone(normalizePhone(phone));
             if (phoneError) {
               toast.error(phoneError);
               return;
@@ -295,6 +356,8 @@ function Setup() {
           <p className="text-sm text-muted-foreground">
             Add each person. We use kids and seniors to tailor safety tips and
             QR tags.
+            <br />
+            Phone numbers added here are the only ones that can be found later in the family/friends location feature.
           </p>
           <div className="space-y-3">
             {people.map((p, i) => (
@@ -329,6 +392,38 @@ function Setup() {
                       )
                     }
                   />
+                </div>
+                <div className="mt-2">
+                  <Input
+                    id={`person-phone-${i}`}
+                    type="tel"
+                    inputMode="tel"
+                    maxLength={20}
+                    placeholder="Phone number (optional)"
+                    value={p.phone}
+                    aria-invalid={!!phoneErrors[i]}
+                    aria-describedby={phoneErrors[i] ? `phone-error-${i}` : undefined}
+                    onChange={(e) => {
+                      const newPeople = people.map((x, j) =>
+                        j === i ? { ...x, phone: e.target.value } : x,
+                      );
+                      setPeople(newPeople);
+                      if (phoneTouched[i] && phoneErrors[i]) {
+                        const err = validatePersonPhone(i, e.target.value, newPeople, phone);
+                        setPhoneErrors(prev => ({ ...prev, [i]: err || "" }));
+                      }
+                    }}
+                    onBlur={() => {
+                      setPhoneTouched(prev => ({ ...prev, [i]: true }));
+                      const err = validatePersonPhone(i, p.phone, people, phone);
+                      setPhoneErrors(prev => ({ ...prev, [i]: err || "" }));
+                    }}
+                  />
+                  {phoneErrors[i] && (
+                    <p id={`phone-error-${i}`} className="mt-1 text-sm text-destructive">
+                      {phoneErrors[i]}
+                    </p>
+                  )}
                 </div>
                 <div className="mt-2 flex gap-2">
                   {(["adult", "kid", "senior"] as const).map((c) => (
@@ -371,7 +466,7 @@ function Setup() {
             type="button"
             variant="outline"
             onClick={() =>
-              setPeople([...people, { name: "", age: "", category: "adult" }])
+              setPeople([...people, { name: "", age: "", category: "adult", phone: "" }])
             }
           >
             <Plus className="size-4" /> Add person
