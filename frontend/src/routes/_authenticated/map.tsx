@@ -58,6 +58,8 @@ import { useMapInstance } from "@/features/map/hooks/useMapInstance";
 import { useMapStyle } from "@/features/map/hooks/useMapStyle";
 import { useOrigin } from "@/features/map/hooks/useOrigin";
 import { useRouteLayers } from "@/features/map/hooks/useRouteLayers";
+import { useSavedPlaces } from "@/features/map/hooks/useSavedPlaces";
+import { useRoutePlanner } from "@/features/map/hooks/useRoutePlanner";
 import { useLatest } from "@/features/map/hooks/useLatest";
 
 import { AppShell } from "@/components/app-shell";
@@ -155,17 +157,7 @@ function MapPage() {
 
   const [query, setQuery] = useState(searchParams.dest || "");
   const [hits, setHits] = useState<Hit[]>([]);
-  const [routes, setRoutes] = useState<Scored[]>([]);
-  const [selected, setSelected] = useState(0);
   const [destination, setDestination] = useState<Hit | null>(null);
-  const [showDirections, setShowDirections] = useState(true);
-  const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
-
-  // Multi-stop waypoints (max 5)
-  const [waypoints, setWaypoints] = useState<Hit[]>([]);
-  const [showAddStop, setShowAddStop] = useState(false);
-  const [stopQuery, setStopQuery] = useState("");
-  const [stopHits, setStopHits] = useState<Hit[]>([]);
 
   // Departure Time & Travel Mode
   const [departureMode, setDepartureMode] = useState<"now" | "custom">("now");
@@ -173,11 +165,6 @@ function MapPage() {
   const [travelMode, setTravelMode] = useState<
     "car" | "motor_scooter" | "bicycle" | "walking"
   >("car");
-
-  // Saved places & Saved routes
-  const [showSavedPlaces, setShowSavedPlaces] = useState(true);
-  const [showSavedPicker, setShowSavedPicker] = useState(false);
-  const [showSavedRoutes, setShowSavedRoutes] = useState(false);
 
   // Mobile Bottom Sheet expanded state
   const [sheetExpanded, setSheetExpanded] = useState(false);
@@ -200,127 +187,16 @@ function MapPage() {
     ) => void;
   }>(null!);
 
-  const routesLatest = useLatest(routes);
-
   const handleResetView = useCallback(() => {
     const m = mapRef.current;
     if (!m) return;
-    if (routesLatest.current.length > 0) {
+    if (latestMapStateRef.current?.destination) {
       fitMapToRouteFnRef.current();
     } else {
       m.setMaxBounds(GOA_BOUNDS);
       m.flyTo({ center: GOA_CENTER, zoom: 11, pitch: 0, bearing: 0 });
     }
-  }, [routesLatest]);
-
-  const handleMapInit = useCallback(
-    (map: MapLibreMap, ml: typeof import("maplibre-gl")) => {
-      // Saved places point clicks -> open popup with actions
-      map.on("click", "safr-saved-points", (e) => {
-        const feature = e.features?.[0];
-        if (!feature) return;
-        const coordinates = (feature.geometry as any).coordinates.slice();
-        const { id, name, category, lat, lng } = feature.properties as any;
-
-        const popupDiv = document.createElement("div");
-        popupDiv.className = "p-2 min-w-[180px]";
-
-        const titleEl = document.createElement("div");
-        titleEl.className = "font-bold text-sm text-foreground mb-1";
-        titleEl.textContent = name;
-
-        const catEl = document.createElement("div");
-        catEl.className =
-          "text-[11px] text-muted-foreground uppercase font-semibold mb-2";
-        catEl.textContent = category || "Saved Place";
-
-        const btnDest = document.createElement("button");
-        btnDest.className =
-          "block w-full text-left text-xs font-semibold py-1 px-2 mb-1 rounded bg-primary/10 hover:bg-primary/20 text-primary transition-colors";
-        btnDest.textContent = "📍 Set as destination";
-        btnDest.addEventListener("click", () => {
-          const hit: Hit = {
-            id: id || "saved",
-            name,
-            address: category || "Goa",
-            lat: Number(lat),
-            lng: Number(lng),
-          };
-          setDestination(hit);
-          setQuery(hit.name);
-          saveRecentSearch(hit);
-          setRecentDestinations(getRecentSearches());
-          const {
-            origin: currOrigin,
-            waypoints: currWaypoints,
-            travelMode: currMode,
-            calculateCurrentRoute: currCalc,
-          } = latestMapStateRef.current;
-          currCalc(currOrigin, hit, currWaypoints, currMode);
-        });
-
-        const btnStop = document.createElement("button");
-        btnStop.className =
-          "block w-full text-left text-xs font-semibold py-1 px-2 rounded bg-secondary hover:bg-secondary/80 text-foreground transition-colors";
-        btnStop.textContent = "➕ Add as stop";
-        btnStop.addEventListener("click", () => {
-          const {
-            waypoints: currWaypoints,
-            destination: currDest,
-            origin: currOrigin,
-            travelMode: currMode,
-            calculateCurrentRoute: currCalc,
-          } = latestMapStateRef.current;
-          if (currWaypoints.length >= 5) {
-            toast.error("Maximum of 5 stops allowed.");
-            return;
-          }
-          const stopHit: Hit = {
-            id: id || `stop-${Date.now()}`,
-            name,
-            address: category || "Goa",
-            lat: Number(lat),
-            lng: Number(lng),
-          };
-          const updated = [...currWaypoints, stopHit];
-          setWaypoints(updated);
-          toast.success(`Added ${name} as stop`);
-          if (currDest) {
-            currCalc(currOrigin, currDest, updated, currMode);
-          }
-        });
-
-        popupDiv.append(titleEl, catEl, btnDest, btnStop);
-
-        new ml.Popup({ offset: 12 })
-          .setLngLat(coordinates)
-          .setDOMContent(popupDiv)
-          .addTo(map);
-      });
-
-      // Cluster clicks -> zoom in
-      map.on("click", "safr-saved-clusters", (e) => {
-        const features = map.queryRenderedFeatures(e.point, {
-          layers: ["safr-saved-clusters"],
-        });
-        const clusterId = features[0]?.properties?.["cluster_id"];
-        const source = map.getSource("safr-saved-places-src") as any;
-        if (source && typeof source.getClusterExpansionZoom === "function") {
-          source.getClusterExpansionZoom(
-            clusterId,
-            (err: any, zoom: number) => {
-              if (err) return;
-              map.easeTo({
-                center: (features[0]?.geometry as any).coordinates,
-                zoom,
-              });
-            },
-          );
-        }
-      });
-    },
-    [],
-  );
+  }, []);
 
   const {
     mapRef,
@@ -338,7 +214,6 @@ function MapPage() {
     onToggle3d: () => setIs3d((prev) => !prev),
     onResetView: handleResetView,
     routeDataFn: () => routeDataFnRef.current(),
-    onMapInit: handleMapInit,
   });
 
   useMapStyle({
@@ -372,34 +247,6 @@ function MapPage() {
   });
 
   // Saved places from Supabase
-  const { data: savedPlaces = [] } = useQuery({
-    queryKey: ["saved-places"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("saved_places")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) {
-        console.error("Error fetching saved places:", error);
-        return [];
-      }
-      return data || [];
-    },
-  });
-
-  // Saved routes from Supabase
-  const { data: savedRoutesList = [], refetch: refetchSavedRoutes } = useQuery({
-    queryKey: ["saved-routes"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("saved_routes")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) return [];
-      return data || [];
-    },
-  });
-
   const [recentDestinations, setRecentDestinations] = useState<Hit[]>([]);
   useEffect(() => {
     setRecentDestinations(getRecentSearches());
@@ -445,117 +292,99 @@ function MapPage() {
     },
   });
 
-  const stopSearchMutation = useMutation({
-    mutationFn: async (q: string) =>
-      (await search({ data: { query: q } })) as Hit[],
-    onSuccess: (data) => {
-      setStopHits(data);
-      if (data.length === 0) toast.info("No matching stops found.");
+  const {
+    savedPlaces,
+    savedRoutesList,
+    refetchSavedRoutes,
+    showSavedPlaces,
+    setShowSavedPlaces,
+    showSavedPicker,
+    setShowSavedPicker,
+    showSavedRoutes,
+    setShowSavedRoutes,
+    syncSavedPlacesLayer,
+  } = useSavedPlaces({
+    map: ready ? mapRef.current : null,
+    maplibre: ready ? maplibreRef.current : null,
+    ready,
+    onSetDestination: (hit) => {
+      setDestination(hit);
+      setQuery(hit.name);
+      saveRecentSearch(hit);
+      setRecentDestinations(getRecentSearches());
+      const state = latestMapStateRef.current;
+      state.calculateCurrentRoute(
+        state.origin,
+        hit,
+        state.waypoints,
+        state.travelMode,
+      );
     },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Stop search failed"),
+    onAddStop: (hit) => {
+      const state = latestMapStateRef.current;
+      if (state.waypoints.length >= 5) {
+        toast.error("Maximum of 5 stops allowed.");
+        return;
+      }
+      const updated = [...state.waypoints, hit];
+      setWaypoints(updated);
+      toast.success(`Added ${hit.name} as stop`);
+      if (state.destination) {
+        state.calculateCurrentRoute(
+          state.origin,
+          state.destination,
+          updated,
+          state.travelMode,
+        );
+      }
+    },
   });
 
-  const syncSavedPlacesLayer = useCallback(() => {
-    const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
+  const {
+    routes,
+    setRoutes,
+    selected,
+    setSelected,
+    activeStepIndex,
+    setActiveStepIndex,
+    waypoints,
+    setWaypoints,
+    showAddStop,
+    setShowAddStop,
+    stopQuery,
+    setStopQuery,
+    stopHits,
+    setStopHits,
+    showDirections,
+    setShowDirections,
+    stopSearchMutation,
+    routeMutation,
+    calculateCurrentRoute,
+    fitMapToRoute,
+    handleStepClick,
+    handleShareRoute,
+    handleSaveRoute,
+    currentRoute,
+    comparisonCards,
+  } = useRoutePlanner({
+    map: ready ? mapRef.current : null,
+    maplibre: ready ? maplibreRef.current : null,
+    origin,
+    originLabel,
+    destination,
+    setDestination,
+    travelMode,
+    isNightTime,
+    initialStops: searchParams.stops,
+    routeFn: route,
+    searchPlacesFn: search,
+    refetchSavedRoutes,
+    updateStepMarker: (step, idx) => updateStepMarker(step, idx),
+    onClearHits: () => setHits([]),
+    onOpenSheet: () => setSheetExpanded(true),
+  });
 
-    try {
-      if (map.getLayer("safr-saved-clusters"))
-        map.removeLayer("safr-saved-clusters");
-      if (map.getLayer("safr-saved-cluster-count"))
-        map.removeLayer("safr-saved-cluster-count");
-      if (map.getLayer("safr-saved-points"))
-        map.removeLayer("safr-saved-points");
-      if (map.getSource("safr-saved-places-src"))
-        map.removeSource("safr-saved-places-src");
-
-      if (showSavedPlaces && savedPlaces.length > 0) {
-        const validPlaces = savedPlaces.filter((p) => p.lat && p.lng);
-        const savedGeojson: FeatureCollection = {
-          type: "FeatureCollection",
-          features: validPlaces.map((p) => ({
-            type: "Feature",
-            properties: {
-              id: p.id,
-              name: p.place_name,
-              category: p.category,
-              notes: p.notes,
-              status: p.status,
-              lat: p.lat,
-              lng: p.lng,
-            },
-            geometry: {
-              type: "Point",
-              coordinates: [p.lng!, p.lat!],
-            },
-          })),
-        };
-
-        map.addSource("safr-saved-places-src", {
-          type: "geojson",
-          data: savedGeojson,
-          cluster: true,
-          clusterMaxZoom: 14,
-          clusterRadius: 40,
-        });
-
-        map.addLayer({
-          id: "safr-saved-clusters",
-          type: "circle",
-          source: "safr-saved-places-src",
-          filter: ["has", "point_count"],
-          paint: {
-            "circle-color": "#14b8a6",
-            "circle-radius": [
-              "step",
-              ["get", "point_count"],
-              16,
-              5,
-              22,
-              15,
-              28,
-            ],
-            "circle-stroke-width": 2.5,
-            "circle-stroke-color": "#ffffff",
-          },
-        });
-
-        map.addLayer({
-          id: "safr-saved-cluster-count",
-          type: "symbol",
-          source: "safr-saved-places-src",
-          filter: ["has", "point_count"],
-          layout: {
-            "text-field": "{point_count_abbreviated}",
-            "text-size": 12,
-          },
-          paint: {
-            "text-color": "#ffffff",
-          },
-        });
-
-        map.addLayer({
-          id: "safr-saved-points",
-          type: "circle",
-          source: "safr-saved-places-src",
-          filter: ["!", ["has", "point_count"]],
-          paint: {
-            "circle-color": "#0d9488",
-            "circle-radius": 7,
-            "circle-stroke-width": 2,
-            "circle-stroke-color": "#ffffff",
-          },
-        });
-      }
-    } catch (e) {
-      console.error("Failed to render saved places layer:", e);
-    }
-  }, [showSavedPlaces, savedPlaces]);
-
-  useEffect(() => {
-    syncSavedPlacesLayer();
-  }, [syncSavedPlacesLayer]);
+  fitMapToRouteFnRef.current = fitMapToRoute;
 
   const { addRouteDataToMap, updateStepMarker } = useRouteLayers({
     map: ready ? mapRef.current : null,
@@ -569,107 +398,12 @@ function MapPage() {
     routes,
     selected,
     activeStepIndex,
-    onFitBounds: () => fitMapToRouteFnRef.current(),
+    onFitBounds: fitMapToRoute,
   });
 
   routeDataFnRef.current = () => {
     addRouteDataToMap();
     syncSavedPlacesLayer();
-  };
-
-  // Handle URL stops param (JSON encoded)
-  useEffect(() => {
-    if (searchParams.stops) {
-      try {
-        const parsedStops = JSON.parse(searchParams.stops);
-        if (Array.isArray(parsedStops)) {
-          const validated = parsedStops
-            .filter(
-              (s: any) =>
-                typeof s.lat === "number" && typeof s.lng === "number",
-            )
-            .slice(0, 5)
-            .map((s: any, idx: number) => ({
-              id: `param-stop-${idx}`,
-              name: s.name || `Stop ${idx + 1}`,
-              address: "Goa, India",
-              lat: s.lat,
-              lng: s.lng,
-            }));
-          setWaypoints(validated);
-        }
-      } catch {
-        // ignore
-      }
-    }
-  }, [searchParams.stops]);
-
-  // -----------------------------------------------------------------------
-  // Route Calculation
-  // -----------------------------------------------------------------------
-
-  const routeMutation = useMutation({
-    mutationFn: async (params: {
-      origin: { lat: number; lng: number; name?: string };
-      destination: Hit;
-      waypoints: Hit[];
-      mode: "car" | "motor_scooter" | "bicycle" | "walking";
-    }) => {
-      const wpPayload: Waypoint[] = params.waypoints.map((w) => ({
-        lat: w.lat,
-        lng: w.lng,
-        name: w.name,
-      }));
-      return (await route({
-        data: {
-          origin: {
-            lat: params.origin.lat,
-            lng: params.origin.lng,
-            name: originLabel,
-          },
-          destination: {
-            lat: params.destination.lat,
-            lng: params.destination.lng,
-            name: params.destination.name,
-          },
-          waypoints: wpPayload,
-          mode: params.mode,
-          isNight: isNightTime,
-        },
-      })) as Scored[];
-    },
-    onSuccess: (data, variables) => {
-      setRoutes(data);
-      setSelected(0);
-      setDestination(variables.destination);
-      setHits([]);
-      setActiveStepIndex(null);
-      setSheetExpanded(true);
-      if (data.length === 0) {
-        toast.info("No route found for this configuration.");
-      } else {
-        toast.success(`Routes calculated for ${variables.destination.name}`);
-      }
-    },
-    onError: (e) =>
-      toast.error(
-        e instanceof Error ? e.message : "Could not calculate routes",
-      ),
-  });
-
-  const calculateCurrentRoute = (
-    orig = origin,
-    dest = destination,
-    wps = waypoints,
-    m = travelMode,
-  ) => {
-    if (!dest) return;
-    routeMutation.mutate({
-      origin: orig,
-      destination: dest,
-      waypoints: wps,
-      mode: m,
-    });
   };
 
   latestMapStateRef.current = {
@@ -837,182 +571,6 @@ function MapPage() {
     ready,
     locationReady,
   ]);
-
-  // -----------------------------------------------------------------------
-  // Fit map to route + stops
-  // -----------------------------------------------------------------------
-
-  const fitMapToRoute = useCallback(() => {
-    const map = mapRef.current;
-    const ml = maplibreRef.current;
-    if (!map || !ml) return;
-
-    const bounds = new ml.LngLatBounds();
-    bounds.extend([origin.lng, origin.lat]);
-    waypoints.forEach((w) => bounds.extend([w.lng, w.lat]));
-    if (destination) bounds.extend([destination.lng, destination.lat]);
-
-    routes.forEach((r) => {
-      if (!r.polyline) return;
-      try {
-        const pathCoords = JSON.parse(r.polyline) as [number, number][];
-        pathCoords.forEach(([lat, lng]) => bounds.extend([lng, lat]));
-      } catch {
-        // ignore
-      }
-    });
-
-    const goaSW = (GOA_BOUNDS as [[number, number], [number, number]])[0]!;
-    const goaNE = (GOA_BOUNDS as [[number, number], [number, number]])[1]!;
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
-    if (
-      sw.lng < goaSW[0] ||
-      sw.lat < goaSW[1] ||
-      ne.lng > goaNE[0] ||
-      ne.lat > goaNE[1]
-    ) {
-      map.setMaxBounds(null);
-    } else {
-      map.setMaxBounds(GOA_BOUNDS);
-    }
-
-    map.fitBounds(bounds, { padding: 48 });
-  }, [origin, waypoints, destination, routes]);
-
-  // Update active step marker on directions click
-  const handleStepClick = (step: RouteStep, idx: number) => {
-    setActiveStepIndex(idx);
-    updateStepMarker(step, idx);
-  };
-
-  // -----------------------------------------------------------------------
-  // Route Actions: Share, Save, Google Maps
-  // -----------------------------------------------------------------------
-
-  const handleShareRoute = () => {
-    if (!destination) {
-      toast.error("Set a destination first to share this trip.");
-      return;
-    }
-    const params = new URLSearchParams();
-    params.set("dest", destination.name);
-    params.set("lat", String(destination.lat));
-    params.set("lng", String(destination.lng));
-    params.set("origin", originLabel);
-    params.set("originLat", String(origin.lat));
-    params.set("originLng", String(origin.lng));
-    if (waypoints.length > 0) {
-      params.set(
-        "stops",
-        JSON.stringify(
-          waypoints.map((w) => ({ lat: w.lat, lng: w.lng, name: w.name })),
-        ),
-      );
-    }
-    const url = `${window.location.origin}/map?${params.toString()}`;
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(url);
-      toast.success("Shareable route link copied to clipboard!");
-    } else {
-      toast.info(`Share link: ${url}`);
-    }
-  };
-
-  const handleSaveRoute = async () => {
-    if (!destination) return;
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error("Please sign in to save routes.");
-        return;
-      }
-
-      const routeName = `${originLabel.split(" ")[0]} to ${destination.name}${waypoints.length > 0 ? ` (${waypoints.length} stops)` : ""}`;
-      const { error } = await supabase.from("saved_routes").insert({
-        user_id: user.id,
-        name: routeName,
-        mode: travelMode,
-        origin: { lat: origin.lat, lng: origin.lng, name: originLabel },
-        destination: {
-          lat: destination.lat,
-          lng: destination.lng,
-          name: destination.name,
-        },
-        waypoints: waypoints.map((w) => ({
-          lat: w.lat,
-          lng: w.lng,
-          name: w.name,
-        })),
-      });
-      if (error) throw error;
-      toast.success(`Route "${routeName}" saved to My Routes!`);
-      refetchSavedRoutes();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to save route");
-    }
-  };
-
-  const currentRoute = routes[selected];
-  const fastestIdx = routes.findIndex((r) => r.isFastest);
-  const shortestIdx = routes.findIndex((r) => r.isShortest);
-  const safestIdx = routes.findIndex((r) => r.isSafest);
-
-  type ComparisonCard = {
-    title: string;
-    index: number;
-    detail: string;
-    alsoSafest?: boolean;
-  };
-
-  const comparisonCards: ComparisonCard[] = [];
-  if (routes.length > 0) {
-    if (fastestIdx !== -1 && fastestIdx === shortestIdx) {
-      const isSafestAlso = safestIdx !== -1 && safestIdx === fastestIdx;
-      comparisonCards.push({
-        title: "Fastest & shortest",
-        index: fastestIdx,
-        detail: "This route is both the quickest and shortest option.",
-        alsoSafest: isSafestAlso,
-      });
-      if (!isSafestAlso && safestIdx !== -1) {
-        comparisonCards.push({
-          title: "Safest route (estimate)",
-          index: safestIdx,
-          detail: "Based on mapped road conditions; not a guarantee",
-        });
-      }
-    } else {
-      const isFastestSafest = safestIdx !== -1 && safestIdx === fastestIdx;
-      const isShortestSafest = safestIdx !== -1 && safestIdx === shortestIdx;
-
-      if (fastestIdx !== -1) {
-        comparisonCards.push({
-          title: "Fastest route",
-          index: fastestIdx,
-          detail: "Lowest estimated travel time",
-          alsoSafest: isFastestSafest,
-        });
-      }
-      if (shortestIdx !== -1) {
-        comparisonCards.push({
-          title: "Shortest route",
-          index: shortestIdx,
-          detail: `Least road distance among ${routes.length} options`,
-          alsoSafest: isShortestSafest,
-        });
-      }
-      if (!isFastestSafest && !isShortestSafest && safestIdx !== -1) {
-        comparisonCards.push({
-          title: "Safest route (estimate)",
-          index: safestIdx,
-          detail: "Based on mapped road conditions; not a guarantee",
-        });
-      }
-    }
-  }
 
   return (
     <AppShell
