@@ -54,6 +54,8 @@ import { RecenterButton } from "@/features/map/components/RecenterButton";
 import { usePlacePicker } from "@/features/map/hooks/usePlacePicker";
 import { PlaceCard } from "@/features/map/components/PlaceCard";
 import type { PickedPlace } from "@/features/map/lib/place-picking";
+import { useMapInstance } from "@/features/map/hooks/useMapInstance";
+import { useMapStyle } from "@/features/map/hooks/useMapStyle";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -148,9 +150,8 @@ function MapPage() {
   const searchParams = Route.useSearch();
   const requestedTarget = useRef("");
   const mapEl = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<MapLibreMap | null>(null);
-  const maplibreRef = useRef<typeof import("maplibre-gl") | null>(null);
   const originMarkerRef = useRef<MapLibreMarker | null>(null);
+
   const destMarkerRef = useRef<MapLibreMarker | null>(null);
   const stopMarkersRef = useRef<MapLibreMarker[]>([]);
   const stepMarkerRef = useRef<MapLibreMarker | null>(null);
@@ -163,11 +164,11 @@ function MapPage() {
   const [originQuery, setOriginQuery] = useState("");
   const [originHits, setOriginHits] = useState<Hit[]>([]);
 
-  const [ready, setReady] = useState(false);
-  const [isLoadingMap, setIsLoadingMap] = useState(true);
-  const [mapLoadError, setMapLoadError] = useState(false);
+  const fitMapToRouteFnRef = useRef<() => void>(() => {});
+  const routeDataFnRef = useRef<() => void>(() => {});
 
   const [origin, setOrigin] = useState(DEFAULT_ORIGIN);
+
   const [query, setQuery] = useState(searchParams.dest || "");
   const [hits, setHits] = useState<Hit[]>([]);
   const [routes, setRoutes] = useState<Scored[]>([]);
@@ -201,12 +202,6 @@ function MapPage() {
   const [activeStyleId, setActiveStyleId] = useState(getDefaultStyleId);
   const [is3d, setIs3d] = useState(false);
 
-  const appliedStyleIdRef = useRef<string>(getDefaultStyleId());
-  const activeStyleIdRef = useRef(activeStyleId);
-  activeStyleIdRef.current = activeStyleId;
-  const is3dRef = useRef(is3d);
-  is3dRef.current = is3d;
-
   // Fresh state ref for map popups and place card actions (prevents stale closure)
   const latestMapStateRef = useRef<{
     origin: { lat: number; lng: number; name: string };
@@ -220,6 +215,154 @@ function MapPage() {
       m?: TravelMode,
     ) => void;
   }>(null!);
+
+  const handleResetView = useCallback(() => {
+    const m = mapRef.current;
+    if (!m) return;
+    if (routesRef.current.length > 0) {
+      fitMapToRouteFnRef.current();
+    } else {
+      m.setMaxBounds(GOA_BOUNDS);
+      m.flyTo({ center: GOA_CENTER, zoom: 11, pitch: 0, bearing: 0 });
+    }
+  }, []);
+
+  const handleMapInit = useCallback(
+    (map: MapLibreMap, ml: typeof import("maplibre-gl")) => {
+      // Saved places point clicks -> open popup with actions
+      map.on("click", "safr-saved-points", (e) => {
+        const feature = e.features?.[0];
+        if (!feature) return;
+        const coordinates = (feature.geometry as any).coordinates.slice();
+        const { id, name, category, lat, lng } = feature.properties as any;
+
+        const popupDiv = document.createElement("div");
+        popupDiv.className = "p-2 min-w-[180px]";
+
+        const titleEl = document.createElement("div");
+        titleEl.className = "font-bold text-sm text-foreground mb-1";
+        titleEl.textContent = name;
+
+        const catEl = document.createElement("div");
+        catEl.className =
+          "text-[11px] text-muted-foreground uppercase font-semibold mb-2";
+        catEl.textContent = category || "Saved Place";
+
+        const btnDest = document.createElement("button");
+        btnDest.className =
+          "block w-full text-left text-xs font-semibold py-1 px-2 mb-1 rounded bg-primary/10 hover:bg-primary/20 text-primary transition-colors";
+        btnDest.textContent = "📍 Set as destination";
+        btnDest.addEventListener("click", () => {
+          const hit: Hit = {
+            id: id || "saved",
+            name,
+            address: category || "Goa",
+            lat: Number(lat),
+            lng: Number(lng),
+          };
+          setDestination(hit);
+          setQuery(hit.name);
+          saveRecentSearch(hit);
+          setRecentDestinations(getRecentSearches());
+          const {
+            origin: currOrigin,
+            waypoints: currWaypoints,
+            travelMode: currMode,
+            calculateCurrentRoute: currCalc,
+          } = latestMapStateRef.current;
+          currCalc(currOrigin, hit, currWaypoints, currMode);
+        });
+
+        const btnStop = document.createElement("button");
+        btnStop.className =
+          "block w-full text-left text-xs font-semibold py-1 px-2 rounded bg-secondary hover:bg-secondary/80 text-foreground transition-colors";
+        btnStop.textContent = "➕ Add as stop";
+        btnStop.addEventListener("click", () => {
+          const {
+            waypoints: currWaypoints,
+            destination: currDest,
+            origin: currOrigin,
+            travelMode: currMode,
+            calculateCurrentRoute: currCalc,
+          } = latestMapStateRef.current;
+          if (currWaypoints.length >= 5) {
+            toast.error("Maximum of 5 stops allowed.");
+            return;
+          }
+          const stopHit: Hit = {
+            id: id || `stop-${Date.now()}`,
+            name,
+            address: category || "Goa",
+            lat: Number(lat),
+            lng: Number(lng),
+          };
+          const updated = [...currWaypoints, stopHit];
+          setWaypoints(updated);
+          toast.success(`Added ${name} as stop`);
+          if (currDest) {
+            currCalc(currOrigin, currDest, updated, currMode);
+          }
+        });
+
+        popupDiv.append(titleEl, catEl, btnDest, btnStop);
+
+        new ml.Popup({ offset: 12 })
+          .setLngLat(coordinates)
+          .setDOMContent(popupDiv)
+          .addTo(map);
+      });
+
+      // Cluster clicks -> zoom in
+      map.on("click", "safr-saved-clusters", (e) => {
+        const features = map.queryRenderedFeatures(e.point, {
+          layers: ["safr-saved-clusters"],
+        });
+        const clusterId = features[0]?.properties?.["cluster_id"];
+        const source = map.getSource("safr-saved-places-src") as any;
+        if (source && typeof source.getClusterExpansionZoom === "function") {
+          source.getClusterExpansionZoom(
+            clusterId,
+            (err: any, zoom: number) => {
+              if (err) return;
+              map.easeTo({
+                center: (features[0]?.geometry as any).coordinates,
+                zoom,
+              });
+            },
+          );
+        }
+      });
+    },
+    [],
+  );
+
+  const {
+    mapRef,
+    maplibreRef,
+    ready,
+    isLoadingMap,
+    mapLoadError,
+    appliedStyleIdRef,
+    retry: handleRetryMap,
+  } = useMapInstance({
+    containerRef: mapEl,
+    activeStyleId,
+    is3d,
+    onStyleChange: setActiveStyleId,
+    onToggle3d: () => setIs3d((prev) => !prev),
+    onResetView: handleResetView,
+    routeDataFn: () => routeDataFnRef.current(),
+    onMapInit: handleMapInit,
+  });
+
+  useMapStyle({
+    map: ready ? mapRef.current : null,
+    ready,
+    activeStyleId,
+    is3d,
+    appliedStyleIdRef,
+    routeDataFn: () => routeDataFnRef.current(),
+  });
 
   const userLocation = useUserLocation({
     mapRef,
@@ -676,345 +819,7 @@ function MapPage() {
     }
   }, []);
 
-  const routeDataFnRef = useRef(addRouteDataToMap);
   routeDataFnRef.current = addRouteDataToMap;
-
-  const handleRetryMap = () => {
-    setMapLoadError(false);
-    setIsLoadingMap(true);
-    const map = mapRef.current;
-    if (map) {
-      // Fallback to resilient OpenStreetMap raster style
-      appliedStyleIdRef.current = "osm";
-      setActiveStyleId("osm");
-      map.setStyle(OSM_RASTER_STYLE);
-    }
-  };
-
-  // -----------------------------------------------------------------------
-  // MapLibre GL initialization
-  // -----------------------------------------------------------------------
-
-  useEffect(() => {
-    if (!mapEl.current || mapRef.current) return;
-    let cancelled = false;
-
-    void import("maplibre-gl").then((ml) => {
-      if (cancelled || !mapEl.current) return;
-      maplibreRef.current = ml;
-      injectMapCSS();
-
-      const initStyle =
-        MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ??
-        MAP_STYLES[0]!;
-      appliedStyleIdRef.current = initStyle.id;
-
-      const map = new ml.Map({
-        container: mapEl.current,
-        style: initStyle.style,
-        center: GOA_CENTER,
-        zoom: 11,
-        maxPitch: 70,
-        minZoom: 8,
-        maxBounds: GOA_BOUNDS,
-        attributionControl: { compact: true },
-        dragRotate: true,
-      });
-
-      mapRef.current = map;
-
-      // Resilient fallback timer: only auto-fallbacks if style fails to initialize within 12 seconds
-      const loadTimeout = setTimeout(() => {
-        if (!map.isStyleLoaded()) {
-          console.warn(
-            "[map] Style initialization timed out, falling back to OSM standard tiles...",
-          );
-          try {
-            appliedStyleIdRef.current = "osm";
-            setActiveStyleId("osm");
-            map.setStyle(OSM_RASTER_STYLE);
-          } catch {
-            setMapLoadError(true);
-            setIsLoadingMap(false);
-          }
-        } else {
-          setIsLoadingMap(false);
-          setMapLoadError(false);
-          setReady(true);
-        }
-      }, 12000);
-
-      map.addControl(
-        new ml.NavigationControl({ showCompass: true, showZoom: true }),
-        "top-right",
-      );
-      map.addControl(new ml.FullscreenControl(), "top-right");
-
-      // Style switcher (top-left)
-      const switcherDiv = document.createElement("div");
-      switcherDiv.className = "safr-style-switcher";
-      MAP_STYLES.forEach((s) => {
-        const btn = document.createElement("button");
-        btn.className = "safr-style-btn";
-        btn.textContent = s.icon;
-        btn.title = s.label;
-        btn.setAttribute("aria-label", `Map style: ${s.label}`);
-        btn.setAttribute(
-          "aria-pressed",
-          s.id === activeStyleIdRef.current ? "true" : "false",
-        );
-        btn.addEventListener("click", () => {
-          setActiveStyleId(s.id);
-        });
-        switcherDiv.appendChild(btn);
-      });
-
-      class StyleSwitcherControl {
-        _container?: HTMLElement;
-        onAdd() {
-          this._container = document.createElement("div");
-          this._container.className = "maplibregl-ctrl";
-          this._container.appendChild(switcherDiv);
-          return this._container;
-        }
-        onRemove() {
-          this._container?.remove();
-        }
-      }
-      map.addControl(new StyleSwitcherControl() as IControl, "top-left");
-
-      // 3D toggle + reset view (top-left under switcher)
-      const ctrlsDiv = document.createElement("div");
-      ctrlsDiv.className = "maplibregl-ctrl";
-      ctrlsDiv.style.cssText = "display:flex;flex-direction:column;gap:4px;";
-
-      const btn3d = document.createElement("button");
-      btn3d.className = "safr-map-ctrl-btn";
-      btn3d.textContent = "3D";
-      btn3d.setAttribute("aria-label", "Toggle 3D buildings and terrain");
-      btn3d.setAttribute("aria-pressed", "false");
-      btn3d.addEventListener("click", () => {
-        setIs3d((prev) => !prev);
-      });
-      ctrlsDiv.appendChild(btn3d);
-
-      const btnReset = document.createElement("button");
-      btnReset.className = "safr-map-ctrl-btn";
-      btnReset.textContent = "⌂";
-      btnReset.setAttribute("aria-label", "Recenter map view");
-      btnReset.addEventListener("click", () => {
-        const m = mapRef.current;
-        if (!m) return;
-        if (routesRef.current.length > 0) {
-          fitMapToRoute();
-        } else {
-          m.setMaxBounds(GOA_BOUNDS);
-          m.flyTo({ center: GOA_CENTER, zoom: 11, pitch: 0, bearing: 0 });
-        }
-      });
-      ctrlsDiv.appendChild(btnReset);
-
-      class ExtraControlsControl {
-        _container?: HTMLElement;
-        onAdd() {
-          this._container = document.createElement("div");
-          this._container.className = "maplibregl-ctrl";
-          this._container.appendChild(ctrlsDiv);
-          return this._container;
-        }
-        onRemove() {
-          this._container?.remove();
-        }
-      }
-      map.addControl(new ExtraControlsControl() as IControl, "top-left");
-
-      // Error handler: log resource warnings, never blank screen for minor tile/glyph 404s
-      map.on("error", (e) => {
-        console.warn("[map resource]", e?.error?.message || e);
-      });
-
-      // Style load handler (single place where layers are restored)
-      map.on("style.load", () => {
-        clearTimeout(loadTimeout);
-        setIsLoadingMap(false);
-        setMapLoadError(false);
-        setReady(true);
-
-        const curStyle =
-          MAP_STYLES.find((s) => s.id === activeStyleIdRef.current) ??
-          MAP_STYLES[0]!;
-        addCustomLayers(map, {
-          is3d: is3dRef.current,
-          isVector: curStyle.isVector,
-          routeDataFn: () => routeDataFnRef.current(),
-        });
-      });
-
-      map.on("load", () => {
-        clearTimeout(loadTimeout);
-        setIsLoadingMap(false);
-        setMapLoadError(false);
-        setReady(true);
-      });
-
-      // Saved places point clicks -> open popup with actions
-      map.on("click", "safr-saved-points", (e) => {
-        const feature = e.features?.[0];
-        if (!feature) return;
-        const coordinates = (feature.geometry as any).coordinates.slice();
-        const { id, name, category, lat, lng } = feature.properties as any;
-
-        const popupDiv = document.createElement("div");
-        popupDiv.className = "p-2 min-w-[180px]";
-
-        const titleEl = document.createElement("div");
-        titleEl.className = "font-bold text-sm text-foreground mb-1";
-        titleEl.textContent = name;
-
-        const catEl = document.createElement("div");
-        catEl.className =
-          "text-[11px] text-muted-foreground uppercase font-semibold mb-2";
-        catEl.textContent = category || "Saved Place";
-
-        const btnDest = document.createElement("button");
-        btnDest.className =
-          "block w-full text-left text-xs font-semibold py-1 px-2 mb-1 rounded bg-primary/10 hover:bg-primary/20 text-primary transition-colors";
-        btnDest.textContent = "📍 Set as destination";
-        btnDest.addEventListener("click", () => {
-          const hit: Hit = {
-            id: id || "saved",
-            name,
-            address: category || "Goa",
-            lat: Number(lat),
-            lng: Number(lng),
-          };
-          setDestination(hit);
-          setQuery(hit.name);
-          saveRecentSearch(hit);
-          setRecentDestinations(getRecentSearches());
-          const {
-            origin: currOrigin,
-            waypoints: currWaypoints,
-            travelMode: currMode,
-            calculateCurrentRoute: currCalc,
-          } = latestMapStateRef.current;
-          currCalc(currOrigin, hit, currWaypoints, currMode);
-        });
-
-        const btnStop = document.createElement("button");
-        btnStop.className =
-          "block w-full text-left text-xs font-semibold py-1 px-2 rounded bg-secondary hover:bg-secondary/80 text-foreground transition-colors";
-        btnStop.textContent = "➕ Add as stop";
-        btnStop.addEventListener("click", () => {
-          const {
-            waypoints: currWaypoints,
-            destination: currDest,
-            origin: currOrigin,
-            travelMode: currMode,
-            calculateCurrentRoute: currCalc,
-          } = latestMapStateRef.current;
-          if (currWaypoints.length >= 5) {
-            toast.error("Maximum of 5 stops allowed.");
-            return;
-          }
-          const stopHit: Hit = {
-            id: id || `stop-${Date.now()}`,
-            name,
-            address: category || "Goa",
-            lat: Number(lat),
-            lng: Number(lng),
-          };
-          const updated = [...currWaypoints, stopHit];
-          setWaypoints(updated);
-          toast.success(`Added ${name} as stop`);
-          if (currDest) {
-            currCalc(currOrigin, currDest, updated, currMode);
-          }
-        });
-
-        popupDiv.append(titleEl, catEl, btnDest, btnStop);
-
-        new ml.Popup({ offset: 12 })
-          .setLngLat(coordinates)
-          .setDOMContent(popupDiv)
-          .addTo(map);
-      });
-
-      // Cluster clicks -> zoom in
-      map.on("click", "safr-saved-clusters", (e) => {
-        const features = map.queryRenderedFeatures(e.point, {
-          layers: ["safr-saved-clusters"],
-        });
-        const clusterId = features[0]?.properties?.["cluster_id"];
-        const source = map.getSource("safr-saved-places-src") as any;
-        if (source && typeof source.getClusterExpansionZoom === "function") {
-          source.getClusterExpansionZoom(
-            clusterId,
-            (err: any, zoom: number) => {
-              if (err) return;
-              map.easeTo({
-                center: (features[0]?.geometry as any).coordinates,
-                zoom,
-              });
-            },
-          );
-        }
-      });
-    });
-
-    return () => {
-      cancelled = true;
-      mapRef.current?.remove();
-      mapRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // -----------------------------------------------------------------------
-  // Style switching & 3D effects
-  // -----------------------------------------------------------------------
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !ready) return;
-
-    if (activeStyleId !== appliedStyleIdRef.current) {
-      appliedStyleIdRef.current = activeStyleId;
-      const entry =
-        MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
-      map.setStyle(entry.style);
-    }
-
-    const btns = map
-      .getContainer()
-      .querySelectorAll<HTMLButtonElement>(".safr-style-btn");
-    btns.forEach((btn, i) => {
-      const s = MAP_STYLES[i];
-      btn.setAttribute(
-        "aria-pressed",
-        s?.id === activeStyleId ? "true" : "false",
-      );
-    });
-  }, [activeStyleId, ready]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !ready) return;
-
-    const curStyle =
-      MAP_STYLES.find((s) => s.id === activeStyleId) ?? MAP_STYLES[0]!;
-    map.easeTo({ pitch: is3d ? 60 : 0, duration: 600 });
-    addCustomLayers(map, {
-      is3d,
-      isVector: curStyle.isVector,
-      routeDataFn: () => routeDataFnRef.current(),
-    });
-
-    const btn = map
-      .getContainer()
-      .querySelector<HTMLButtonElement>(".safr-map-ctrl-btn");
-    btn?.setAttribute("aria-pressed", is3d ? "true" : "false");
-  }, [is3d, ready, activeStyleId]);
 
   // -----------------------------------------------------------------------
   // Geolocation & URL params restore
