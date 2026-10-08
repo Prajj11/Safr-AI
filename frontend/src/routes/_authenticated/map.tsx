@@ -56,6 +56,9 @@ import { PlaceCard } from "@/features/map/components/PlaceCard";
 import type { PickedPlace } from "@/features/map/lib/place-picking";
 import { useMapInstance } from "@/features/map/hooks/useMapInstance";
 import { useMapStyle } from "@/features/map/hooks/useMapStyle";
+import { useOrigin } from "@/features/map/hooks/useOrigin";
+import { useRouteLayers } from "@/features/map/hooks/useRouteLayers";
+import { useLatest } from "@/features/map/hooks/useLatest";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -74,10 +77,6 @@ import {
   GOA_BOUNDS,
   getDefaultStyleId,
   addCustomLayers,
-  addArrowImage,
-  ORIGIN_MARKER_SVG,
-  DESTINATION_MARKER_SVG,
-  stepMarkerSvg,
   injectMapCSS,
   OSM_RASTER_STYLE,
   type MapStyleEntry,
@@ -150,24 +149,9 @@ function MapPage() {
   const searchParams = Route.useSearch();
   const requestedTarget = useRef("");
   const mapEl = useRef<HTMLDivElement>(null);
-  const originMarkerRef = useRef<MapLibreMarker | null>(null);
-
-  const destMarkerRef = useRef<MapLibreMarker | null>(null);
-  const stopMarkersRef = useRef<MapLibreMarker[]>([]);
-  const stepMarkerRef = useRef<MapLibreMarker | null>(null);
-
-  const [originLabel, setOriginLabel] = useState("Detecting location…");
-  const [locationReady, setLocationReady] = useState(false);
-  const [isGpsOrigin, setIsGpsOrigin] = useState(false);
-  const [locating, setLocating] = useState(false);
-  const [showOriginSearch, setShowOriginSearch] = useState(false);
-  const [originQuery, setOriginQuery] = useState("");
-  const [originHits, setOriginHits] = useState<Hit[]>([]);
 
   const fitMapToRouteFnRef = useRef<() => void>(() => {});
   const routeDataFnRef = useRef<() => void>(() => {});
-
-  const [origin, setOrigin] = useState(DEFAULT_ORIGIN);
 
   const [query, setQuery] = useState(searchParams.dest || "");
   const [hits, setHits] = useState<Hit[]>([]);
@@ -216,16 +200,18 @@ function MapPage() {
     ) => void;
   }>(null!);
 
+  const routesLatest = useLatest(routes);
+
   const handleResetView = useCallback(() => {
     const m = mapRef.current;
     if (!m) return;
-    if (routesRef.current.length > 0) {
+    if (routesLatest.current.length > 0) {
       fitMapToRouteFnRef.current();
     } else {
       m.setMaxBounds(GOA_BOUNDS);
       m.flyTo({ center: GOA_CENTER, zoom: 11, pitch: 0, bearing: 0 });
     }
-  }, []);
+  }, [routesLatest]);
 
   const handleMapInit = useCallback(
     (map: MapLibreMap, ml: typeof import("maplibre-gl")) => {
@@ -419,15 +405,44 @@ function MapPage() {
     setRecentDestinations(getRecentSearches());
   }, []);
 
-  const originSearchMutation = useMutation({
-    mutationFn: async (q: string) =>
-      (await search({ data: { query: q } })) as Hit[],
-    onSuccess: (data) => {
-      setOriginHits(data);
-      if (data.length === 0) toast.info("No matching starting places found.");
+  const {
+    origin,
+    setOrigin,
+    originLabel,
+    setOriginLabel,
+    locationReady,
+    isGpsOrigin,
+    setIsGpsOrigin,
+    locating,
+    showOriginSearch,
+    setShowOriginSearch,
+    originQuery,
+    setOriginQuery,
+    originHits,
+    setOriginHits,
+    originSearchMutation,
+    requestUserLocation,
+  } = useOrigin({
+    map: ready ? mapRef.current : null,
+    currentAreaFn: currentArea,
+    searchPlacesFn: search,
+    initialOrigin: {
+      name: searchParams.origin,
+      lat: searchParams.originLat,
+      lng: searchParams.originLng,
     },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Origin search failed"),
+    onStartTracking: () => userLocation.start(),
+    onLocationApplied: (coords) => {
+      const state = latestMapStateRef.current;
+      if (state?.destination) {
+        state.calculateCurrentRoute(
+          coords,
+          state.destination,
+          state.waypoints,
+          state.travelMode,
+        );
+      }
+    },
   });
 
   const stopSearchMutation = useMutation({
@@ -441,289 +456,10 @@ function MapPage() {
       toast.error(e instanceof Error ? e.message : "Stop search failed"),
   });
 
-  const requestUserLocation = (isAutomatic = false) => {
-    if (!navigator.geolocation) {
-      if (!isAutomatic)
-        toast.error("Geolocation is not supported by your browser");
-      setLocationReady(true);
-      setOriginLabel("Panjim (default fallback)");
-      return;
-    }
-
-    setLocating(true);
-
-    const applyLocation = async (lat: number, lng: number) => {
-      const coords = { lat, lng, name: "Your Location" };
-      setOrigin(coords);
-      setIsGpsOrigin(true);
-      setLocationReady(true);
-      setLocating(false);
-
-      if (mapRef.current) {
-        mapRef.current.flyTo({ center: [lng, lat], zoom: 13 });
-      }
-
-      let label = "Your Location";
-      try {
-        const area = await currentArea({ data: coords });
-        if (area?.name) label = `${area.name} (Your Location)`;
-      } catch {
-        label = `Your Location (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
-      }
-      setOriginLabel(label);
-
-      try {
-        localStorage.setItem(
-          "safr_last_origin",
-          JSON.stringify({ coords, label, isGps: true }),
-        );
-      } catch {
-        // ignore
-      }
-
-      userLocation.start();
-      if (!isAutomatic) toast.success(`Starting point updated to ${label}`);
-      if (destination) {
-        calculateCurrentRoute(coords, destination, waypoints, travelMode);
-      }
-    };
-
-    const handleFailure = (err?: GeolocationPositionError) => {
-      if (err && err.code === err.TIMEOUT) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => applyLocation(pos.coords.latitude, pos.coords.longitude),
-          () => {
-            setLocating(false);
-            setLocationReady(true);
-            setOriginLabel((prev) =>
-              prev.startsWith("Detecting")
-                ? "Panjim (default starting point)"
-                : prev,
-            );
-            if (!isAutomatic) {
-              toast.error(
-                "Could not acquire GPS fix. Please select a starting point manually.",
-              );
-            }
-          },
-          { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
-        );
-        return;
-      }
-
-      setLocating(false);
-      setLocationReady(true);
-      setOriginLabel((prev) =>
-        prev.startsWith("Detecting") ? "Panjim (default starting point)" : prev,
-      );
-      if (!isAutomatic) {
-        if (err?.code === err?.PERMISSION_DENIED) {
-          toast.error(
-            "Location permission was denied. Please allow location access in your browser settings.",
-          );
-        } else {
-          toast.error("Unable to retrieve location. Using Panjim as fallback.");
-        }
-      }
-    };
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => applyLocation(pos.coords.latitude, pos.coords.longitude),
-      handleFailure,
-      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 },
-    );
-  };
-
-  // -----------------------------------------------------------------------
-  // addRouteDataToMap & Saved Places Layer
-  // -----------------------------------------------------------------------
-
-  const routesRef = useRef(routes);
-  const selectedRef = useRef(selected);
-  const activeStepIndexRef = useRef(activeStepIndex);
-  const savedPlacesRef = useRef(savedPlaces);
-  const showSavedPlacesRef = useRef(showSavedPlaces);
-  routesRef.current = routes;
-  selectedRef.current = selected;
-  activeStepIndexRef.current = activeStepIndex;
-  savedPlacesRef.current = savedPlaces;
-  showSavedPlacesRef.current = showSavedPlaces;
-
-  const addRouteDataToMap = useCallback(() => {
+  const syncSavedPlacesLayer = useCallback(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
 
-    const curRoutes = routesRef.current;
-    const curSelected = selectedRef.current;
-    const curStepIdx = activeStepIndexRef.current;
-
-    // Clean up any existing route layers/sources
-    for (let i = 0; i < 10; i++) {
-      try {
-        map.removeLayer(`safr-route-arrows-${i}`);
-      } catch {
-        /* */
-      }
-      try {
-        map.removeLayer(`safr-route-line-traveled-${i}`);
-      } catch {
-        /* */
-      }
-      try {
-        map.removeLayer(`safr-route-line-${i}`);
-      } catch {
-        /* */
-      }
-      try {
-        map.removeLayer(`safr-route-casing-${i}`);
-      } catch {
-        /* */
-      }
-      try {
-        map.removeSource(`safr-route-traveled-${i}`);
-      } catch {
-        /* */
-      }
-      try {
-        map.removeSource(`safr-route-${i}`);
-      } catch {
-        /* */
-      }
-    }
-
-    curRoutes.forEach((r, i) => {
-      if (!r.polyline) return;
-      try {
-        const pathCoords = JSON.parse(r.polyline) as [number, number][];
-        if (!pathCoords || pathCoords.length === 0) return;
-
-        const coords = pathCoords.map(
-          ([lat, lng]) => [lng, lat] as [number, number],
-        );
-        const isSelected = i === curSelected;
-        const color = routeColor(r.kind, isSelected);
-
-        // If stepping through route, split into traveled and remaining
-        let remainingCoords = coords;
-        let traveledCoords: [number, number][] = [];
-
-        if (
-          isSelected &&
-          curStepIdx !== null &&
-          r.steps[curStepIdx]?.location
-        ) {
-          const stepLoc = r.steps[curStepIdx]!.location!;
-          // Find closest coordinate index on polyline
-          let closestIdx = 0;
-          let minDist = Infinity;
-          for (let cIdx = 0; cIdx < coords.length; cIdx++) {
-            const d = Math.hypot(
-              coords[cIdx]![0] - stepLoc[1],
-              coords[cIdx]![1] - stepLoc[0],
-            );
-            if (d < minDist) {
-              minDist = d;
-              closestIdx = cIdx;
-            }
-          }
-          if (closestIdx > 0) {
-            traveledCoords = coords.slice(0, closestIdx + 1);
-            remainingCoords = coords.slice(closestIdx);
-          }
-        }
-
-        const sourceId = `safr-route-${i}`;
-        const geojson: FeatureCollection = {
-          type: "FeatureCollection",
-          features: [
-            {
-              type: "Feature",
-              properties: {},
-              geometry: { type: "LineString", coordinates: remainingCoords },
-            },
-          ],
-        };
-        map.addSource(sourceId, { type: "geojson", data: geojson });
-
-        // Casing (dark outline)
-        map.addLayer({
-          id: `safr-route-casing-${i}`,
-          type: "line",
-          source: sourceId,
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: {
-            "line-color": isSelected ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.1)",
-            "line-width": isSelected ? 9 : 5,
-            "line-opacity": isSelected ? 1 : 0.35,
-          },
-        });
-
-        // Main line
-        map.addLayer({
-          id: `safr-route-line-${i}`,
-          type: "line",
-          source: sourceId,
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: {
-            "line-color": color,
-            "line-width": isSelected ? 6 : 3.5,
-            "line-opacity": isSelected ? 1 : 0.35,
-          },
-        });
-
-        // Traveled progress line (muted color)
-        if (traveledCoords.length >= 2) {
-          const traveledSourceId = `safr-route-traveled-${i}`;
-          map.addSource(traveledSourceId, {
-            type: "geojson",
-            data: {
-              type: "FeatureCollection",
-              features: [
-                {
-                  type: "Feature",
-                  properties: {},
-                  geometry: { type: "LineString", coordinates: traveledCoords },
-                },
-              ],
-            },
-          });
-          map.addLayer({
-            id: `safr-route-line-traveled-${i}`,
-            type: "line",
-            source: traveledSourceId,
-            layout: { "line-join": "round", "line-cap": "round" },
-            paint: {
-              "line-color": "#64748b",
-              "line-width": 5,
-              "line-opacity": 0.7,
-              "line-dasharray": [1.5, 1.5],
-            },
-          });
-        }
-
-        // Direction arrows on selected route
-        if (isSelected) {
-          addArrowImage(map);
-          map.addLayer({
-            id: `safr-route-arrows-${i}`,
-            type: "symbol",
-            source: sourceId,
-            layout: {
-              "symbol-placement": "line",
-              "icon-image": "safr-route-arrow",
-              "icon-size": 0.7,
-              "icon-rotation-alignment": "map",
-              "icon-allow-overlap": true,
-              "symbol-spacing": 80,
-            },
-          });
-        }
-      } catch (e) {
-        console.error("Failed to add route layer", e);
-      }
-    });
-
-    // Add or update Saved Places Clustered Layer
     try {
       if (map.getLayer("safr-saved-clusters"))
         map.removeLayer("safr-saved-clusters");
@@ -734,10 +470,8 @@ function MapPage() {
       if (map.getSource("safr-saved-places-src"))
         map.removeSource("safr-saved-places-src");
 
-      if (showSavedPlacesRef.current && savedPlacesRef.current.length > 0) {
-        const validPlaces = savedPlacesRef.current.filter(
-          (p) => p.lat && p.lng,
-        );
+      if (showSavedPlaces && savedPlaces.length > 0) {
+        const validPlaces = savedPlaces.filter((p) => p.lat && p.lng);
         const savedGeojson: FeatureCollection = {
           type: "FeatureCollection",
           features: validPlaces.map((p) => ({
@@ -817,56 +551,31 @@ function MapPage() {
     } catch (e) {
       console.error("Failed to render saved places layer:", e);
     }
-  }, []);
-
-  routeDataFnRef.current = addRouteDataToMap;
-
-  // -----------------------------------------------------------------------
-  // Geolocation & URL params restore
-  // -----------------------------------------------------------------------
+  }, [showSavedPlaces, savedPlaces]);
 
   useEffect(() => {
-    let hasCached = false;
-    try {
-      const saved = localStorage.getItem("safr_last_origin");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (
-          parsed?.coords?.lat &&
-          parsed?.coords?.lng &&
-          Number.isFinite(parsed.coords.lat) &&
-          Number.isFinite(parsed.coords.lng)
-        ) {
-          setOrigin(parsed.coords);
-          if (parsed.label) setOriginLabel(parsed.label);
-          if (parsed.isGps) setIsGpsOrigin(true);
-          setLocationReady(true);
-          hasCached = true;
-        }
-      }
-    } catch {
-      // ignore
-    }
+    syncSavedPlacesLayer();
+  }, [syncSavedPlacesLayer]);
 
-    if (!hasCached) {
-      setOriginLabel("Panjim (default starting point)");
-    }
+  const { addRouteDataToMap, updateStepMarker } = useRouteLayers({
+    map: ready ? mapRef.current : null,
+    maplibre: ready ? maplibreRef.current : null,
+    ready,
+    origin,
+    originLabel,
+    isGpsOrigin,
+    destination,
+    waypoints,
+    routes,
+    selected,
+    activeStepIndex,
+    onFitBounds: () => fitMapToRouteFnRef.current(),
+  });
 
-    requestUserLocation(true);
-  }, []);
-
-  useEffect(() => {
-    if (searchParams.originLat && searchParams.originLng) {
-      const lat = parseFloat(searchParams.originLat);
-      const lng = parseFloat(searchParams.originLng);
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        setOrigin({ lat, lng, name: searchParams.origin || "Custom Start" });
-        setOriginLabel(searchParams.origin || "Custom Starting Point");
-        setIsGpsOrigin(false);
-        setLocationReady(true);
-      }
-    }
-  }, [searchParams.origin, searchParams.originLat, searchParams.originLng]);
+  routeDataFnRef.current = () => {
+    addRouteDataToMap();
+    syncSavedPlacesLayer();
+  };
 
   // Handle URL stops param (JSON encoded)
   useEffect(() => {
@@ -1171,132 +880,10 @@ function MapPage() {
     map.fitBounds(bounds, { padding: 48 });
   }, [origin, waypoints, destination, routes]);
 
-  // -----------------------------------------------------------------------
-  // Render Markers on Map
-  // -----------------------------------------------------------------------
-
-  useEffect(() => {
-    if (!ready || !mapRef.current) return;
-    const map = mapRef.current;
-    const ml = maplibreRef.current;
-    if (!ml) return;
-
-    // Clear old markers
-    originMarkerRef.current?.remove();
-    destMarkerRef.current?.remove();
-    stopMarkersRef.current.forEach((m) => m.remove());
-    stopMarkersRef.current = [];
-    stepMarkerRef.current?.remove();
-    originMarkerRef.current = null;
-    destMarkerRef.current = null;
-    stepMarkerRef.current = null;
-
-    // 1. Origin marker
-    const originEl = document.createElement("div");
-    originEl.innerHTML = ORIGIN_MARKER_SVG;
-    originEl.title = isGpsOrigin ? "You (Starting Point)" : "Starting Point";
-
-    const originPopup = document.createElement("div");
-    const oTitle = document.createElement("b");
-    oTitle.textContent = isGpsOrigin
-      ? "You (Starting Point)"
-      : "Starting Point";
-    const oSub = document.createElement("div");
-    oSub.textContent = originLabel;
-    originPopup.append(oTitle, oSub);
-
-    originMarkerRef.current = new ml.Marker({
-      element: originEl,
-      anchor: "center",
-    })
-      .setLngLat([origin.lng, origin.lat])
-      .setPopup(new ml.Popup({ offset: 16 }).setDOMContent(originPopup))
-      .addTo(map);
-
-    // 2. Waypoints numbered markers
-    waypoints.forEach((w, idx) => {
-      const stopEl = document.createElement("div");
-      stopEl.style.cssText =
-        "background-color:#0284c7;color:white;width:28px;height:28px;border-radius:50%;border:2.5px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;";
-      stopEl.textContent = String(idx + 1);
-
-      const stopPopup = document.createElement("div");
-      const sTitle = document.createElement("b");
-      sTitle.textContent = `Stop ${idx + 1}: ${w.name}`;
-      const sAddr = document.createElement("div");
-      sAddr.textContent = w.address;
-      stopPopup.append(sTitle, sAddr);
-
-      const marker = new ml.Marker({ element: stopEl, anchor: "center" })
-        .setLngLat([w.lng, w.lat])
-        .setPopup(new ml.Popup({ offset: 16 }).setDOMContent(stopPopup))
-        .addTo(map);
-      stopMarkersRef.current.push(marker);
-    });
-
-    // 3. Destination marker
-    if (destination) {
-      const destEl = document.createElement("div");
-      destEl.innerHTML = DESTINATION_MARKER_SVG;
-      destEl.title = destination.name;
-
-      const destPopup = document.createElement("div");
-      const dTitle = document.createElement("b");
-      dTitle.textContent = destination.name;
-      const dSub = document.createElement("div");
-      dSub.textContent = destination.address;
-      destPopup.append(dTitle, dSub);
-
-      destMarkerRef.current = new ml.Marker({
-        element: destEl,
-        anchor: "bottom",
-      })
-        .setLngLat([destination.lng, destination.lat])
-        .setPopup(new ml.Popup({ offset: 24 }).setDOMContent(destPopup))
-        .addTo(map);
-    }
-
-    addRouteDataToMap();
-
-    if (destination || routes.length > 0) {
-      fitMapToRoute();
-    }
-  }, [
-    ready,
-    origin,
-    destination,
-    waypoints,
-    routes,
-    selected,
-    originLabel,
-    isGpsOrigin,
-    addRouteDataToMap,
-    fitMapToRoute,
-  ]);
-
   // Update active step marker on directions click
   const handleStepClick = (step: RouteStep, idx: number) => {
     setActiveStepIndex(idx);
-    if (!mapRef.current || !step.location) return;
-    const ml = maplibreRef.current;
-    if (!ml) return;
-
-    const [lat, lng] = step.location;
-    mapRef.current.flyTo({ center: [lng, lat], zoom: 15 });
-
-    stepMarkerRef.current?.remove();
-    const el = document.createElement("div");
-    el.innerHTML = stepMarkerSvg(idx + 1);
-
-    const stepPopup = document.createElement("div");
-    stepPopup.className = "text-xs font-semibold";
-    stepPopup.textContent = `Step ${idx + 1}: ${step.instruction}`;
-
-    stepMarkerRef.current = new ml.Marker({ element: el, anchor: "center" })
-      .setLngLat([lng, lat])
-      .setPopup(new ml.Popup({ offset: 16 }).setDOMContent(stepPopup))
-      .addTo(mapRef.current);
-    stepMarkerRef.current.togglePopup();
+    updateStepMarker(step, idx);
   };
 
   // -----------------------------------------------------------------------
