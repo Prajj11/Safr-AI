@@ -72,9 +72,9 @@ const TILES = [
   {
     to: "/live-tracking",
     icon: LocateFixed,
-    badge: "Device GPS",
-    title: "Your Current Location",
-    text: "View your device location. Family device sharing is not connected yet.",
+    badge: "Family & Friends",
+    title: "Reunite",
+    text: "Find the family and friends you registered, once they choose to share their location with you.",
     color:
       "from-primary/15 to-transparent text-primary border-primary/30 hover:border-primary/60",
     iconBg: "bg-primary/10 text-primary group-hover:bg-primary/20",
