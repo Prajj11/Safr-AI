@@ -127,129 +127,18 @@ export const Route = createFileRoute("/_authenticated/map")({
   component: MapPage,
 });
 
-type Hit = {
-  id: string;
-  name: string;
-  address: string;
-  lat: number;
-  lng: number;
-};
-type Scored = ScoredRoute;
-type TravelMode = "car" | "motor_scooter" | "bicycle" | "walking";
-
-const DEFAULT_ORIGIN = { lat: 15.4989, lng: 73.8278, name: "Panjim" };
-
-const QUICK_DESTINATIONS: Hit[] = [
-  {
-    id: "q1",
-    name: "Baga Beach",
-    address: "North Goa",
-    lat: 15.5553,
-    lng: 73.7517,
-  },
-  {
-    id: "q2",
-    name: "Fort Aguada",
-    address: "Candolim, Goa",
-    lat: 15.4925,
-    lng: 73.7736,
-  },
-  {
-    id: "q3",
-    name: "Palolem Beach",
-    address: "Canacona, South Goa",
-    lat: 15.01,
-    lng: 74.0232,
-  },
-  {
-    id: "q4",
-    name: "Dudhsagar Falls",
-    address: "Sanguem, Goa",
-    lat: 15.3144,
-    lng: 74.3144,
-  },
-  {
-    id: "q5",
-    name: "Panjim Church",
-    address: "Fontainhas, Panaji",
-    lat: 15.4989,
-    lng: 73.8278,
-  },
-];
-
-function getManeuverIcon(type: string, modifier?: string) {
-  if (type === "arrive") return <Flag className="size-4 text-emerald" />;
-  if (type === "roundabout" || type === "rotary")
-    return <RotateCcw className="size-4 text-amber" />;
-  if (type === "fork" || type === "merge")
-    return <Split className="size-4 text-cyan" />;
-  if (modifier?.includes("left"))
-    return <CornerUpLeft className="size-4 text-primary" />;
-  if (modifier?.includes("right"))
-    return <CornerUpRight className="size-4 text-coral" />;
-  return <MoveUp className="size-4 text-primary" />;
-}
-
-function formatDistance(meters: number): string {
-  if (meters >= 1000) {
-    return `${(meters / 1000).toFixed(1)} km`;
-  }
-  return `${meters} m`;
-}
-
-function routeColor(kind: string, isSelected: boolean): string {
-  if (!isSelected) return "#94a3b8";
-  if (kind === "safer") return "#10b981";
-  if (kind === "alt") return "#06b6d4";
-  return "#f97316";
-}
-
-function getRecentSearches(): Hit[] {
-  try {
-    const raw = localStorage.getItem("safr_recent_destinations");
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.slice(0, 5) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveRecentSearch(hit: Hit): void {
-  try {
-    const recents = getRecentSearches().filter(
-      (r) => r.name.toLowerCase() !== hit.name.toLowerCase(),
-    );
-    recents.unshift(hit);
-    localStorage.setItem(
-      "safr_recent_destinations",
-      JSON.stringify(recents.slice(0, 5)),
-    );
-  } catch {
-    // ignore localStorage errors
-  }
-}
-
-function isGoaNight(timeStr?: string): boolean {
-  if (timeStr) {
-    const [h, m] = timeStr.split(":").map(Number);
-    if (typeof h === "number" && !isNaN(h)) {
-      const minutes = h * 60 + (m || 0);
-      return minutes < 390 || minutes >= 1125; // Before 06:30 or after 18:45
-    }
-  }
-  const istFormatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-  const parts = istFormatter.formatToParts(new Date());
-  const h = Number(parts.find((p) => p.type === "hour")?.value ?? "12");
-  const m = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
-  const minutes = h * 60 + m;
-  return minutes < 390 || minutes >= 1125;
-}
+import type { Hit, Scored, TravelMode } from "@/features/map/lib/types";
+import {
+  DEFAULT_ORIGIN,
+  QUICK_DESTINATIONS,
+} from "@/features/map/lib/constants";
+import { formatDistance, routeColor } from "@/features/map/lib/format";
+import {
+  getRecentSearches,
+  saveRecentSearch,
+} from "@/features/map/lib/recent-searches";
+import { isGoaNight } from "@/features/map/lib/goa-time";
+import { getManeuverIcon } from "@/features/map/lib/maneuver-icon";
 
 // ---------------------------------------------------------------------------
 // MapPage component
