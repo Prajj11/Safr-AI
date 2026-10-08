@@ -357,7 +357,7 @@ function Setup() {
             Add each person. We use kids and seniors to tailor safety tips and
             QR tags.
             <br />
-            Phone numbers added here are the only ones that can be found later in the family/friends location feature.
+            Only the phone numbers you add here can be tracked later. Add a number for anyone you want to be able to find if you get separated.
           </p>
           <div className="space-y-3">
             {people.map((p, i) => (
@@ -422,6 +422,11 @@ function Setup() {
                   {phoneErrors[i] && (
                     <p id={`phone-error-${i}`} className="mt-1 text-sm text-destructive">
                       {phoneErrors[i]}
+                    </p>
+                  )}
+                  {p.phone.trim() !== "" && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Only numbers added here can be tracked. They must agree to share their location on their own phone.
                     </p>
                   )}
                 </div>
