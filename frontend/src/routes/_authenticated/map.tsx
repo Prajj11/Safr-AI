@@ -37,6 +37,7 @@ import {
   Trash2,
   X,
   Zap,
+  Sparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -50,6 +51,9 @@ import type { FeatureCollection } from "geojson";
 import "@/features/map/components/user-location.css";
 import { useUserLocation } from "@/features/map/hooks/useUserLocation";
 import { RecenterButton } from "@/features/map/components/RecenterButton";
+import { usePlacePicker } from "@/features/map/hooks/usePlacePicker";
+import { PlaceCard } from "@/features/map/components/PlaceCard";
+import type { PickedPlace } from "@/features/map/lib/place-picking";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -131,6 +135,7 @@ type Hit = {
   lng: number;
 };
 type Scored = ScoredRoute;
+type TravelMode = "car" | "motor_scooter" | "bicycle" | "walking";
 
 const DEFAULT_ORIGIN = { lat: 15.4989, lng: 73.8278, name: "Panjim" };
 
@@ -312,6 +317,20 @@ function MapPage() {
   activeStyleIdRef.current = activeStyleId;
   const is3dRef = useRef(is3d);
   is3dRef.current = is3d;
+
+  // Fresh state ref for map popups and place card actions (prevents stale closure)
+  const latestMapStateRef = useRef<{
+    origin: { lat: number; lng: number; name: string };
+    destination: Hit | null;
+    waypoints: Hit[];
+    travelMode: TravelMode;
+    calculateCurrentRoute: (
+      orig?: { lat: number; lng: number; name: string },
+      dest?: Hit | null,
+      wps?: Hit[],
+      m?: TravelMode,
+    ) => void;
+  }>(null!);
 
   const userLocation = useUserLocation({
     mapRef,
@@ -984,7 +1003,13 @@ function MapPage() {
           setQuery(hit.name);
           saveRecentSearch(hit);
           setRecentDestinations(getRecentSearches());
-          calculateCurrentRoute(origin, hit, waypoints, travelMode);
+          const {
+            origin: currOrigin,
+            waypoints: currWaypoints,
+            travelMode: currMode,
+            calculateCurrentRoute: currCalc,
+          } = latestMapStateRef.current;
+          currCalc(currOrigin, hit, currWaypoints, currMode);
         });
 
         const btnStop = document.createElement("button");
@@ -992,7 +1017,14 @@ function MapPage() {
           "block w-full text-left text-xs font-semibold py-1 px-2 rounded bg-secondary hover:bg-secondary/80 text-foreground transition-colors";
         btnStop.textContent = "➕ Add as stop";
         btnStop.addEventListener("click", () => {
-          if (waypoints.length >= 5) {
+          const {
+            waypoints: currWaypoints,
+            destination: currDest,
+            origin: currOrigin,
+            travelMode: currMode,
+            calculateCurrentRoute: currCalc,
+          } = latestMapStateRef.current;
+          if (currWaypoints.length >= 5) {
             toast.error("Maximum of 5 stops allowed.");
             return;
           }
@@ -1003,11 +1035,11 @@ function MapPage() {
             lat: Number(lat),
             lng: Number(lng),
           };
-          const updated = [...waypoints, stopHit];
+          const updated = [...currWaypoints, stopHit];
           setWaypoints(updated);
           toast.success(`Added ${name} as stop`);
-          if (destination) {
-            calculateCurrentRoute(origin, destination, updated, travelMode);
+          if (currDest) {
+            currCalc(currOrigin, currDest, updated, currMode);
           }
         });
 
@@ -1235,6 +1267,106 @@ function MapPage() {
       waypoints: wps,
       mode: m,
     });
+  };
+
+  latestMapStateRef.current = {
+    origin,
+    destination,
+    waypoints,
+    travelMode,
+    calculateCurrentRoute,
+  };
+
+  // -----------------------------------------------------------------------
+  // Place picking & PlaceCard logic
+  // -----------------------------------------------------------------------
+  const isCurrentVector =
+    MAP_STYLES.find((s) => s.id === activeStyleId)?.isVector ?? true;
+
+  const routeSheetWasExpandedRef = useRef(false);
+
+  const handlePlacePick = useCallback((_place: PickedPlace) => {
+    setSheetExpanded((prev) => {
+      if (prev) {
+        routeSheetWasExpandedRef.current = true;
+        return false;
+      }
+      return prev;
+    });
+  }, []);
+
+  const handlePlaceDismiss = useCallback(() => {
+    if (routeSheetWasExpandedRef.current) {
+      setSheetExpanded(true);
+      routeSheetWasExpandedRef.current = false;
+    }
+  }, []);
+
+  const { pickedPlace, clearPickedPlace, showRasterChip, dismissRasterChip } =
+    usePlacePicker({
+      map: ready ? mapRef.current : null,
+      maplibre: ready ? maplibreRef.current : null,
+      isVector: isCurrentVector,
+      onPlacePick: handlePlacePick,
+      onDismiss: handlePlaceDismiss,
+    });
+
+  const handlePlaceClose = () => {
+    clearPickedPlace();
+    if (routeSheetWasExpandedRef.current) {
+      setSheetExpanded(true);
+      routeSheetWasExpandedRef.current = false;
+    }
+  };
+
+  const handlePlaceDirections = (place: PickedPlace) => {
+    const hit: Hit = {
+      id: place.id,
+      name: place.name,
+      address: place.kindLabel,
+      lat: place.lat,
+      lng: place.lng,
+    };
+    setDestination(hit);
+    setQuery(hit.name);
+    saveRecentSearch(hit);
+    setRecentDestinations(getRecentSearches());
+    const {
+      origin: currOrigin,
+      waypoints: currWaypoints,
+      travelMode: currMode,
+      calculateCurrentRoute: currCalc,
+    } = latestMapStateRef.current;
+    currCalc(currOrigin, hit, currWaypoints, currMode);
+    clearPickedPlace();
+    routeSheetWasExpandedRef.current = false;
+  };
+
+  const handlePlaceAddStop = (place: PickedPlace) => {
+    const {
+      waypoints: currWaypoints,
+      destination: currDest,
+      origin: currOrigin,
+      travelMode: currMode,
+      calculateCurrentRoute: currCalc,
+    } = latestMapStateRef.current;
+    if (currWaypoints.length >= 5) {
+      toast.error("Maximum of 5 stops allowed.");
+      return;
+    }
+    const stopHit: Hit = {
+      id: place.id,
+      name: place.name,
+      address: place.kindLabel,
+      lat: place.lat,
+      lng: place.lng,
+    };
+    const updated = [...currWaypoints, stopHit];
+    setWaypoints(updated);
+    toast.success(`Added ${place.name} as stop`);
+    if (currDest) {
+      currCalc(currOrigin, currDest, updated, currMode);
+    }
   };
 
   const searchMutation = useMutation({
@@ -2522,6 +2654,52 @@ function MapPage() {
               onCycle={userLocation.cycleFollow}
             />
           </div>
+
+          {/* Raster Style Hint Chip */}
+          {showRasterChip && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full border border-border bg-card/95 px-3 py-1.5 shadow-lg backdrop-blur-sm">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveStyleId("streets");
+                  dismissRasterChip();
+                }}
+                className="text-xs font-medium text-foreground hover:text-primary transition-colors flex items-center gap-1.5"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <span>Switch to Streets to tap places on the map</span>
+              </button>
+              <button
+                type="button"
+                onClick={dismissRasterChip}
+                aria-label="Dismiss hint"
+                className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Picked Place Card */}
+          {pickedPlace && (
+            <PlaceCard
+              place={pickedPlace}
+              userLocation={
+                userLocation.position
+                  ? {
+                      lat: userLocation.position.lat,
+                      lng: userLocation.position.lng,
+                    }
+                  : null
+              }
+
+              savedPlaces={savedPlaces}
+              isStopLimitReached={waypoints.length >= 5}
+              onClose={handlePlaceClose}
+              onDirections={handlePlaceDirections}
+              onAddAsStop={handlePlaceAddStop}
+            />
+          )}
 
           {/* Loading Shimmer Overlay */}
           {isLoadingMap && !mapLoadError && (

@@ -278,3 +278,58 @@ export async function drivingMatrix(points: Coordinate[]) {
     reachable,
   };
 }
+
+export interface PlaceDetailsResult {
+  openingHours?: string | undefined;
+  phone?: string | undefined;
+  website?: string | undefined;
+  cuisine?: string | undefined;
+}
+
+export async function getPlaceDetailsServer({
+  lat,
+  lng,
+  name,
+}: {
+  lat: number;
+  lng: number;
+  name: string;
+}): Promise<PlaceDetailsResult> {
+  try {
+    const query = `[out:json][timeout:6];nwr(around:50,${lat},${lng})["name"];out tags 15;`;
+    const endpoint =
+      process.env["OVERPASS_URL"] || "https://overpass-api.de/api/interpreter";
+    const url = new URL(endpoint);
+    url.searchParams.set("data", query);
+
+    const raw = await fetchJson(url.toString(), {}, 6000);
+    const result = overpassSchema.parse(raw);
+    const elements = result.elements || [];
+
+    const targetLower = name.trim().toLowerCase();
+    const match = elements.find((el) => {
+      const elName = (el.tags?.["name"] || "").trim().toLowerCase();
+      return elName === targetLower;
+    });
+
+    if (!match || !match.tags) {
+      return {};
+    }
+
+    const tags = match.tags;
+    const openingHours = tags["opening_hours"]?.trim() || undefined;
+    const phone = (tags["phone"] || tags["contact:phone"])?.trim() || undefined;
+    const website =
+      (tags["website"] || tags["contact:website"])?.trim() || undefined;
+    const cuisine = tags["cuisine"]?.trim() || undefined;
+
+    return {
+      openingHours,
+      phone,
+      website,
+      cuisine,
+    };
+  } catch {
+    return {};
+  }
+}
