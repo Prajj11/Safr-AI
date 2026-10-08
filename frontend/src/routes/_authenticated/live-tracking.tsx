@@ -372,8 +372,8 @@ function LiveTrackingPage() {
 
   return (
     <AppShell
-      title="Your Location"
-      subtitle="Your device location; family sharing is not connected"
+      title="Reunite"
+      subtitle="Find the family and friends you registered"
       back
     >
       {/* Radar Header */}

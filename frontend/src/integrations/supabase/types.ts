@@ -256,6 +256,7 @@ export type Database = {
           name: string;
           trip_id: string;
           user_id: string;
+          phone_number: string | null;
         };
         Insert: {
           age?: number | null;
@@ -265,6 +266,7 @@ export type Database = {
           name: string;
           trip_id: string;
           user_id: string;
+          phone_number?: string | null;
         };
         Update: {
           age?: number | null;
@@ -274,6 +276,7 @@ export type Database = {
           name?: string;
           trip_id?: string;
           user_id?: string;
+          phone_number?: string | null;
         };
         Relationships: [
           {
