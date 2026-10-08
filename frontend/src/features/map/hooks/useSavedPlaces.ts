@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { Hit } from "../lib/types";
 import { useLatest } from "./useLatest";
 
@@ -248,10 +249,20 @@ export function useSavedPlaces({
     };
   }, [ready, map, maplibre, onSetDestinationLatest, onAddStopLatest]);
 
+  const deleteSavedRoute = useCallback(
+    async (id: string) => {
+      await supabase.from("saved_routes").delete().eq("id", id);
+      refetchSavedRoutes();
+      toast.success("Saved route removed");
+    },
+    [refetchSavedRoutes],
+  );
+
   return {
     savedPlaces,
     savedRoutesList,
     refetchSavedRoutes,
+    deleteSavedRoute,
     showSavedPlaces,
     setShowSavedPlaces,
     showSavedPicker,
@@ -260,4 +271,34 @@ export function useSavedPlaces({
     setShowSavedRoutes,
     syncSavedPlacesLayer,
   };
+}
+
+export function parseSavedRoute(sr: any) {
+  const dest: Hit | null = sr.destination
+    ? {
+        id: "saved",
+        name: sr.destination.name,
+        address: sr.destination.name,
+        lat: sr.destination.lat,
+        lng: sr.destination.lng,
+      }
+    : null;
+  const origin =
+    sr.origin?.lat && sr.origin?.lng
+      ? {
+          lat: sr.origin.lat,
+          lng: sr.origin.lng,
+          name: sr.origin.name || "Saved Start",
+        }
+      : undefined;
+  const waypoints: Hit[] = Array.isArray(sr.waypoints)
+    ? sr.waypoints.map((w: any, idx: number) => ({
+        id: `swp-${idx}`,
+        name: w.name,
+        address: "Goa, India",
+        lat: w.lat,
+        lng: w.lng,
+      }))
+    : [];
+  return { dest, origin, waypoints, mode: sr.mode };
 }

@@ -336,7 +336,67 @@ export function useRoutePlanner({
     }
   }
 
+  const moveStopUp = useCallback(
+    (idx: number) => {
+      setWaypoints((prev) => {
+        const copy = [...prev];
+        const temp = copy[idx - 1]!;
+        copy[idx - 1] = copy[idx]!;
+        copy[idx] = temp;
+        calculateCurrentRoute(origin, destination, copy, travelMode);
+        return copy;
+      });
+    },
+    [calculateCurrentRoute, destination, origin, travelMode],
+  );
+
+  const moveStopDown = useCallback(
+    (idx: number) => {
+      setWaypoints((prev) => {
+        const copy = [...prev];
+        const temp = copy[idx + 1]!;
+        copy[idx + 1] = copy[idx]!;
+        copy[idx] = temp;
+        calculateCurrentRoute(origin, destination, copy, travelMode);
+        return copy;
+      });
+    },
+    [calculateCurrentRoute, destination, origin, travelMode],
+  );
+
+  const removeStop = useCallback(
+    (idx: number) => {
+      setWaypoints((prev) => {
+        const copy = prev.filter((_, i) => i !== idx);
+        calculateCurrentRoute(origin, destination, copy, travelMode);
+        return copy;
+      });
+    },
+    [calculateCurrentRoute, destination, origin, travelMode],
+  );
+
+  const addStop = useCallback(
+    (h: Hit) => {
+      if (waypoints.length >= 5) {
+        toast.error("Maximum 5 stops reached.");
+        return;
+      }
+      const updated = [...waypoints, h];
+      setWaypoints(updated);
+      setShowAddStop(false);
+      setStopHits([]);
+      setStopQuery("");
+      toast.success(`Stop added: ${h.name}`);
+      calculateCurrentRoute(origin, destination, updated, travelMode);
+    },
+    [calculateCurrentRoute, destination, origin, travelMode, waypoints],
+  );
+
   return {
+    moveStopUp,
+    moveStopDown,
+    removeStop,
+    addStop,
     routes,
     setRoutes,
     selected,
