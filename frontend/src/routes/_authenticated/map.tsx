@@ -120,16 +120,10 @@ function MapPage() {
     setRecentDestinations(getRecentSearches());
   }, []);
 
+  const resetViewFnRef = useRef<() => void>(() => {});
   const handleResetView = useCallback(() => {
-    const m = mapRef.current;
-    if (!m) return;
-    if (destination) {
-      fitMapToRouteFnRef.current();
-    } else {
-      m.setMaxBounds(GOA_BOUNDS);
-      m.flyTo({ center: GOA_CENTER, zoom: 11, pitch: 0, bearing: 0 });
-    }
-  }, [destination, mapRef]);
+    resetViewFnRef.current();
+  }, []);
 
   const {
     mapRef,
@@ -157,6 +151,17 @@ function MapPage() {
     appliedStyleIdRef,
     routeDataFn: () => routeDataFnRef.current(),
   });
+
+  resetViewFnRef.current = () => {
+    const m = mapRef.current;
+    if (!m) return;
+    if (destination) {
+      fitMapToRouteFnRef.current();
+    } else {
+      m.setMaxBounds(GOA_BOUNDS);
+      m.flyTo({ center: GOA_CENTER, zoom: 11, pitch: 0, bearing: 0 });
+    }
+  };
 
   const userLocation = useUserLocation({ mapRef, ready, maplibreRef });
   const isNightTime =
