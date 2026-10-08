@@ -118,9 +118,9 @@ export const MAP_STYLES: MapStyleEntry[] = [
   },
 ];
 
-/** Pick the initial style: defaults to osm (standard OpenStreetMap tiles, fast & reliable). */
+/** Interactive vector streets; the map instance falls back to raster on failure. */
 export function getDefaultStyleId(): string {
-  return "osm";
+  return "streets";
 }
 
 // ---------------------------------------------------------------------------

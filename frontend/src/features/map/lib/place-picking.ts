@@ -12,6 +12,12 @@ export type PickedPlace = {
   lng: number;
   rawClass?: string | undefined;
   rawSubclass?: string | undefined;
+  catalogueDetails?: {
+    openingHours?: string | undefined;
+    phone?: string | undefined;
+    website?: string | undefined;
+    cuisine?: string | undefined;
+  };
 };
 
 export interface RawFeatureLike {

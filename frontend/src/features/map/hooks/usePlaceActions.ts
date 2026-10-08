@@ -64,14 +64,19 @@ export function usePlaceActions({
     }
   }, [setSheetExpanded]);
 
-  const { pickedPlace, clearPickedPlace, showRasterChip, dismissRasterChip } =
-    usePlacePicker({
-      map: ready ? map : null,
-      maplibre: ready ? maplibre : null,
-      isVector,
-      onPlacePick: handlePlacePick,
-      onDismiss: handlePlaceDismiss,
-    });
+  const {
+    pickedPlace,
+    setPickedPlace,
+    clearPickedPlace,
+    showRasterChip,
+    dismissRasterChip,
+  } = usePlacePicker({
+    map: ready ? map : null,
+    maplibre: ready ? maplibre : null,
+    isVector,
+    onPlacePick: handlePlacePick,
+    onDismiss: handlePlaceDismiss,
+  });
 
   const handlePlaceClose = () => {
     clearPickedPlace();
@@ -117,6 +122,10 @@ export function usePlaceActions({
   };
 
   return {
+    selectPlace: (place: PickedPlace) => {
+      setPickedPlace(place);
+      handlePlacePick(place);
+    },
     pickedPlace,
     showRasterChip,
     dismissRasterChip,

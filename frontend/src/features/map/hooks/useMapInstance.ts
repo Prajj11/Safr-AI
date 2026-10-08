@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Map as MapLibreMap, IControl } from "maplibre-gl";
+import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import {
   MAP_STYLES,
   GOA_CENTER,
@@ -79,6 +80,7 @@ export function useMapInstance({
     void import("maplibre-gl").then((ml) => {
       if (cancelled || !containerRef.current) return;
       maplibreRef.current = ml;
+      ml.setWorkerUrl(mapWorkerUrl);
       injectMapCSS();
 
       const initStyle =

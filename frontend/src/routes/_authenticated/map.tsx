@@ -27,6 +27,7 @@ import { RoutePanel } from "@/features/map/components/RoutePanel";
 import { SavedRoutesPanel } from "@/features/map/components/SavedRoutesPanel";
 import { SavedPlacesPicker } from "@/features/map/components/SavedPlacesPicker";
 import { MapViewport } from "@/features/map/components/MapViewport";
+import { GoaDiscovery } from "@/features/map/components/GoaDiscovery";
 
 import { DEFAULT_ORIGIN } from "@/features/map/lib/constants";
 import { isGoaNight } from "@/features/map/lib/goa-time";
@@ -320,6 +321,7 @@ function MapPage() {
     MAP_STYLES.find((s) => s.id === activeStyleId)?.isVector ?? true;
   const {
     pickedPlace,
+    selectPlace,
     showRasterChip,
     dismissRasterChip,
     handlePlaceClose,
@@ -399,12 +401,16 @@ function MapPage() {
 
   return (
     <AppShell
-      title="Safe Route Workspace"
-      subtitle="Multi-stop route planning & road intelligence"
+      title="Your Goa map"
+      subtitle="Discover places, save favourites, and plan your route"
       back
     >
       <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 items-start">
         <div className="flex flex-col gap-4 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto pr-1">
+          <GoaDiscovery
+            map={ready ? mapRef.current : null}
+            onPick={selectPlace}
+          />
           <OriginPicker
             originLabel={originLabel}
             isGpsOrigin={isGpsOrigin}

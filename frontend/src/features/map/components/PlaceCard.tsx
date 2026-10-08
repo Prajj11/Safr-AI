@@ -120,7 +120,8 @@ export function PlaceCard({
   });
 
   // Lazy place details (Overpass around:50)
-  const { data: details, isLoading: isLoadingDetails } = useQuery({
+  const { data: fetchedDetails, isLoading: isLoadingDetails } = useQuery({
+    enabled: !place.catalogueDetails,
     queryKey: ["place-details", place.id],
     queryFn: async () => {
       try {
@@ -134,6 +135,7 @@ export function PlaceCard({
     staleTime: 10 * 60 * 1000,
   });
 
+  const details = place.catalogueDetails || fetchedDetails;
   const parsedHours = details?.openingHours
     ? parseOpeningHours(details.openingHours)
     : null;
