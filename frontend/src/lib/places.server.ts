@@ -138,6 +138,41 @@ const overpassSchema = z.object({
 
 import { CURATED_GOA_PLACES } from "./goa-places-data";
 
+/** At most two attempts within six seconds; configured private instances stay private. */
+export async function fetchOverpass(query: string): Promise<unknown> {
+  const primary =
+    process.env["OVERPASS_URL"] || "https://overpass-api.de/api/interpreter";
+  const fallback =
+    process.env["OVERPASS_FALLBACK_URL"] ||
+    (!process.env["OVERPASS_URL"]
+      ? "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+      : "");
+  const endpoints = [...new Set([primary, fallback].filter(Boolean))];
+  const deadline = Date.now() + 6000;
+  for (const [index, endpoint] of endpoints.entries()) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    try {
+      const url = new URL(endpoint);
+      url.searchParams.set("data", query);
+      const value = overpassSchema.parse(
+        await fetchJson(
+          url.toString(),
+          {},
+          index === endpoints.length - 1
+            ? remaining
+            : Math.min(3000, remaining),
+        ),
+      );
+      if (value.remark && !value.elements.length) continue;
+      return value;
+    } catch {
+      /* Try the configured mirror before the caller's curated fallback. */
+    }
+  }
+  throw new Error("Nearby-place providers are temporarily unavailable.");
+}
+
 export async function nearbyPlaces(
   center: Coordinate,
   radiusKm = 5,
@@ -177,14 +212,9 @@ export async function nearbyPlaces(
       ? `${Math.min(...path.map((p) => p.lat)) - latPad},${Math.min(...path.map((p) => p.lng)) - lngPad},${Math.max(...path.map((p) => p.lat)) + latPad},${Math.max(...path.map((p) => p.lng)) + lngPad}`
       : `around:${radiusKm * 1000},${center.lat},${center.lng}`;
   const query = `[out:json][timeout:20];nwr(${around})["name"]->.nearby;(nwr.nearby["amenity"~"^(restaurant|cafe|fast_food|food_court|bar|pub|nightclub|marketplace|place_of_worship)$"];nwr.nearby["tourism"~"^(hotel|guest_house|hostel|motel|attraction|museum|viewpoint|gallery|zoo|theme_park)$"];nwr.nearby["historic"~"^(castle|fort|monument|ruins|archaeological_site)$"];nwr.nearby["natural"~"^(beach|waterfall)$"];nwr.nearby["leisure"~"^(water_park|sports_centre|park|nature_reserve)$"];);out center tags 500;`;
-  const endpoint =
-    process.env["OVERPASS_URL"] || "https://overpass-api.de/api/interpreter";
-  const url = new URL(endpoint);
-  url.searchParams.set("data", query);
-
   let rawResult: unknown;
   try {
-    rawResult = await fetchJson(url.toString(), {}, 25000);
+    rawResult = await fetchOverpass(query);
   } catch (err) {
     if (curatedMatches.length > 0) {
       console.warn(
@@ -326,12 +356,7 @@ export async function getPlaceDetailsServer({
 }): Promise<PlaceDetailsResult> {
   try {
     const query = `[out:json][timeout:6];nwr(around:50,${lat},${lng})["name"];out tags 15;`;
-    const endpoint =
-      process.env["OVERPASS_URL"] || "https://overpass-api.de/api/interpreter";
-    const url = new URL(endpoint);
-    url.searchParams.set("data", query);
-
-    const raw = await fetchJson(url.toString(), {}, 6000);
+    const raw = await fetchOverpass(query);
     const result = overpassSchema.parse(raw);
     const elements = result.elements || [];
 
@@ -379,15 +404,10 @@ export async function nearbyEssentials(
   try {
     const cached = z.array(essentialSchema).safeParse(await getCached(key));
     if (cached.success) return cached.data;
-    const url = new URL(
-      process.env["OVERPASS_URL"] || "https://overpass-api.de/api/interpreter",
-    );
-    url.searchParams.set(
-      "data",
-      `[out:json][timeout:6];nwr(around:10000,${center.lat},${center.lng})["amenity"~"^(hospital|police|pharmacy|clinic)$"];out center tags 60;`,
-    );
     const result = overpassSchema.parse(
-      await fetchJson(url.toString(), {}, 6000),
+      await fetchOverpass(
+        `[out:json][timeout:6];nwr(around:10000,${center.lat},${center.lng})["amenity"~"^(hospital|police|pharmacy|clinic)$"];out center tags 60;`,
+      ),
     );
     if (result.remark) return null;
     const nearest = new Map<string, NearbyEssential>();

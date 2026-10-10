@@ -1,6 +1,12 @@
+import { z } from "zod";
+import type { Database } from "@/integrations/supabase/types";
 import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { Map as MapLibreMap } from "maplibre-gl";
+import type {
+  Map as MapLibreMap,
+  MapLayerMouseEvent,
+  GeoJSONSource,
+} from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -46,14 +52,22 @@ export function useSavedPlaces({
   });
 
   // Saved routes from Supabase
-  const { data: savedRoutesList = [], refetch: refetchSavedRoutes } = useQuery({
+  const {
+    data: savedRoutesList = [],
+    refetch: refetchSavedRoutes,
+    isError: savedRoutesError,
+    isPending: savedRoutesPending,
+  } = useQuery({
     queryKey: ["saved-routes"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("saved_routes")
         .select("*")
         .order("created_at", { ascending: false });
-      if (error) return [];
+      if (error)
+        throw new Error(
+          "Saved routes could not be loaded. Check database setup and retry.",
+        );
       return data || [];
     },
   });
@@ -163,11 +177,14 @@ export function useSavedPlaces({
   useEffect(() => {
     if (!ready || !map || !maplibre) return;
 
-    const onPointsClick = (e: any) => {
+    const onPointsClick = (e: MapLayerMouseEvent) => {
       const feature = e.features?.[0];
-      if (!feature) return;
-      const coordinates = (feature.geometry as any).coordinates.slice();
-      const { id, name, category, lat, lng } = feature.properties as any;
+      if (!feature || feature.geometry.type !== "Point") return;
+      const coordinates = feature.geometry.coordinates.slice() as [
+        number,
+        number,
+      ];
+      const { id, name, category, lat, lng } = feature.properties;
 
       const popupDiv = document.createElement("div");
       popupDiv.className = "p-2 min-w-[180px]";
@@ -219,20 +236,29 @@ export function useSavedPlaces({
         .addTo(map);
     };
 
-    const onClustersClick = (e: any) => {
+    const onClustersClick = (e: MapLayerMouseEvent) => {
       const features = map.queryRenderedFeatures(e.point, {
         layers: ["safr-saved-clusters"],
       });
       const clusterId = features[0]?.properties?.["cluster_id"];
-      const source = map.getSource("safr-saved-places-src") as any;
-      if (source && typeof source.getClusterExpansionZoom === "function") {
-        source.getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
-          if (err) return;
-          map.easeTo({
-            center: (features[0]?.geometry as any).coordinates,
-            zoom,
+      const source = map.getSource<GeoJSONSource>("safr-saved-places-src");
+      const geometry = features[0]?.geometry;
+      if (
+        source &&
+        typeof clusterId === "number" &&
+        geometry?.type === "Point"
+      ) {
+        void source
+          .getClusterExpansionZoom(clusterId)
+          .then((zoom) => {
+            map.easeTo({
+              center: geometry.coordinates as [number, number],
+              zoom,
+            });
+          })
+          .catch(() => {
+            /* source may have been removed */
           });
-        });
       }
     };
 
@@ -251,7 +277,14 @@ export function useSavedPlaces({
 
   const deleteSavedRoute = useCallback(
     async (id: string) => {
-      await supabase.from("saved_routes").delete().eq("id", id);
+      const { error } = await supabase
+        .from("saved_routes")
+        .delete()
+        .eq("id", id);
+      if (error) {
+        toast.error("The route could not be removed. Please retry.");
+        return;
+      }
       refetchSavedRoutes();
       toast.success("Saved route removed");
     },
@@ -261,6 +294,8 @@ export function useSavedPlaces({
   return {
     savedPlaces,
     savedRoutesList,
+    savedRoutesError,
+    savedRoutesPending,
     refetchSavedRoutes,
     deleteSavedRoute,
     showSavedPlaces,
@@ -273,32 +308,51 @@ export function useSavedPlaces({
   };
 }
 
-export function parseSavedRoute(sr: any) {
-  const dest: Hit | null = sr.destination
+const savedPointSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  name: z.string().optional(),
+});
+export function parseSavedRoute(
+  sr: Database["public"]["Tables"]["saved_routes"]["Row"],
+) {
+  const destination = savedPointSchema.safeParse(sr.destination);
+  const start = savedPointSchema.safeParse(sr.origin);
+  const dest: Hit | null = destination.success
     ? {
         id: "saved",
-        name: sr.destination.name,
-        address: sr.destination.name,
-        lat: sr.destination.lat,
-        lng: sr.destination.lng,
+        name: destination.data.name || "Saved destination",
+        address: destination.data.name || "Goa",
+        lat: destination.data.lat,
+        lng: destination.data.lng,
       }
     : null;
-  const origin =
-    sr.origin?.lat && sr.origin?.lng
-      ? {
-          lat: sr.origin.lat,
-          lng: sr.origin.lng,
-          name: sr.origin.name || "Saved Start",
-        }
-      : undefined;
-  const waypoints: Hit[] = Array.isArray(sr.waypoints)
-    ? sr.waypoints.map((w: any, idx: number) => ({
-        id: `swp-${idx}`,
-        name: w.name,
-        address: "Goa, India",
-        lat: w.lat,
-        lng: w.lng,
-      }))
-    : [];
-  return { dest, origin, waypoints, mode: sr.mode };
+  const origin = start.success
+    ? { ...start.data, name: start.data.name || "Saved Start" }
+    : undefined;
+  const waypoints: Hit[] = (
+    Array.isArray(sr.waypoints) ? sr.waypoints : []
+  ).flatMap((value, index) => {
+    const point = savedPointSchema.safeParse(value);
+    return point.success
+      ? [
+          {
+            id: `swp-${index}`,
+            name: point.data.name || `Stop ${index + 1}`,
+            address: "Goa, India",
+            lat: point.data.lat,
+            lng: point.data.lng,
+          },
+        ]
+      : [];
+  });
+  return {
+    dest,
+    origin,
+    waypoints,
+    mode: z
+      .enum(["car", "motor_scooter", "bicycle", "walking"])
+      .catch("car")
+      .parse(sr.mode),
+  };
 }

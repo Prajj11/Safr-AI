@@ -1,3 +1,4 @@
+import { staticResponseHeaders } from "./server-static.mjs";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -6,6 +7,9 @@ import { toNodeHandler } from "srvx/node";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+// Production starts do not pass through Vite: load server-only local settings here.
+if (fs.existsSync(path.join(__dirname, ".env")))
+  process.loadEnvFile(path.join(__dirname, ".env"));
 
 const clientDir = fs.existsSync(path.resolve(__dirname, "dist/client"))
   ? path.resolve(__dirname, "dist/client")
@@ -98,14 +102,10 @@ const server = http.createServer((req, res) => {
         if (stat.isFile()) {
           const ext = path.extname(filePath).toLowerCase();
           const contentType = MIME_TYPES[ext] || "application/octet-stream";
-          if (pathname.startsWith("/assets/")) {
-            res.setHeader(
-              "Cache-Control",
-              "public, max-age=31536000, immutable",
-            );
-          } else {
-            res.setHeader("Cache-Control", "public, max-age=3600");
-          }
+          for (const [name, value] of Object.entries(
+            staticResponseHeaders(pathname),
+          ))
+            res.setHeader(name, value);
           res.setHeader("Content-Type", contentType);
           res.setHeader("Content-Length", stat.size);
           fs.createReadStream(filePath).pipe(res);
@@ -113,21 +113,6 @@ const server = http.createServer((req, res) => {
         }
       } catch (err) {
         console.error("Error reading static file:", err);
-      }
-    }
-  } else if (pathname === "/sw.js") {
-    const swPath = path.join(clientDir, "sw.js");
-    if (fs.existsSync(swPath)) {
-      try {
-        const stat = fs.statSync(swPath);
-        res.setHeader("Cache-Control", "no-cache");
-        res.setHeader("Service-Worker-Allowed", "/");
-        res.setHeader("Content-Type", "application/javascript");
-        res.setHeader("Content-Length", stat.size);
-        fs.createReadStream(swPath).pipe(res);
-        return;
-      } catch (err) {
-        console.error("Error reading sw.js:", err);
       }
     }
   }

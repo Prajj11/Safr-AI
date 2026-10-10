@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { useState, useCallback, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -75,17 +76,23 @@ export function useRoutePlanner({
         const parsedStops = JSON.parse(initialStops);
         if (Array.isArray(parsedStops)) {
           const validated = parsedStops
-            .filter(
-              (s: any) =>
-                typeof s.lat === "number" && typeof s.lng === "number",
-            )
+            .flatMap((value: unknown) => {
+              const result = z
+                .object({
+                  lat: z.number().min(-90).max(90),
+                  lng: z.number().min(-180).max(180),
+                  name: z.string().optional(),
+                })
+                .safeParse(value);
+              return result.success ? [result.data] : [];
+            })
             .slice(0, 5)
-            .map((s: any, idx: number) => ({
-              id: `param-stop-${idx}`,
-              name: s.name || `Stop ${idx + 1}`,
+            .map((point, index) => ({
+              id: `param-stop-${index}`,
+              name: point.name || `Stop ${index + 1}`,
               address: "Goa, India",
-              lat: s.lat,
-              lng: s.lng,
+              lat: point.lat,
+              lng: point.lng,
             }));
           setWaypoints(validated);
         }

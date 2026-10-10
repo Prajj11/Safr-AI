@@ -6,6 +6,9 @@ declare global {
     googleTranslateElementInit?: () => void;
     google?: {
       translate?: {
+        TranslateService?: {
+          getInstance: () => { restore: () => void } | undefined;
+        };
         TranslateElement?: new (
           options: {
             pageLanguage: string;
@@ -246,8 +249,7 @@ export function GoogleTranslate() {
 
       // 1. Try Google Translate internal TranslateService restore if present
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const svc = (window as any).google?.translate?.TranslateService;
+        const svc = window.google?.translate?.TranslateService;
         if (svc) {
           svc.getInstance()?.restore();
         }

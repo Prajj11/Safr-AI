@@ -1,88 +1,38 @@
-process.loadEnvFile();
-
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+import { auditedTables, classifyRead } from "./rls-audit.mjs";
+const envFile = fileURLToPath(new URL("../../frontend/.env", import.meta.url));
+if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
 const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
-
+const key =
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_PUBLISHABLE_KEY;
 if (!url || !key) {
-  console.log('No Supabase credentials found in env');
+  console.error("Supabase URL/publishable key is not configured.");
   process.exit(1);
 }
-
-const tables = [
-  'profiles',
-  'trips',
-  'travellers',
-  'safety_tags',
-  'itineraries',
-  'emergency_contacts',
-  'safety_tag_scans',
-  'saved_places'
-];
-
-console.log('=== Checking Supabase Row Level Security (RLS) ===');
-console.log('Project host:', new URL(url).hostname);
-
-let anyLeak = false;
-
-for (const table of tables) {
+console.log("Anonymous, read-only exposure audit:", new URL(url).hostname);
+console.log(
+  "Bucket list uses saved_places; no separate bucket_list table is queried by this app.",
+);
+const headers = { apikey: key };
+if (key.startsWith("eyJ")) headers.Authorization = `Bearer ${key}`;
+let failed = false;
+for (const table of auditedTables) {
   try {
-    // 1. Test unauthenticated SELECT
-    const selectRes = await fetch(`${url}/rest/v1/${table}?select=*`, {
-      headers: {
-        'apikey': key,
-        'Authorization': `Bearer ${key}`
-      }
+    const response = await fetch(`${url}/rest/v1/${table}?select=*&limit=1`, {
+      headers,
+      signal: AbortSignal.timeout(6000),
     });
-
-    const status = selectRes.status;
-    const data = await selectRes.json();
-
-    if (table === 'emergency_contacts') {
-      if (selectRes.ok && Array.isArray(data) && data.length > 0) {
-        console.log(`✓ [${table}] Public directory correctly accessible (HTTP ${status}, returned ${data.length} emergency contacts)`);
-      } else {
-        console.log(`? [${table}] Public directory returned HTTP ${status}:`, data);
-      }
-      continue;
-    }
-
-    if (Array.isArray(data)) {
-      if (data.length === 0) {
-        console.log(`✓ [${table}] RLS PROTECTED: 0 rows exposed to unauthenticated/anon requests (HTTP ${status})`);
-      } else {
-        console.error(`🚨 [${table}] LEAK WARNING! RLS may be OFF or misconfigured: ${data.length} rows exposed to anon!`);
-        anyLeak = true;
-      }
-    } else {
-      console.log(`✓ [${table}] Access restricted or not found (HTTP ${status}: ${data.message || data.code || JSON.stringify(data)})`);
-    }
-
-    // 2. Test unauthenticated INSERT on sensitive tables
-    if (['profiles', 'trips', 'itineraries', 'saved_places'].includes(table)) {
-      const insertRes = await fetch(`${url}/rest/v1/${table}`, {
-        method: 'POST',
-        headers: {
-          'apikey': key,
-          'Authorization': `Bearer ${key}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({ id: '00000000-0000-0000-0000-000000000000', dummy: 'test' })
-      });
-      if (insertRes.ok) {
-        console.error(`🚨 [${table}] WRITE LEAK! Anon was able to insert into ${table}!`);
-        anyLeak = true;
-      } else {
-        console.log(`  └─ Write blocked for anon: HTTP ${insertRes.status}`);
-      }
-    }
-  } catch (err) {
-    console.error(`[${table}] Error testing table: ${err.message}`);
+    const result = classifyRead(table, response.status, await response.json());
+    console.log(`[${table}] ${result.kind}: ${result.message}`);
+    if (["missing", "leak", "error"].includes(result.kind)) failed = true;
+  } catch {
+    console.error(`[${table}] Request failed; security could not be verified.`);
+    failed = true;
   }
 }
-
-if (!anyLeak) {
-  console.log('\n🎉 ALL SENSITIVE TABLES ARE SECURED WITH ROW LEVEL SECURITY!');
-} else {
-  console.log('\n⚠️ ACTION REQUIRED: Some tables exposed data to unauthenticated requests.');
-}
+console.log(
+  "This audit does not certify RLS. Verify enabled RLS and own-row policies using the SQL checks and two authenticated test accounts.",
+);
+process.exitCode = failed ? 1 : 2; // 2 explicitly means policy verification remains incomplete.

@@ -226,6 +226,8 @@ function MapPage() {
   const {
     savedPlaces,
     savedRoutesList,
+    savedRoutesError,
+    savedRoutesPending,
     refetchSavedRoutes,
     deleteSavedRoute,
     showSavedPlaces,
@@ -379,10 +381,9 @@ function MapPage() {
     calculateCurrentRoute(origin, h, waypoints, travelMode);
   };
 
-  const handleSelectSavedRoute = (sr: {
-    name: string;
-    [key: string]: unknown;
-  }) => {
+  const handleSelectSavedRoute = (
+    sr: import("@/features/map/components/SavedRoutesPanel").SavedRouteItem,
+  ) => {
     const { dest, origin: orig, waypoints: wps, mode } = parseSavedRoute(sr);
     if (dest) {
       setDestination(dest);
@@ -489,6 +490,9 @@ function MapPage() {
           <SavedRoutesPanel
             isOpen={showSavedRoutes}
             savedRoutesList={savedRoutesList}
+            error={savedRoutesError}
+            pending={savedRoutesPending}
+            onRetry={() => void refetchSavedRoutes()}
             onClose={() => setShowSavedRoutes(false)}
             onSelectRoute={handleSelectSavedRoute}
             onDeleteRoute={deleteSavedRoute}

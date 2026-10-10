@@ -1,18 +1,14 @@
 import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export interface SavedRouteItem {
-  id: string;
-  name: string;
-  mode?: string;
-  origin?: unknown;
-  destination?: unknown;
-  waypoints?: unknown;
-  [key: string]: unknown;
-}
+export type SavedRouteItem =
+  import("@/integrations/supabase/types").Database["public"]["Tables"]["saved_routes"]["Row"];
 
 export interface SavedRoutesPanelProps {
   isOpen: boolean;
+  error?: boolean;
+  pending?: boolean;
+  onRetry?: () => void;
   savedRoutesList: SavedRouteItem[];
   onClose: () => void;
   onSelectRoute: (route: SavedRouteItem) => void;
@@ -21,6 +17,9 @@ export interface SavedRoutesPanelProps {
 
 export function SavedRoutesPanel({
   isOpen,
+  error,
+  pending,
+  onRetry,
   savedRoutesList,
   onClose,
   onSelectRoute,
@@ -43,7 +42,16 @@ export function SavedRoutesPanel({
           <X className="size-3.5" />
         </Button>
       </div>
-      {savedRoutesList.length === 0 ? (
+      {error ? (
+        <div className="text-sm">
+          Saved routes could not be loaded.{" "}
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            Retry
+          </Button>
+        </div>
+      ) : pending ? (
+        <p role="status">Loading saved routes…</p>
+      ) : savedRoutesList.length === 0 ? (
         <p className="text-xs text-muted-foreground">
           No saved routes yet. Plan a trip and click "Save Route".
         </p>

@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabaseAdmin } from "../integrations/supabase/client.server";
 import { sendSafeTagAlert } from "./notifications.server";
 import {
   checkRateLimit,
@@ -60,6 +60,18 @@ export async function handleTagAlertRequest(
     const lat = sanitizeCoordinates(body.lat);
     const lng = sanitizeCoordinates(body.lng);
 
+    if (
+      !process.env["SUPABASE_URL"] ||
+      !process.env["SUPABASE_SERVICE_ROLE_KEY"]
+    ) {
+      return Response.json(
+        {
+          error:
+            "Alert delivery is temporarily unavailable. Please contact the guardian using another available method.",
+        },
+        { status: 503 },
+      );
+    }
     // Load tag and guardian details server-side ONLY
     const { data: tag, error: tagError } = await supabaseAdmin
       .from("safety_tags")

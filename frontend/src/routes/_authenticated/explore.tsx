@@ -792,15 +792,16 @@ function Explore() {
         });
 
         // Zoom into cluster on click
-        map.on("click", "clusters", (e: any) => {
+        map.on("click", "clusters", (e) => {
           const features = map.queryRenderedFeatures(e.point, {
             layers: ["clusters"],
           });
           const clusterId = features[0]?.properties?.["cluster_id"];
           if (clusterId == null) return;
 
-          const source = map.getSource("saved-places") as any;
-          source.getClusterExpansionZoom(clusterId).then((zoom: number) => {
+          const source =
+            map.getSource<import("maplibre-gl").GeoJSONSource>("saved-places");
+          source?.getClusterExpansionZoom(clusterId).then((zoom: number) => {
             const geom = features[0]?.geometry;
             if (geom?.type === "Point") {
               map.easeTo({
@@ -812,7 +813,7 @@ function Explore() {
         });
 
         // Click on unclustered point opens DOM-safe popup
-        map.on("click", "unclustered-point", (e: any) => {
+        map.on("click", "unclustered-point", (e) => {
           const feature = e.features?.[0];
           if (!feature || feature.geometry.type !== "Point") return;
 
@@ -1225,7 +1226,9 @@ function Explore() {
                     </span>
                     <select
                       value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as any)}
+                      onChange={(e) =>
+                        setSortBy(e.target.value as typeof sortBy)
+                      }
                       aria-label="Sort bucket list places"
                       className="h-9 rounded-full px-3 text-xs bg-secondary border border-border/40 font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
                     >

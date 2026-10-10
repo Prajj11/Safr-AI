@@ -40,7 +40,7 @@ export function scheduleItinerary(input: {
     deadline = start + input.hours * 60;
   let clock = start,
     previous = 0;
-  const stops: any[] = [];
+  const stops: PlanStop[] = [];
   const remaining = input.candidates.map((place, i) => ({
     place,
     index: i + 1,

@@ -30,7 +30,7 @@ backend/
    - Migration history preserved in `supabase/migrations/`.
 
 2. **Server Runtime (`server.mjs`)**:
-   - Node.js HTTP server running TanStack Start Server Side Rendering.
+   - Compatibility entry point importing `../frontend/server.mjs`, the single production HTTP/SSR implementation.
    - Hardened Content-Security-Policy (CSP) allowing Google Translate, OpenStreetMap tiles, and Supabase WebSockets.
 
 3. **External Services & Integrations (`API_SETUP.md`)**:
