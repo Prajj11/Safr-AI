@@ -1,3 +1,4 @@
+import { getPlaceArticle } from "@/lib/goa.functions";
 import { ExploreSearch } from "@/features/explore/components/ExploreSearch";
 import { NearbyRecommendations } from "@/features/explore/components/NearbyRecommendations";
 import { SafetyEssentialsCard } from "@/features/explore/components/SafetyEssentialsCard";
@@ -83,16 +84,6 @@ export const Route = createFileRoute("/_authenticated/explore")({
 });
 
 type SavedPlace = Database["public"]["Tables"]["saved_places"]["Row"];
-
-const bandStyles: Record<string, string> = {
-  unknown: "bg-secondary text-muted-foreground",
-  quiet:
-    "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30",
-  moderate:
-    "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30",
-  busy: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border border-orange-500/30",
-  packed: "bg-destructive/15 text-destructive border border-destructive/30",
-};
 
 const severityStyles: Record<string, string> = {
   low: "border-l-blue-500",
@@ -517,6 +508,19 @@ function Explore() {
       { timeout: 8000, maximumAge: 60000 },
     );
   }
+  const articleFn = useServerFn(getPlaceArticle);
+  const articleQuery = useQuery({
+    queryKey: [
+      "explore-article",
+      data?.location.name,
+      data?.location.lat,
+      data?.location.lng,
+    ],
+    queryFn: () => articleFn({ data: data!.location }),
+    enabled: Boolean(data) && !data?.wikipedia && !nearMe,
+    staleTime: 7 * 86400000,
+    retry: false,
+  });
   const nearbyFn = useServerFn(getPlaceNearby);
   const nearbyQuery = useQuery({
     queryKey: [
@@ -1855,7 +1859,7 @@ function Explore() {
             </div>
           )}
 
-          {(insights.isError ||
+          {((!nearMe && insights.isError) ||
             (searchPlace && !isLoadingInsights && !data)) && (
             <section className="mt-6 rounded-2xl border border-border bg-card p-5">
               <p>
@@ -1949,11 +1953,30 @@ function Explore() {
 
                 <div className="mt-4">
                   <PlaceHero
-                    data={data}
+                    data={{
+                      ...data,
+                      ...(articleQuery.data || {}),
+                      summary:
+                        nearbyQuery.data && !nearMe
+                          ? `${data.summary} ${nearbyQuery.data.osmCount} places nearby from OpenStreetMap.${nearbyQuery.data.curatedCount ? ` ${nearbyQuery.data.curatedCount} curated places nearby.` : ""}`
+                          : data.summary,
+                    }}
                     sunset={formatGoaTime(
                       conditionsQuery.data?.conditions?.weather?.sunset,
                     )}
                   />
+                  {articleQuery.isError && (
+                    <p className="text-sm">
+                      The article could not be loaded.{" "}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void articleQuery.refetch()}
+                      >
+                        Retry article
+                      </Button>
+                    </p>
+                  )}
                 </div>
               </section>
 

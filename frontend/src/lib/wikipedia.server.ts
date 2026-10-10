@@ -38,7 +38,7 @@ const summarySchema = z.object({
   content_urls: z.object({ desktop: z.object({ page: webUrl }) }),
 });
 
-export async function lookupWikipedia({
+async function loadWikipedia({
   name,
   lat,
   lng,
@@ -88,4 +88,18 @@ export async function lookupWikipedia({
   } catch {
     return null;
   }
+}
+
+const pending = new Map<string, Promise<WikipediaArticle | null>>();
+export function lookupWikipedia(place: {
+  name: string;
+  lat: number;
+  lng: number;
+}): Promise<WikipediaArticle | null> {
+  const key = `${place.name.toLowerCase()}:${place.lat.toFixed(3)},${place.lng.toFixed(3)}`;
+  const current = pending.get(key);
+  if (current) return current;
+  const request = loadWikipedia(place).finally(() => pending.delete(key));
+  pending.set(key, request);
+  return request;
 }

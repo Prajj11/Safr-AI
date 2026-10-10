@@ -22,7 +22,7 @@ export function ConditionsCard({
     return (
       <Skeleton className="h-40 rounded-3xl" aria-label="Loading conditions" />
     );
-  if (error)
+  if (error || data?.conditions === null)
     return (
       <section className="rounded-3xl border p-5">
         <p>Conditions could not be loaded.</p>

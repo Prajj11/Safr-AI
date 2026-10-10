@@ -19,7 +19,7 @@ export function CrowdReportCard({ placeKey }: { placeKey: string }) {
     queryKey: ["explore-crowd", placeKey],
     queryFn: () => get({ data: { placeKey } }),
     staleTime: 60000,
-    refetchInterval: 60000,
+    refetchInterval: 300000,
     retry: false,
   });
   const mutation = useMutation({

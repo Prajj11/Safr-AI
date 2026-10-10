@@ -50,3 +50,14 @@ test("Wikipedia rejects unrelated nearby articles and HTTP errors without throwi
   t.mock.method(globalThis, "fetch", async () => new Response("busy", { status: 503 }));
   assert.equal(await lookupWikipedia({ name: "Palolem", lat: 15.01, lng: 74.02 }), null);
 });
+test("parallel Wikipedia requests share a single matched lookup", async t => {
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    calls++;
+    return Response.json(String(url).includes("geosearch") ? {query: {geosearch: [{title: "Se Cathedral", lat: 15.5, lon: 73.9, dist: 1}]}} : {title: "Se Cathedral", extract: "A cathedral in Goa.", content_urls: {desktop: {page: "https://en.wikipedia.org/wiki/Se_Cathedral"}}});
+  });
+  const place = {name: "Se Cathedral", lat: 15.50099, lng: 73.90099};
+  const [a, b] = await Promise.all([lookupWikipedia(place), lookupWikipedia(place)]);
+  assert.deepEqual(a, b);
+  assert.equal(calls, 2);
+});

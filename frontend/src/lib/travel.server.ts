@@ -1,3 +1,4 @@
+import { normalizePlaceName } from "./place-names";
 import { matchCuratedPlace } from "./curated-match";
 import { lookupWikipedia } from "./wikipedia.server";
 import { z } from "zod";
@@ -481,7 +482,25 @@ export async function loadPlaceNearby(base: {
   lng: number;
 }) {
   try {
-    const places = await nearbyPlaces(base, 5);
+    const places = (await nearbyPlaces(base, 5)).filter(
+      (place) => place.distanceKm <= 5,
+    );
+    // Keep the Explore merge local: itinerary routing retains its existing candidate set.
+    for (const curated of CURATED_GOA_PLACES) {
+      const distance = distanceKm(base, curated);
+      if (
+        distance <= 5 &&
+        !places.some(
+          (place) =>
+            normalizePlaceName(place.name) ===
+              normalizePlaceName(curated.name) &&
+            distanceKm(place, curated) < 0.3,
+        )
+      ) {
+        places.push({ ...curated, distanceKm: distance });
+      }
+    }
+    places.sort((a, b) => a.distanceKm - b.distanceKm);
     const recommend = (p: NearbyPlace) => ({
       name: p.name,
       lat: p.lat,
@@ -496,6 +515,10 @@ export async function loadPlaceNearby(base: {
         : "Opening hours unavailable. Check with the venue before visiting.",
     });
     return {
+      osmCount: places.filter((place) => !place.id.startsWith("curated/"))
+        .length,
+      curatedCount: places.filter((place) => place.id.startsWith("curated/"))
+        .length,
       eat: places
         .filter((p) => p.category === "restaurant")
         .slice(0, 6)
@@ -507,7 +530,11 @@ export async function loadPlaceNearby(base: {
         .slice(0, 6)
         .map(recommend),
       sights: places
-        .filter((p) => p.category === "attraction")
+        .filter(
+          (p) =>
+            p.category === "attraction" &&
+            !["marketplace", "gallery", "theme_park", "zoo"].includes(p.kind),
+        )
         .slice(0, 6)
         .map(recommend),
     };

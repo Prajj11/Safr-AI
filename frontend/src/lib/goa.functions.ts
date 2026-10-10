@@ -152,3 +152,33 @@ export const getPlaceNearby = createServerFn({ method: "POST" })
     const { loadPlaceNearby } = await import("./travel.server");
     return loadPlaceNearby(data);
   });
+
+/** Optional article hydration lets a slow source fill the hero after core first paint. */
+export const getPlaceArticle = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    coordinateSchema
+      .extend({ name: z.string().trim().min(1).max(200) })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { checkExploreAccess } = await import("./explore-access.server");
+    checkExploreAccess(context.userId);
+    const { lookupWikipedia } = await import("./wikipedia.server");
+    const article = await lookupWikipedia(data);
+    if (!article) return null;
+    return {
+      wikipedia: article,
+      ...(article.imageUrl
+        ? {
+            media: {
+              imageUrl: article.imageUrl,
+              credit: {
+                label: "Wikipedia / Wikimedia — view image attribution",
+                url: article.pageUrl,
+              },
+            },
+          }
+        : {}),
+    };
+  });
