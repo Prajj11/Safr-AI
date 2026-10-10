@@ -1,3 +1,5 @@
+import { ConditionsCard } from "@/features/explore/components/ConditionsCard";
+import { formatGoaTime } from "@/lib/conditions";
 import { ALL_FEATURED } from "@/lib/explore-featured";
 import { PlaceHero } from "@/features/explore/components/PlaceHero";
 import { normalizePlaceName } from "@/lib/place-names";
@@ -53,7 +55,11 @@ import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GOA_PLACES, type PlaceInsights } from "@/lib/goa-schemas";
-import { getPlaceInsights, getFeaturedMedia } from "@/lib/goa.functions";
+import {
+  getPlaceInsights,
+  getFeaturedMedia,
+  getPlaceConditions,
+} from "@/lib/goa.functions";
 import { searchPlaces } from "@/lib/maps.functions";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -480,6 +486,26 @@ function Explore() {
   });
 
   const data = insights.data;
+  const conditionsFn = useServerFn(getPlaceConditions);
+  const conditionsQuery = useQuery({
+    queryKey: [
+      "explore-conditions",
+      data?.location.lat,
+      data?.location.lng,
+      data?.curated?.kind,
+    ],
+    enabled: Boolean(data),
+    queryFn: () =>
+      conditionsFn({
+        data: {
+          lat: data!.location.lat,
+          lng: data!.location.lng,
+          ...(data?.curated?.kind ? { kind: data.curated.kind } : {}),
+        },
+      }),
+    staleTime: 600000,
+    retry: false,
+  });
 
   // Filtered & Sorted Saved Places
   const filteredSavedPlaces = useMemo(() => {
@@ -1854,9 +1880,21 @@ function Explore() {
                 </div>
 
                 <div className="mt-4">
-                  <PlaceHero data={data} />
+                  <PlaceHero
+                    data={data}
+                    sunset={formatGoaTime(
+                      conditionsQuery.data?.conditions?.weather?.sunset,
+                    )}
+                  />
                 </div>
               </section>
+
+              <ConditionsCard
+                data={conditionsQuery.data}
+                pending={conditionsQuery.isPending}
+                error={conditionsQuery.isError}
+                onRetry={() => void conditionsQuery.refetch()}
+              />
 
               {/* BEST MODE OF TRANSPORT CARD */}
               {data.transport_advice && (

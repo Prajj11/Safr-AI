@@ -62,3 +62,25 @@ export const getFeaturedMedia = createServerFn({ method: "GET" })
       ),
     );
   });
+
+export const getPlaceConditions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    coordinateSchema
+      .extend({ kind: z.string().max(100).optional() })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { checkExploreAccess } = await import("./explore-access.server");
+    checkExploreAccess(context.userId);
+    const { fetchConditions } = await import("./conditions.server");
+    const { deriveAdvisories } = await import("./conditions-advice");
+    const conditions = await fetchConditions(data);
+    return {
+      conditions,
+      advisories: deriveAdvisories(conditions, {
+        kind: data.kind,
+        now: new Date(),
+      }),
+    };
+  });
