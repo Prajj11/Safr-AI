@@ -1,3 +1,4 @@
+import { ExploreSearch } from "@/features/explore/components/ExploreSearch";
 import { NearbyRecommendations } from "@/features/explore/components/NearbyRecommendations";
 import { SafetyEssentialsCard } from "@/features/explore/components/SafetyEssentialsCard";
 import { CrowdReportCard } from "@/features/explore/components/CrowdReportCard";
@@ -1650,31 +1651,11 @@ function Explore() {
       {/* EXPLORE PLACES TAB */}
       {activeTab === "explore" && (
         <>
-          {/* Search Form */}
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const place = query.trim();
-              if (place.length < 2) return;
-              openPlace(place);
-            }}
-          >
-            <Input
-              value={query}
-              maxLength={80}
-              placeholder="Search beaches, forts, waterfalls, markets in Goa…"
-              onChange={(e) => setQuery(e.target.value)}
-              className="h-12 text-base rounded-full bg-card/70 border-border/50"
-            />
-            <Button
-              type="submit"
-              disabled={isLoadingInsights}
-              className="h-12 px-6 rounded-full font-bold"
-            >
-              <Search className="size-4 mr-1.5" /> Explore
-            </Button>
-          </form>
+          <ExploreSearch
+            value={query}
+            onChange={setQuery}
+            onSearch={openPlace}
+          />
 
           {/* Quick Category Chips */}
           <div className="mt-3 flex flex-wrap items-center gap-2">

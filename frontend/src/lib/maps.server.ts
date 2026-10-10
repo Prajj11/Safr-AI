@@ -19,45 +19,42 @@ export type PlaceHit = {
 
 export async function searchGoaPlaces(query: string): Promise<PlaceHit[]> {
   const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query + " Goa")}&lat=15.35&lon=73.95&limit=6`;
-  const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  try {
+    const json = z
+      .object({
+        features: z.array(
+          z.object({
+            properties: z.object({
+              osm_id: z.number(),
+              osm_type: z.string().optional(),
+              name: z.string().optional(),
+              street: z.string().optional(),
+              city: z.string().optional(),
+              state: z.string().optional(),
+            }),
+            geometry: z.object({
+              coordinates: z.tuple([z.number(), z.number()]),
+            }),
+          }),
+        ),
+      })
+      .parse(await fetchJson(url, {}, 6000));
 
-  if (!response.ok) {
-    console.error(`Places search failed [${response.status}]`);
-    throw new Error("Place search failed. Please try again.");
+    return json.features
+      .filter((f) => f.properties.state === "Goa")
+      .map((f) => ({
+        id: `${f.properties.osm_type || "place"}/${f.properties.osm_id}`,
+        name: f.properties.name ?? "Unnamed place",
+        address:
+          [f.properties.street, f.properties.city, f.properties.state]
+            .filter(Boolean)
+            .join(", ") || "Goa, India",
+        lat: f.geometry.coordinates[1],
+        lng: f.geometry.coordinates[0],
+      }));
+  } catch {
+    return [];
   }
-
-  const json = z
-    .object({
-      features: z.array(
-        z.object({
-          properties: z.object({
-            osm_id: z.number(),
-            osm_type: z.string().optional(),
-            name: z.string().optional(),
-            street: z.string().optional(),
-            city: z.string().optional(),
-            state: z.string().optional(),
-          }),
-          geometry: z.object({
-            coordinates: z.tuple([z.number(), z.number()]),
-          }),
-        }),
-      ),
-    })
-    .parse(await response.json());
-
-  return json.features
-    .filter((f) => f.properties.state === "Goa")
-    .map((f) => ({
-      id: `${f.properties.osm_type || "place"}/${f.properties.osm_id}`,
-      name: f.properties.name ?? "Unnamed place",
-      address:
-        [f.properties.street, f.properties.city, f.properties.state]
-          .filter(Boolean)
-          .join(", ") || "Goa, India",
-      lat: f.geometry.coordinates[1],
-      lng: f.geometry.coordinates[0],
-    }));
 }
 
 export type OSRMStep = {
