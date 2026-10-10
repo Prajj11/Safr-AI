@@ -184,6 +184,11 @@ function Explore() {
     lng: number;
   } | null>(null);
 
+  const [nearMe, setNearMe] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
+  const [locating, setLocating] = useState(false);
+
   // Multi-select mode
   const [isMultiSelect, setIsMultiSelect] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -208,23 +213,6 @@ function Explore() {
   useEffect(() => {
     shufflePlaces();
     shuffleFeatured();
-
-    // Attempt to get user geolocation for 'nearest' sorting
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setUserLocation({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
-        },
-        () => {
-          // Default fallback to central Goa
-          setUserLocation(null);
-        },
-        { timeout: 8000, enableHighAccuracy: true, maximumAge: 0 },
-      );
-    }
   }, []);
 
   const shufflePlaces = () => {
@@ -441,6 +429,7 @@ function Explore() {
     (place: string) => {
       const trimmed = place.trim();
       if (trimmed.length < 2) return;
+      setNearMe(null);
       setActiveTab("explore");
       void navigate({
         to: "/explore",
@@ -451,6 +440,7 @@ function Explore() {
     [navigate],
   );
   useEffect(() => {
+    setNearMe(null);
     if (searchPlace) {
       setQuery(searchPlace);
       try {
@@ -474,14 +464,59 @@ function Explore() {
   }, [searchPlace, navigate]);
   const insights = useQuery({
     queryKey: ["explore-core", searchPlace],
-    enabled: Boolean(searchPlace),
+    enabled: Boolean(searchPlace) && !nearMe,
     queryFn: () => insightsFn({ data: { place: searchPlace! } }),
     staleTime: 300000,
     retry: false,
   });
-  const isLoadingInsights = Boolean(searchPlace) && insights.isPending;
+  const isLoadingInsights =
+    Boolean(searchPlace) && !nearMe && insights.isPending;
 
-  const data = insights.data;
+  const data: PlaceInsights | null | undefined = nearMe
+    ? {
+        place: "Near you",
+        location: { name: "Your location", ...nearMe, state: "Goa" },
+        summary: "",
+        eat: [],
+        activities: [],
+        sights: [],
+      }
+    : insights.data;
+  function findNearMe() {
+    if (!navigator.geolocation) {
+      toast.error("Location is unavailable on this device.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocating(false);
+        const point = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        if (
+          point.lat < 14.8 ||
+          point.lat > 15.9 ||
+          point.lng < 73.6 ||
+          point.lng > 74.4
+        ) {
+          toast.error("Near me currently supports locations in Goa.");
+          return;
+        }
+        setUserLocation(point);
+        setNearMe(point);
+        setActiveTab("explore");
+      },
+      () => {
+        setLocating(false);
+        toast.error(
+          "Location was not shared. You can search for a place instead.",
+        );
+      },
+      { timeout: 8000, maximumAge: 60000 },
+    );
+  }
   const nearbyFn = useServerFn(getPlaceNearby);
   const nearbyQuery = useQuery({
     queryKey: [
@@ -1651,6 +1686,14 @@ function Explore() {
       {/* EXPLORE PLACES TAB */}
       {activeTab === "explore" && (
         <>
+          <Button
+            variant="outline"
+            className="rounded-full mb-3"
+            onClick={findNearMe}
+            disabled={locating}
+          >
+            {locating ? "Finding your location…" : "Near me"}
+          </Button>
           <ExploreSearch
             value={query}
             onChange={setQuery}
@@ -1905,14 +1948,18 @@ function Explore() {
                 onRetry={() => void conditionsQuery.refetch()}
               />
 
-              <GettingThere place={data.location} origin={userLocation} />
-              <CrowdReportCard
-                placeKey={makePlaceKey(
-                  data.location.name,
-                  data.location.lat,
-                  data.location.lng,
-                )}
-              />
+              {!nearMe && (
+                <GettingThere place={data.location} origin={userLocation} />
+              )}
+              {!nearMe && (
+                <CrowdReportCard
+                  placeKey={makePlaceKey(
+                    data.location.name,
+                    data.location.lat,
+                    data.location.lng,
+                  )}
+                />
+              )}
               <SafetyEssentialsCard
                 lat={data.location.lat}
                 lng={data.location.lng}

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { parseOpeningHours } from "@/lib/opening-hours";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -25,6 +26,14 @@ export function NearbyRecommendations({
   isSaved: (name: string) => boolean;
 }) {
   const [sort, setSort] = useState<"nearest" | "road">("nearest");
+  const [openNow, setOpenNow] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+  const hours = (item: PlaceInsights["eat"][number]) =>
+    parseOpeningHours(item.openingHours, now);
   const travel = useServerFn(getTravelTimes);
   const items = useMemo(
     () => [...data.eat, ...data.activities, ...data.sights],
@@ -82,6 +91,14 @@ export function NearbyRecommendations({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-bold text-lg">Nearby places</h3>
+        <label className="text-sm flex gap-2 items-center">
+          <input
+            type="checkbox"
+            checked={openNow}
+            onChange={(e) => setOpenNow(e.target.checked)}
+          />
+          Open now
+        </label>
         <label className="text-sm">
           Sort{" "}
           <select
@@ -122,6 +139,7 @@ export function NearbyRecommendations({
               <h4 className="font-semibold mb-3">{title}</h4>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {[...entries]
+                  .filter((item) => !openNow || hours(item).isOpen !== false)
                   .sort((a, b) =>
                     sort === "road"
                       ? (timeFor(a)?.minutes ?? Infinity) -
@@ -137,6 +155,11 @@ export function NearbyRecommendations({
                       <p className="text-xs text-muted-foreground">
                         {item.description}
                       </p>
+                      {hours(item).statusBadge && (
+                        <p className="text-xs font-medium">
+                          {hours(item).statusBadge}
+                        </p>
+                      )}
                       {item.openingHours && (
                         <p className="text-xs">
                           Listed hours: {item.openingHours}
@@ -184,8 +207,9 @@ export function NearbyRecommendations({
           ),
       )}
       <p className="text-xs text-muted-foreground">
-        Nearby OpenStreetMap listings may be incomplete or out of date.
-        Distances are straight-line unless labelled by road.
+        Unknown opening hours stay visible when filtering. Nearby OpenStreetMap
+        listings may be incomplete or out of date. Distances are straight-line
+        unless labelled by road.
       </p>
     </div>
   );

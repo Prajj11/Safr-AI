@@ -35,7 +35,7 @@ export function ExploreSearch({
     retry: false,
   });
   const suggestions =
-    open && debounced === value.trim() ? (query.data || []).slice(0, 6) : [];
+    debounced === value.trim() ? (query.data || []).slice(0, 6) : [];
   const expanded = open && suggestions.length > 0;
   function select(name: string) {
     onChange(name);
