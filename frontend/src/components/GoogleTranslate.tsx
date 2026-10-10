@@ -84,9 +84,36 @@ export function GoogleTranslate() {
     return undefined;
   };
 
+  // Helper to clear googtrans cookie thoroughly across all domain/path variants
+  const clearGoogTransCookie = () => {
+    const hostname = window.location.hostname;
+    const domains = ["", hostname, `.${hostname}`];
+    const parts = hostname.split(".");
+    if (parts.length > 2) {
+      const rootDomain = parts.slice(-2).join(".");
+      domains.push(`.${rootDomain}`);
+      domains.push(rootDomain);
+    }
+    const paths = ["/", ""];
+    const expire = "expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+
+    for (const d of domains) {
+      for (const p of paths) {
+        const dStr = d ? ` domain=${d};` : "";
+        const pStr = p ? ` path=${p};` : "";
+        document.cookie = `googtrans=; ${expire}${pStr}${dStr}`;
+      }
+    }
+  };
+
   // Helper to set googtrans cookie across root path and domain variants
   const setGoogTransCookie = (targetLang: string) => {
-    const cookieVal = targetLang === "en" ? "/en/en" : `/en/${targetLang}`;
+    if (targetLang === "en") {
+      clearGoogTransCookie();
+      return;
+    }
+
+    const cookieVal = `/en/${targetLang}`;
     const hostname = window.location.hostname;
 
     // Set for current path & root
@@ -98,16 +125,6 @@ export function GoogleTranslate() {
       const rootDomain = parts.slice(-2).join(".");
       document.cookie = `googtrans=${cookieVal}; path=/; domain=.${rootDomain};`;
     }
-
-    if (targetLang === "en") {
-      const expire = "expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-      document.cookie = `googtrans=; ${expire}`;
-      document.cookie = `googtrans=; ${expire} domain=${hostname};`;
-      if (parts.length > 2) {
-        const rootDomain = parts.slice(-2).join(".");
-        document.cookie = `googtrans=; ${expire} domain=.${rootDomain};`;
-      }
-    }
   };
 
   // Read initial language from local storage or Google Translate cookie if it exists
@@ -116,6 +133,7 @@ export function GoogleTranslate() {
       const saved = localStorage.getItem("safr_selected_lang");
       if (saved) {
         setLang(saved);
+        if (saved === "en") clearGoogTransCookie();
         return;
       }
     } catch {
@@ -129,6 +147,7 @@ export function GoogleTranslate() {
         setLang(langCode);
       } else {
         setLang("en");
+        clearGoogTransCookie();
       }
     }
   }, []);
@@ -198,54 +217,119 @@ export function GoogleTranslate() {
       pollIntervalRef.current = null;
     }
 
+    // Always release previous reload interception if any
+    if (restoreReloadsRef.current) {
+      restoreReloadsRef.current();
+      restoreReloadsRef.current = null;
+    }
+
     setLang(targetLang);
+
+    // ── Switching back to English: instant in-place restore without page reload ──
+    if (targetLang === "en") {
+      try {
+        localStorage.setItem("safr_selected_lang", "en");
+      } catch {
+        // ignore
+      }
+      clearGoogTransCookie();
+
+      // Block any page reload Google Translate might attempt internally
+      const restoreReloads = blockPageReloads();
+      restoreReloadsRef.current = restoreReloads;
+      setTimeout(() => {
+        restoreReloads();
+        if (restoreReloadsRef.current === restoreReloads) {
+          restoreReloadsRef.current = null;
+        }
+      }, 5000);
+
+      // 1. Try Google Translate internal TranslateService restore if present
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const svc = (window as any).google?.translate?.TranslateService;
+        if (svc) {
+          svc.getInstance()?.restore();
+        }
+      } catch {
+        // ignore
+      }
+
+      // 2. Try Google Translate restore button in banner frame / skiptranslate iframe
+      try {
+        const frames = Array.from(
+          document.querySelectorAll<HTMLIFrameElement>(
+            "iframe.goog-te-banner-frame, iframe.skiptranslate, iframe[id*='goog']",
+          ),
+        );
+        for (const frame of frames) {
+          try {
+            const frameDoc =
+              frame.contentDocument || frame.contentWindow?.document;
+            if (frameDoc) {
+              const restoreBtn = frameDoc.querySelector<HTMLElement>(
+                ".goog-te-button button, [id*='restore'], .goog-te-restore, #\\:1\\.restore",
+              );
+              if (restoreBtn) {
+                restoreBtn.click();
+              }
+            }
+          } catch {
+            // frame cross-origin catch
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      // 3. Reset the combo element to English/Select Language
+      const select = document.querySelector(
+        ".goog-te-combo",
+      ) as HTMLSelectElement | null;
+      if (select) {
+        const enOpt = Array.from(select.options).find(
+          (o) =>
+            o.value === "" ||
+            o.value === "en" ||
+            o.text.toLowerCase().includes("select language") ||
+            o.text.toLowerCase().includes("english"),
+        );
+        if (enOpt) {
+          select.value = enOpt.value;
+        } else {
+          select.selectedIndex = 0;
+        }
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+        select.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+
+      setIsTranslating(false);
+      return;
+    }
+
+    // ── Switching to a non-English language ──
     try {
       localStorage.setItem("safr_selected_lang", targetLang);
     } catch {
       // ignore
     }
 
-    // ── Block every form of page reload BEFORE touching Google's widget ──
-    // Restore any previous block first
-    if (restoreReloadsRef.current) {
-      restoreReloadsRef.current();
-    }
+    // Block full-page reload for seamless in-place translation
     const restoreReloads = blockPageReloads();
     restoreReloadsRef.current = restoreReloads;
 
-    // Automatically restore after 10 s so we never leave reloads permanently blocked
+    // Automatically restore after 8s so reloads are never permanently blocked
     setTimeout(() => {
       restoreReloads();
       if (restoreReloadsRef.current === restoreReloads) {
         restoreReloadsRef.current = null;
       }
-    }, 10_000);
+    }, 8000);
 
-    // Set the cookie ourselves
+    // Set cookie
     setGoogTransCookie(targetLang);
 
-    // ── Switching back to English: restore original content ──
-    if (targetLang === "en") {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const svc = (window as any).google?.translate?.TranslateService;
-        if (svc) svc.getInstance().restore();
-      } catch {
-        // ignore – service may not be available
-      }
-
-      const select = document.querySelector(
-        ".goog-te-combo",
-      ) as HTMLSelectElement | null;
-      if (select) {
-        select.value = "";
-        select.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-      setIsTranslating(false);
-      return;
-    }
-
-    // ── Apply translation for non-English languages ──
+    // Apply translation for non-English languages
     const tryApply = (): boolean => {
       const select = document.querySelector(
         ".goog-te-combo",
@@ -260,6 +344,7 @@ export function GoogleTranslate() {
       if (matched) {
         select.value = matched.value;
         select.dispatchEvent(new Event("change", { bubbles: true }));
+        select.dispatchEvent(new Event("input", { bubbles: true }));
         return true;
       }
       return false;
@@ -285,8 +370,8 @@ export function GoogleTranslate() {
         return;
       }
 
-      // After 50 attempts (5 s), stop gracefully
-      if (attempts >= 50) {
+      // After 40 attempts (4s), stop gracefully
+      if (attempts >= 40) {
         if (pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current);
           pollIntervalRef.current = null;
