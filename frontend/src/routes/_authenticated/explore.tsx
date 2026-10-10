@@ -53,7 +53,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -70,6 +70,13 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/explore")({
+  validateSearch: (search: Record<string, unknown>): { place?: string } => {
+    const place =
+      typeof search["place"] === "string"
+        ? search["place"].trim().slice(0, 120)
+        : "";
+    return place.length >= 2 ? { place } : {};
+  },
   component: Explore,
 });
 
@@ -152,9 +159,10 @@ function calculateHaversineDistanceKm(
 function Explore() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { place: searchPlace } = Route.useSearch();
   const [activeTab, setActiveTab] = useState<"explore" | "saved">("explore");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(searchPlace || "");
   const [shuffledPlaces, setShuffledPlaces] = useState<string[]>([]);
   const [shuffledFeatured, setShuffledFeatured] = useState<typeof ALL_FEATURED>(
     [],
@@ -198,17 +206,6 @@ function Explore() {
   useEffect(() => {
     shufflePlaces();
     shuffleFeatured();
-
-    // Check session persistence for explore place
-    try {
-      const lastPlace = sessionStorage.getItem("safr_last_explore_place");
-      if (lastPlace && !query) {
-        setQuery(lastPlace);
-        insights.mutate(lastPlace);
-      }
-    } catch {
-      // sessionStorage unavailable or restricted
-    }
 
     // Attempt to get user geolocation for 'nearest' sorting
     if (navigator.geolocation) {
@@ -438,20 +435,49 @@ function Explore() {
     );
   };
 
-  const insights = useMutation({
-    mutationFn: async (place: string) => {
-      try {
-        sessionStorage.setItem("safr_last_explore_place", place);
-      } catch {
-        // ignore
-      }
-      return (await insightsFn({
-        data: { place, localTime: new Date().toString() },
-      })) as PlaceInsights;
+  const openPlace = useCallback(
+    (place: string) => {
+      const trimmed = place.trim();
+      if (trimmed.length < 2) return;
+      setActiveTab("explore");
+      void navigate({
+        to: "/explore",
+        search: { place: trimmed },
+        replace: false,
+      });
     },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Could not load this place"),
+    [navigate],
+  );
+  useEffect(() => {
+    if (searchPlace) {
+      setQuery(searchPlace);
+      try {
+        sessionStorage.setItem("safr_last_explore_place", searchPlace);
+      } catch {
+        /* storage unavailable */
+      }
+    } else {
+      try {
+        const last = sessionStorage.getItem("safr_last_explore_place");
+        if (last && last.length >= 2)
+          void navigate({
+            to: "/explore",
+            search: { place: last },
+            replace: true,
+          });
+      } catch {
+        /* storage unavailable */
+      }
+    }
+  }, [searchPlace, navigate]);
+  const insights = useQuery({
+    queryKey: ["explore-core", searchPlace],
+    enabled: Boolean(searchPlace),
+    queryFn: () => insightsFn({ data: { place: searchPlace! } }),
+    staleTime: 300000,
+    retry: false,
   });
+  const isLoadingInsights = Boolean(searchPlace) && insights.isPending;
 
   const data = insights.data;
   const conditionsFn = useServerFn(getPlaceConditions);
@@ -1572,7 +1598,7 @@ function Explore() {
                                 onClick={() => {
                                   setActiveTab("explore");
                                   setQuery(place.place_name);
-                                  insights.mutate(place.place_name);
+                                  openPlace(place.place_name);
                                 }}
                                 className="flex-1 rounded-full text-xs font-bold gap-1"
                               >
@@ -1610,7 +1636,7 @@ function Explore() {
               e.preventDefault();
               const place = query.trim();
               if (place.length < 2) return;
-              insights.mutate(place);
+              openPlace(place);
             }}
           >
             <Input
@@ -1622,7 +1648,7 @@ function Explore() {
             />
             <Button
               type="submit"
-              disabled={insights.isPending}
+              disabled={isLoadingInsights}
               className="h-12 px-6 rounded-full font-bold"
             >
               <Search className="size-4 mr-1.5" /> Explore
@@ -1638,7 +1664,7 @@ function Explore() {
                   key={cat.label}
                   onClick={() => {
                     setQuery(cat.query);
-                    insights.mutate(cat.query);
+                    openPlace(cat.query);
                   }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all hover:scale-105 active:scale-95 ${cat.color}`}
                 >
@@ -1658,7 +1684,7 @@ function Explore() {
                 key={p}
                 onClick={() => {
                   setQuery(p);
-                  insights.mutate(p);
+                  openPlace(p);
                 }}
                 className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground hover:bg-primary hover:text-primary-foreground transition-all"
               >
@@ -1676,7 +1702,7 @@ function Explore() {
           </div>
 
           {/* Featured Destinations (Empty Search State) */}
-          {!data && !insights.isPending && (
+          {!data && !isLoadingInsights && (
             <div className="mt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
               <section>
                 <div className="flex items-center justify-between mb-4">
@@ -1704,7 +1730,7 @@ function Explore() {
                         <div
                           onClick={() => {
                             setQuery(place.name);
-                            insights.mutate(place.name);
+                            openPlace(place.name);
                           }}
                           className="cursor-pointer"
                         >
@@ -1764,7 +1790,7 @@ function Explore() {
           )}
 
           {/* Loading Indicator */}
-          {insights.isPending && (
+          {isLoadingInsights && (
             <div className="mt-16 flex flex-col items-center gap-3 text-muted-foreground animate-in fade-in">
               <Loader2 className="size-8 animate-spin text-primary" />
               <p className="text-sm font-medium">
@@ -1773,8 +1799,20 @@ function Explore() {
             </div>
           )}
 
+          {insights.isError && (
+            <section className="mt-6 rounded-2xl border border-border bg-card p-5">
+              <p>
+                {insights.error instanceof Error
+                  ? insights.error.message
+                  : "This place could not be loaded."}
+              </p>
+              <Button variant="outline" onClick={() => void insights.refetch()}>
+                Retry place
+              </Button>
+            </section>
+          )}
           {/* PLACE INSIGHT RESULTS */}
-          {data && !insights.isPending && (
+          {data && !isLoadingInsights && (
             <div className="mt-6 space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
               {/* Place Overview Header Card */}
               <section className="rounded-3xl border border-border/50 bg-card/80 backdrop-blur-xl p-6 sm:p-8 shadow-sm">
