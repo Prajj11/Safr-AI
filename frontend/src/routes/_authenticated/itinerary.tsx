@@ -1,3 +1,4 @@
+import { resolvedCentre } from "@/lib/resolved-centre";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -30,9 +31,10 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/_authenticated/itinerary")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { place?: string; state?: string } => ({
+  ): { place?: string; state?: string; lat?: number; lng?: number } => ({
     place: typeof search["place"] === "string" ? search["place"] : "",
     state: typeof search["state"] === "string" ? search["state"] : "Goa",
+    ...resolvedCentre(search["lat"], search["lng"]),
   }),
   component: ItineraryPage,
 });
@@ -83,7 +85,17 @@ function ItineraryPage() {
   const [state, setState] = useState(searchParams.state || "Goa");
   const [origin, setOrigin] = useState<
     { lat: number; lng: number } | undefined
-  >();
+  >(() => resolvedCentre(searchParams.lat, searchParams.lng));
+  useEffect(() => {
+    if (searchParams.place) setPlace(searchParams.place);
+    if (searchParams.state) setState(searchParams.state);
+    setOrigin(resolvedCentre(searchParams.lat, searchParams.lng));
+  }, [
+    searchParams.place,
+    searchParams.state,
+    searchParams.lat,
+    searchParams.lng,
+  ]);
   const [returnToStart, setReturnToStart] = useState(false);
   const [locating, setLocating] = useState(false);
   const currentArea = useServerFn(getCurrentArea);
@@ -288,7 +300,7 @@ function ItineraryPage() {
           </div>
           <p className="text-xs text-muted-foreground">
             {origin
-              ? "The initial drive starts at your GPS location."
+              ? "The initial drive starts at the selected coordinates."
               : "The initial drive starts at the mapped destination center."}{" "}
             Times use the India time zone and driving routes.
           </p>

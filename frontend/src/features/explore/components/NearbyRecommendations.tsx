@@ -1,3 +1,4 @@
+import { NearbyPlaceDetails } from "./NearbyPlaceDetails";
 import { ResultsMap } from "./ResultsMap";
 import { resultKey } from "@/lib/explore-results";
 import { parseOpeningHours } from "@/lib/opening-hours";
@@ -224,6 +225,15 @@ export function NearbyRecommendations({
                           about {timeFor(item)!.minutes} min by road ·{" "}
                           {timeFor(item)!.km} km
                         </p>
+                      )}
+                      {item.lat != null && item.lng != null && (
+                        <NearbyPlaceDetails
+                          place={{
+                            name: item.name,
+                            lat: item.lat,
+                            lng: item.lng,
+                          }}
+                        />
                       )}
                       <div className="flex gap-3 items-center flex-wrap">
                         {item.lat != null && item.lng != null && (

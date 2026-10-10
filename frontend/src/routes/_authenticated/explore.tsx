@@ -1797,6 +1797,17 @@ function Explore() {
                             <p className="text-white/80 text-xs mt-1 line-clamp-1">
                               {place.desc}
                             </p>
+                            {featuredMedia?.[place.name]?.credit && (
+                              <a
+                                className="text-[10px] text-white/80 underline"
+                                href={featuredMedia[place.name]!.credit.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                Image: Wikipedia / Wikimedia — attribution
+                              </a>
+                            )}
                           </div>
                         </div>
 
@@ -1900,7 +1911,12 @@ function Explore() {
                     <Button asChild variant="outline" className="rounded-full">
                       <Link
                         to="/itinerary"
-                        search={{ place: data.place, state: "Goa" }}
+                        search={{
+                          place: data.location.name,
+                          state: data.location.state,
+                          lat: data.location.lat,
+                          lng: data.location.lng,
+                        }}
                       >
                         Plan time here
                       </Link>
