@@ -1,5 +1,7 @@
+import { ResultsMap } from "./ResultsMap";
+import { resultKey } from "@/lib/explore-results";
 import { parseOpeningHours } from "@/lib/opening-hours";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -25,6 +27,16 @@ export function NearbyRecommendations({
   onSave: SaveExplorePlace;
   isSaved: (name: string) => boolean;
 }) {
+  const [view, setView] = useState<"list" | "map">("list");
+  const [selected, setSelected] = useState<string | null>(null);
+  const cards = useRef(new Map<string, HTMLElement>());
+  const selectPin = useCallback((key: string) => {
+    setSelected(key);
+    cards.current
+      .get(key)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    cards.current.get(key)?.focus({ preventScroll: true });
+  }, []);
   const [sort, setSort] = useState<"nearest" | "road">("nearest");
   const [openNow, setOpenNow] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -91,6 +103,24 @@ export function NearbyRecommendations({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-bold text-lg">Nearby places</h3>
+        <div role="group" aria-label="Results view" className="flex gap-1">
+          <Button
+            variant={view === "list" ? "default" : "outline"}
+            size="sm"
+            aria-pressed={view === "list"}
+            onClick={() => setView("list")}
+          >
+            List
+          </Button>
+          <Button
+            variant={view === "map" ? "default" : "outline"}
+            size="sm"
+            aria-pressed={view === "map"}
+            onClick={() => setView("map")}
+          >
+            Map
+          </Button>
+        </div>
         <label className="text-sm flex gap-2 items-center">
           <input
             type="checkbox"
@@ -129,6 +159,15 @@ export function NearbyRecommendations({
           </Button>
         </div>
       )}
+      {view === "map" && (
+        <ResultsMap
+          centre={data.location}
+          places={destinations.filter(
+            (item) => !openNow || hours(item).isOpen !== false,
+          )}
+          onSelect={selectPin}
+        />
+      )}
       {groups.map(
         ([title, entries, category]) =>
           entries.length > 0 && (
@@ -148,7 +187,22 @@ export function NearbyRecommendations({
                   )
                   .map((item) => (
                     <article
-                      key={`${item.name}:${item.lat},${item.lng}`}
+                      key={resultKey(item)}
+                      tabIndex={-1}
+                      ref={(node) => {
+                        if (node) cards.current.set(resultKey(item), node);
+                        else cards.current.delete(resultKey(item));
+                      }}
+                      aria-label={
+                        selected === resultKey(item)
+                          ? `${item.name}, selected on map`
+                          : item.name
+                      }
+                      style={
+                        selected === resultKey(item)
+                          ? { outline: "2px solid var(--primary)" }
+                          : undefined
+                      }
                       className="rounded-2xl bg-secondary/30 border border-border p-4 space-y-2"
                     >
                       <h5 className="font-semibold text-sm">{item.name}</h5>
