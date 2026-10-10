@@ -4,6 +4,7 @@ import { z } from "zod";
 import { coordinateSchema, itineraryInputSchema } from "./travel-schemas";
 
 export const getPlaceInsights = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .validator((input: unknown) =>
     z
       .object({
@@ -12,7 +13,9 @@ export const getPlaceInsights = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { checkExploreAccess } = await import("./explore-access.server");
+    checkExploreAccess(context.userId);
     const { loadPlaceInsights } = await import("./travel.server");
     return loadPlaceInsights(data.place);
   });

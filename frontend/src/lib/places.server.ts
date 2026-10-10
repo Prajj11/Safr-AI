@@ -1,3 +1,4 @@
+import { getCached, setCached } from "./place-cache.server";
 import { z } from "zod";
 import {
   distanceKm,
@@ -9,7 +10,7 @@ import {
 export async function fetchJson(
   url: string,
   init: RequestInit = {},
-  timeout = 15000,
+  timeout = 6000,
 ): Promise<unknown> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
@@ -20,7 +21,7 @@ export async function fetchJson(
   const response = await fetch(url, {
     ...init,
     headers,
-    signal: AbortSignal.timeout(timeout),
+    signal: AbortSignal.timeout(Math.min(timeout, 6000)),
   });
   if (!response.ok)
     throw new Error(
@@ -128,7 +129,6 @@ const overpassSchema = z.object({
     }),
   ),
 });
-const cache = new Map<string, { expires: number; places: NearbyPlace[] }>();
 
 import { CURATED_GOA_PLACES } from "./goa-places-data";
 
@@ -143,8 +143,8 @@ export async function nearbyPlaces(
     radiusKm,
     path,
   ]);
-  const cached = cache.get(key);
-  if (cached && cached.expires > Date.now()) return cached.places;
+  const cached = await getCached(`nearby:${key}`);
+  if (Array.isArray(cached)) return cached as NearbyPlace[];
 
   // Gather curated places within search range
   const searchLimit = Math.max(radiusKm * 1.5, 15);
@@ -259,8 +259,7 @@ export async function nearbyPlaces(
     }
   }
   places.sort((a, b) => a.distanceKm - b.distanceKm);
-  if (cache.size >= 100) cache.delete(cache.keys().next().value!);
-  cache.set(key, { expires: Date.now() + 300000, places });
+  await setCached(`nearby:${key}`, places, 86400);
   return places;
 }
 

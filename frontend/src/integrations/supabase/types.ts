@@ -14,6 +14,27 @@ export type Database = {
   };
   public: {
     Tables: {
+      place_cache: {
+        Row: {
+          key: string;
+          payload: Json;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          key: string;
+          payload: Json;
+          expires_at: string;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          payload?: Json;
+          expires_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       itineraries: {
         Row: {
           created_at: string;
