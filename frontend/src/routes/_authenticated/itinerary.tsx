@@ -121,7 +121,7 @@ function ItineraryPage() {
           "Location permission unavailable. Enter a destination and state instead.",
         );
       },
-      { timeout: 10000 },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
     );
   };
   const handleTripDestination = async () => {

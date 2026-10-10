@@ -122,7 +122,7 @@ export function useOrigin({
                 );
               }
             },
-            { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 10000 },
           );
           return;
         }
@@ -150,15 +150,16 @@ export function useOrigin({
       navigator.geolocation.getCurrentPosition(
         (pos) => applyLocation(pos.coords.latitude, pos.coords.longitude),
         handleFailure,
-        { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
       );
     },
     [map, currentAreaFn],
   );
 
-  // Restore cached origin on mount or request GPS
+  // Restore cached origin on mount or request fresh GPS
   useEffect(() => {
     let hasCached = false;
+    let cachedIsGps = false;
     try {
       const saved = localStorage.getItem("safr_last_origin");
       if (saved) {
@@ -171,17 +172,19 @@ export function useOrigin({
         ) {
           setOrigin(parsed.coords);
           setOriginLabel(parsed.label || "Last used location");
-          setIsGpsOrigin(Boolean(parsed.isGps));
+          cachedIsGps = Boolean(parsed.isGps);
+          setIsGpsOrigin(cachedIsGps);
           setLocationReady(true);
           hasCached = true;
-          if (parsed.isGps) onStartTrackingRef.current?.();
+          if (cachedIsGps) onStartTrackingRef.current?.();
         }
       }
     } catch {
       // ignore
     }
 
-    if (!hasCached) {
+    // Always fetch fresh GPS if no cache exists OR if the cached origin was GPS-based
+    if (!hasCached || cachedIsGps) {
       requestUserLocation(true);
     }
   }, [requestUserLocation]);

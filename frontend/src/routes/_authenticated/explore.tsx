@@ -306,7 +306,7 @@ function Explore() {
           // Default fallback to central Goa
           setUserLocation({ lat: 15.4989, lng: 73.8278 });
         },
-        { timeout: 8000 },
+        { timeout: 8000, enableHighAccuracy: true, maximumAge: 0 },
       );
     }
   }, []);

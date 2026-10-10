@@ -35,6 +35,10 @@ const photonSchema = z.object({
       geometry: z.object({ coordinates: z.tuple([z.number(), z.number()]) }),
       properties: z.object({
         name: z.string().optional(),
+        street: z.string().optional(),
+        suburb: z.string().optional(),
+        locality: z.string().optional(),
+        district: z.string().optional(),
         city: z.string().optional(),
         state: z.string().optional(),
         country: z.string().optional(),
@@ -84,9 +88,24 @@ export async function reverseLocation(point: Coordinate) {
       "Current-location planning is available in India. Choose a destination and state manually.",
     );
   }
+  // Pick specific landmark/street/locality first, falling back to suburb/city/district
+  const primary =
+    hit.name || hit.street || hit.locality || hit.suburb || hit.city || hit.district;
+  const secondary =
+    hit.suburb && hit.suburb !== primary
+      ? hit.suburb
+      : hit.city && hit.city !== primary
+        ? hit.city
+        : hit.district && hit.district !== primary
+          ? hit.district
+          : undefined;
+
+  const displayName =
+    primary && secondary ? `${primary}, ${secondary}` : (primary || hit.state);
+
   return {
     ...point,
-    name: hit.city || hit.name || hit.state,
+    name: displayName,
     state: hit.state,
   };
 }
