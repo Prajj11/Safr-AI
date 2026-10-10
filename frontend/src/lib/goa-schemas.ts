@@ -39,22 +39,32 @@ export type TransportAdvice = z.infer<typeof transportAdviceSchema>;
 
 export const placeInsightsSchema = z.object({
   place: z.string(),
+  location: z.object({
+    name: z.string(),
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+    state: z.string(),
+  }),
   summary: z.string(),
   eat: z.array(recommendationSchema).max(6),
   activities: z.array(recommendationSchema).max(6),
   sights: z.array(recommendationSchema).max(6),
   transport_advice: transportAdviceSchema.optional(),
-  crowd: z.object({
-    percent: z.number().min(0).max(100).nullable(),
-    band: crowdBand,
-    reason: z.string(),
-    best_time_today: z.string(),
-    alternatives: z.array(alternativeSchema).max(4),
-  }),
-  rules: z.object({
-    allowed: z.array(z.string()).max(8),
-    not_allowed: z.array(z.string()).max(8),
-  }),
+  crowd: z
+    .object({
+      percent: z.number().min(0).max(100).nullable(),
+      band: crowdBand,
+      reason: z.string(),
+      best_time_today: z.string(),
+      alternatives: z.array(alternativeSchema).max(4),
+    })
+    .optional(),
+  rules: z
+    .object({
+      allowed: z.array(z.string()).max(8),
+      not_allowed: z.array(z.string()).max(8),
+    })
+    .optional(),
   warnings: z
     .array(
       z.object({
@@ -63,8 +73,8 @@ export const placeInsightsSchema = z.object({
         severity: z.enum(["low", "medium", "high"]),
       }),
     )
-    .min(1)
-    .max(6),
+    .max(6)
+    .optional(),
 });
 
 export type PlaceInsights = z.infer<typeof placeInsightsSchema>;

@@ -90,7 +90,12 @@ export async function reverseLocation(point: Coordinate) {
   }
   // Pick specific landmark/street/locality first, falling back to suburb/city/district
   const primary =
-    hit.name || hit.street || hit.locality || hit.suburb || hit.city || hit.district;
+    hit.name ||
+    hit.street ||
+    hit.locality ||
+    hit.suburb ||
+    hit.city ||
+    hit.district;
   const secondary =
     hit.suburb && hit.suburb !== primary
       ? hit.suburb
@@ -101,7 +106,7 @@ export async function reverseLocation(point: Coordinate) {
           : undefined;
 
   const displayName =
-    primary && secondary ? `${primary}, ${secondary}` : (primary || hit.state);
+    primary && secondary ? `${primary}, ${secondary}` : primary || hit.state;
 
   return {
     ...point,

@@ -433,6 +433,7 @@ export async function loadPlaceInsights(place: string) {
   });
   return placeInsightsSchema.parse({
     place: base.name,
+    location: base,
     summary: `Nearby places from OpenStreetMap around ${base.name}, Goa. Listings may be incomplete or out of date; distances are straight-line, not driving distances.`,
     eat: places
       .filter((p) => p.category === "restaurant")
@@ -448,24 +449,5 @@ export async function loadPlaceInsights(place: string) {
       .filter((p) => p.category === "attraction")
       .slice(0, 6)
       .map(recommend),
-    crowd: {
-      percent: null,
-      band: "unknown",
-      reason: "No live crowd-count provider is connected.",
-      best_time_today: "Not available; check venue hours and local conditions.",
-      alternatives: [],
-    },
-    rules: {
-      allowed: ["Follow posted visitor guidance."],
-      not_allowed: ["Do not enter restricted or closed areas."],
-    },
-    warnings: [
-      {
-        title: "Local conditions",
-        detail:
-          "Check access, weather and lifeguard guidance locally. Map listings do not certify safety or operating status.",
-        severity: "medium",
-      },
-    ],
   });
 }

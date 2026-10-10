@@ -1,3 +1,5 @@
+import { normalizePlaceName } from "@/lib/place-names";
+import { PlaceImage } from "@/features/explore/components/PlaceImage";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -80,7 +82,6 @@ const ALL_FEATURED = [
   {
     name: "Baga Beach",
     desc: "Famous for nightlife, water sports, and vibrant shacks.",
-    img: "https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?q=60&w=400&auto=format&fit=crop",
     category: "beach",
     lat: 15.5553,
     lng: 73.7517,
@@ -88,7 +89,6 @@ const ALL_FEATURED = [
   {
     name: "Fort Aguada",
     desc: "17th-century Portuguese fort with stunning ocean views.",
-    img: "https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?q=60&w=400&auto=format&fit=crop",
     category: "monument",
     lat: 15.492,
     lng: 73.7737,
@@ -96,7 +96,6 @@ const ALL_FEATURED = [
   {
     name: "Dudhsagar Waterfalls",
     desc: "Majestic four-tiered waterfall surrounded by lush forests.",
-    img: "https://images.unsplash.com/photo-1433086966358-54859d0ed716?q=60&w=400&auto=format&fit=crop",
     category: "nature",
     lat: 15.3144,
     lng: 74.3143,
@@ -104,7 +103,6 @@ const ALL_FEATURED = [
   {
     name: "Anjuna Flea Market",
     desc: "Bohemian market offering clothes, jewelry, and live music.",
-    img: "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?q=60&w=400&auto=format&fit=crop",
     category: "market",
     lat: 15.5804,
     lng: 73.7423,
@@ -112,7 +110,6 @@ const ALL_FEATURED = [
   {
     name: "Palolem Beach",
     desc: "Scenic, crescent-shaped beach known for its calm waters.",
-    img: "https://picsum.photos/seed/palolem/400/250",
     category: "beach",
     lat: 15.01,
     lng: 74.0232,
@@ -120,7 +117,6 @@ const ALL_FEATURED = [
   {
     name: "Basilica of Bom Jesus",
     desc: "UNESCO World Heritage site holding the mortal remains of St. Francis Xavier.",
-    img: "https://picsum.photos/seed/basilica/400/250",
     category: "heritage",
     lat: 15.5009,
     lng: 73.9116,
@@ -128,7 +124,6 @@ const ALL_FEATURED = [
   {
     name: "Chapora Fort",
     desc: "Iconic fort offering panoramic views of the Arabian Sea and Vagator beach.",
-    img: "https://picsum.photos/seed/chapora/400/250",
     category: "monument",
     lat: 15.6058,
     lng: 73.7364,
@@ -136,7 +131,6 @@ const ALL_FEATURED = [
   {
     name: "Arambol Beach",
     desc: "Laid-back beach popular with backpackers and musicians.",
-    img: "https://picsum.photos/seed/arambol/400/250",
     category: "beach",
     lat: 15.6869,
     lng: 73.7042,
@@ -362,7 +356,7 @@ function Explore() {
       }
 
       const existing = savedPlaces.find(
-        (p) => p.place_name.toLowerCase() === name.toLowerCase(),
+        (p) => normalizePlaceName(p.place_name) === normalizePlaceName(name),
       );
       if (existing) {
         const { error } = await supabase
@@ -414,7 +408,9 @@ function Explore() {
       const previous =
         queryClient.getQueryData<SavedPlace[]>(["saved-places"]) || [];
       const existingIndex = previous.findIndex(
-        (p) => p.place_name.toLowerCase() === newPlace.name.toLowerCase(),
+        (p) =>
+          normalizePlaceName(p.place_name) ===
+          normalizePlaceName(newPlace.name),
       );
 
       let optimisticList: SavedPlace[];
@@ -515,7 +511,7 @@ function Explore() {
 
   const isSaved = (name: string) => {
     return savedPlaces.some(
-      (p) => p.place_name.toLowerCase() === name.toLowerCase(),
+      (p) => normalizePlaceName(p.place_name) === normalizePlaceName(name),
     );
   };
 
@@ -1770,12 +1766,9 @@ function Explore() {
                           className="cursor-pointer"
                         >
                           <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors z-10" />
-                          <img
-                            src={place.img}
-                            alt={place.name}
-                            loading="lazy"
-                            decoding="async"
-                            className="w-full h-44 object-cover transition-transform duration-700 group-hover:scale-110 bg-secondary"
+                          <PlaceImage
+                            name={place.name}
+                            category={place.category}
                           />
                           <div className="absolute bottom-0 left-0 right-0 p-4 z-20 bg-gradient-to-t from-black/85 via-black/50 to-transparent">
                             <h4 className="text-white font-bold text-base flex items-center justify-between">
@@ -1799,7 +1792,6 @@ function Explore() {
                             toggleSavePlace.mutate({
                               name: place.name,
                               category: place.category,
-                              imageUrl: place.img,
                               lat: place.lat,
                               lng: place.lng,
                             });
@@ -1857,10 +1849,10 @@ function Explore() {
                     <button
                       onClick={() =>
                         toggleSavePlace.mutate({
-                          name: data.place,
+                          name: data.location.name,
                           category: "sight",
-                          lat: data.sights?.[0]?.lat ?? null,
-                          lng: data.sights?.[0]?.lng ?? null,
+                          lat: data.location.lat,
+                          lng: data.location.lng,
                         })
                       }
                       className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold shadow-sm transition-all hover:scale-105 active:scale-95 ${
@@ -1895,10 +1887,8 @@ function Explore() {
                       } = {
                         dest: data.place,
                       };
-                      if (data.sights?.[0]?.lat != null)
-                        searchMap.lat = String(data.sights[0].lat);
-                      if (data.sights?.[0]?.lng != null)
-                        searchMap.lng = String(data.sights[0].lng);
+                      searchMap.lat = String(data.location.lat);
+                      searchMap.lng = String(data.location.lng);
                       return (
                         <Button
                           asChild
@@ -1995,65 +1985,68 @@ function Explore() {
               )}
 
               {/* Crowd Level & Smart Alternatives */}
-              <section className="rounded-3xl border border-border/50 bg-card/80 backdrop-blur-xl p-6 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="flex items-center gap-2 font-bold text-lg">
-                    <Users className="size-5 text-primary" /> Crowd Information
-                  </h3>
-                  <span
-                    className={`rounded-full px-3.5 py-1 text-xs font-bold capitalize ${bandStyles[data.crowd.band]}`}
-                  >
-                    {data.crowd.percent == null
-                      ? "Unavailable"
-                      : `${data.crowd.percent}% · ${data.crowd.band}`}
-                  </span>
-                </div>
-
-                <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-secondary">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-teal-500 via-orange-500 to-rose-500 transition-all duration-1000"
-                    style={{ width: `${data.crowd.percent ?? 0}%` }}
-                  />
-                </div>
-
-                <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-                  {data.crowd.reason}
-                </p>
-                <p className="mt-1 text-sm font-medium text-foreground">
-                  <span className="text-primary font-bold">
-                    Best visiting time today:
-                  </span>{" "}
-                  {data.crowd.best_time_today}
-                </p>
-
-                <div className="mt-5 space-y-2.5">
-                  <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                    Nearby alternatives (when available)
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {data.crowd.alternatives.map((alt) => (
-                      <div
-                        key={alt.name}
-                        onClick={() => {
-                          setQuery(alt.name);
-                          insights.mutate(alt.name);
-                        }}
-                        className="rounded-2xl border border-border/40 bg-secondary/40 p-4 cursor-pointer hover:border-primary/40 hover:bg-secondary/70 transition-all"
-                      >
-                        <p className="text-sm font-bold text-foreground flex items-center justify-between">
-                          <span>{alt.name}</span>
-                          <span className="text-xs text-muted-foreground font-normal">
-                            {alt.travel_time}
-                          </span>
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                          {alt.why}
-                        </p>
-                      </div>
-                    ))}
+              {data.crowd && (
+                <section className="rounded-3xl border border-border/50 bg-card/80 backdrop-blur-xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="flex items-center gap-2 font-bold text-lg">
+                      <Users className="size-5 text-primary" /> Crowd
+                      Information
+                    </h3>
+                    <span
+                      className={`rounded-full px-3.5 py-1 text-xs font-bold capitalize ${bandStyles[data.crowd.band]}`}
+                    >
+                      {data.crowd.percent == null
+                        ? "Unavailable"
+                        : `${data.crowd.percent}% · ${data.crowd.band}`}
+                    </span>
                   </div>
-                </div>
-              </section>
+
+                  <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-teal-500 via-orange-500 to-rose-500 transition-all duration-1000"
+                      style={{ width: `${data.crowd.percent ?? 0}%` }}
+                    />
+                  </div>
+
+                  <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                    {data.crowd.reason}
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-foreground">
+                    <span className="text-primary font-bold">
+                      Best visiting time today:
+                    </span>{" "}
+                    {data.crowd.best_time_today}
+                  </p>
+
+                  <div className="mt-5 space-y-2.5">
+                    <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                      Nearby alternatives (when available)
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {data.crowd.alternatives.map((alt) => (
+                        <div
+                          key={alt.name}
+                          onClick={() => {
+                            setQuery(alt.name);
+                            insights.mutate(alt.name);
+                          }}
+                          className="rounded-2xl border border-border/40 bg-secondary/40 p-4 cursor-pointer hover:border-primary/40 hover:bg-secondary/70 transition-all"
+                        >
+                          <p className="text-sm font-bold text-foreground flex items-center justify-between">
+                            <span>{alt.name}</span>
+                            <span className="text-xs text-muted-foreground font-normal">
+                              {alt.travel_time}
+                            </span>
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                            {alt.why}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              )}
 
               {/* Recommendations Bento: Eat, Do, Sights */}
               {(
@@ -2146,67 +2139,71 @@ function Explore() {
               ))}
 
               {/* Local Rules & Safety Warnings */}
-              <section className="rounded-3xl border border-border/50 bg-card/80 backdrop-blur-xl p-6 shadow-sm">
-                <h3 className="font-bold text-lg mb-4">
-                  Visitor Guidance for {data.place}
-                </h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-4">
-                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-2">
-                      Visitor Guidance
-                    </p>
-                    <ul className="space-y-2">
-                      {data.rules.allowed.map((r) => (
-                        <li
-                          key={r}
-                          className="flex gap-2 text-sm text-emerald-950 dark:text-emerald-300"
-                        >
-                          <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />{" "}
-                          {r}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+              {data.rules && (
+                <section className="rounded-3xl border border-border/50 bg-card/80 backdrop-blur-xl p-6 shadow-sm">
+                  <h3 className="font-bold text-lg mb-4">
+                    Visitor Guidance for {data.place}
+                  </h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-2">
+                        Visitor Guidance
+                      </p>
+                      <ul className="space-y-2">
+                        {data.rules.allowed.map((r) => (
+                          <li
+                            key={r}
+                            className="flex gap-2 text-sm text-emerald-950 dark:text-emerald-300"
+                          >
+                            <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />{" "}
+                            {r}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
 
-                  <div className="rounded-2xl bg-red-500/5 border border-red-500/20 p-4">
-                    <p className="text-xs font-bold uppercase tracking-wider text-red-700 dark:text-red-400 mb-2">
-                      Respect Access Restrictions
-                    </p>
-                    <ul className="space-y-2">
-                      {data.rules.not_allowed.map((r) => (
-                        <li
-                          key={r}
-                          className="flex gap-2 text-sm text-red-950 dark:text-red-300"
-                        >
-                          <Ban className="mt-0.5 size-4 shrink-0 text-red-600" />{" "}
-                          {r}
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="rounded-2xl bg-red-500/5 border border-red-500/20 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wider text-red-700 dark:text-red-400 mb-2">
+                        Respect Access Restrictions
+                      </p>
+                      <ul className="space-y-2">
+                        {data.rules.not_allowed.map((r) => (
+                          <li
+                            key={r}
+                            className="flex gap-2 text-sm text-red-950 dark:text-red-300"
+                          >
+                            <Ban className="mt-0.5 size-4 shrink-0 text-red-600" />{" "}
+                            {r}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                </div>
-              </section>
+                </section>
+              )}
 
               {/* Safety Warnings */}
-              <section className="space-y-3">
-                <h3 className="flex items-center gap-2 font-bold text-lg">
-                  <AlertTriangle className="size-5 text-destructive" /> Safety
-                  Warnings & Local Advisories
-                </h3>
-                {data.warnings.map((w) => (
-                  <div
-                    key={w.title}
-                    className={`rounded-2xl border-l-4 bg-card p-5 shadow-sm ${severityStyles[w.severity]}`}
-                  >
-                    <p className="font-bold text-sm text-foreground">
-                      {w.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                      {w.detail}
-                    </p>
-                  </div>
-                ))}
-              </section>
+              {data.warnings && data.warnings.length > 0 && (
+                <section className="space-y-3">
+                  <h3 className="flex items-center gap-2 font-bold text-lg">
+                    <AlertTriangle className="size-5 text-destructive" /> Safety
+                    Warnings & Local Advisories
+                  </h3>
+                  {data.warnings.map((w) => (
+                    <div
+                      key={w.title}
+                      className={`rounded-2xl border-l-4 bg-card p-5 shadow-sm ${severityStyles[w.severity]}`}
+                    >
+                      <p className="font-bold text-sm text-foreground">
+                        {w.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                        {w.detail}
+                      </p>
+                    </div>
+                  ))}
+                </section>
+              )}
             </div>
           )}
         </>
