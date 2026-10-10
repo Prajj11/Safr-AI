@@ -138,3 +138,17 @@ export const submitCrowdReport = createServerFn({ method: "POST" })
     const { saveCrowdReport } = await import("./crowd.server");
     return saveCrowdReport(context.userId, data.placeKey, data.level);
   });
+
+export const getPlaceNearby = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    coordinateSchema
+      .extend({ name: z.string().trim().min(1).max(200) })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { checkExploreAccess } = await import("./explore-access.server");
+    checkExploreAccess(context.userId);
+    const { loadPlaceNearby } = await import("./travel.server");
+    return loadPlaceNearby(data);
+  });

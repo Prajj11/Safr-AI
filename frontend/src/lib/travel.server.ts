@@ -420,69 +420,98 @@ export async function buildItinerary(
   });
 }
 
+/** Core intentionally does not wait for nearby-place or routing providers. */
 export async function loadPlaceInsights(place: string) {
-  const base = await locatePlace(place);
-  const [places, wikipedia] = await Promise.all([
-    nearbyPlaces(base, 5).catch(() => []),
-    lookupWikipedia(base),
-  ]);
-  const curated = matchCuratedPlace(
-    base.name,
-    base.lat,
-    base.lng,
-    CURATED_GOA_PLACES,
-  );
-  const recommend = (p: NearbyPlace) => ({
-    name: p.name,
-    lat: p.lat,
-    lng: p.lng,
-    sourceUrl: p.sourceUrl,
-    kind: p.kind,
-    openingHours: p.openingHours,
-    distanceKm: p.distanceKm,
-    description: `${p.kind.replaceAll("_", " ")} · ${p.distanceKm.toFixed(1)} km straight-line distance from ${base.name}.`,
-    tip: p.openingHours
-      ? `Listed opening hours: ${p.openingHours}. Confirm before visiting.`
-      : "Opening hours unavailable. Check with the venue before visiting.",
-  });
-  return placeInsightsSchema.parse({
-    place: base.name,
-    location: base,
-    summary:
-      [curated?.highlight, wikipedia?.extract].filter(Boolean).join(" ") ||
-      `${curated?.kind || "Place"} in ${base.name}, ${base.state}. ${places.length} places nearby from OpenStreetMap.`,
-    curated: curated
-      ? {
-          highlight: curated.highlight,
-          bestTime: curated.bestTime,
-          interests: curated.interests,
-          kind: curated.kind,
-        }
-      : undefined,
-    seasonNotes: curated?.seasonNotes,
-    wikipedia: wikipedia || undefined,
-    media: wikipedia?.imageUrl
-      ? {
-          imageUrl: wikipedia.imageUrl,
-          credit: {
-            label: "Wikipedia / Wikimedia — view image attribution",
-            url: wikipedia.pageUrl,
-          },
-        }
-      : undefined,
-    eat: places
-      .filter((p) => p.category === "restaurant")
-      .slice(0, 6)
-      .map(recommend),
-    activities: places
-      .filter((p) =>
-        ["marketplace", "gallery", "theme_park", "zoo"].includes(p.kind),
-      )
-      .slice(0, 6)
-      .map(recommend),
-    sights: places
-      .filter((p) => p.category === "attraction")
-      .slice(0, 6)
-      .map(recommend),
-  });
+  try {
+    const base = await locatePlace(place, "Goa", 1000);
+    const curated = matchCuratedPlace(
+      base.name,
+      base.lat,
+      base.lng,
+      CURATED_GOA_PLACES,
+    );
+    // Bound the optional article wait so the resolved hero can paint within the 2s target.
+    // The lookup may finish caching in the background for a subsequent visit.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const wikipedia = await Promise.race([
+      lookupWikipedia(base),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), 800);
+      }),
+    ]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+    return placeInsightsSchema.parse({
+      place: base.name,
+      location: base,
+      summary:
+        [curated?.highlight, wikipedia?.extract].filter(Boolean).join(" ") ||
+        `${curated?.kind || "Place"} in ${base.name}, ${base.state}.`,
+      curated: curated
+        ? {
+            highlight: curated.highlight,
+            bestTime: curated.bestTime,
+            interests: curated.interests,
+            kind: curated.kind,
+          }
+        : undefined,
+      seasonNotes: curated?.seasonNotes,
+      wikipedia: wikipedia || undefined,
+      media: wikipedia?.imageUrl
+        ? {
+            imageUrl: wikipedia.imageUrl,
+            credit: {
+              label: "Wikipedia / Wikimedia — view image attribution",
+              url: wikipedia.pageUrl,
+            },
+          }
+        : undefined,
+      eat: [],
+      activities: [],
+      sights: [],
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function loadPlaceNearby(base: {
+  name: string;
+  lat: number;
+  lng: number;
+}) {
+  try {
+    const places = await nearbyPlaces(base, 5);
+    const recommend = (p: NearbyPlace) => ({
+      name: p.name,
+      lat: p.lat,
+      lng: p.lng,
+      sourceUrl: p.sourceUrl,
+      kind: p.kind,
+      openingHours: p.openingHours,
+      distanceKm: p.distanceKm,
+      description: `${p.kind.replaceAll("_", " ")} · ${p.distanceKm.toFixed(1)} km straight-line distance from ${base.name}.`,
+      tip: p.openingHours
+        ? `Listed opening hours: ${p.openingHours}. Confirm before visiting.`
+        : "Opening hours unavailable. Check with the venue before visiting.",
+    });
+    return {
+      eat: places
+        .filter((p) => p.category === "restaurant")
+        .slice(0, 6)
+        .map(recommend),
+      activities: places
+        .filter((p) =>
+          ["marketplace", "gallery", "theme_park", "zoo"].includes(p.kind),
+        )
+        .slice(0, 6)
+        .map(recommend),
+      sights: places
+        .filter((p) => p.category === "attraction")
+        .slice(0, 6)
+        .map(recommend),
+    };
+  } catch {
+    return null;
+  }
 }

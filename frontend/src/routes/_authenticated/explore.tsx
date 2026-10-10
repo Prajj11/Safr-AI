@@ -64,6 +64,7 @@ import {
   getPlaceInsights,
   getFeaturedMedia,
   getPlaceConditions,
+  getPlaceNearby,
 } from "@/lib/goa.functions";
 import { searchPlaces } from "@/lib/maps.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -480,6 +481,26 @@ function Explore() {
   const isLoadingInsights = Boolean(searchPlace) && insights.isPending;
 
   const data = insights.data;
+  const nearbyFn = useServerFn(getPlaceNearby);
+  const nearbyQuery = useQuery({
+    queryKey: [
+      "explore-nearby",
+      data?.location.name,
+      data?.location.lat,
+      data?.location.lng,
+    ],
+    enabled: Boolean(data),
+    queryFn: () =>
+      nearbyFn({
+        data: {
+          name: data!.location.name,
+          lat: data!.location.lat,
+          lng: data!.location.lng,
+        },
+      }),
+    staleTime: 86400000,
+    retry: false,
+  });
   const conditionsFn = useServerFn(getPlaceConditions);
   const conditionsQuery = useQuery({
     queryKey: [
@@ -1799,7 +1820,8 @@ function Explore() {
             </div>
           )}
 
-          {insights.isError && (
+          {(insights.isError ||
+            (searchPlace && !isLoadingInsights && !data)) && (
             <section className="mt-6 rounded-2xl border border-border bg-card p-5">
               <p>
                 {insights.error instanceof Error
@@ -1914,12 +1936,29 @@ function Explore() {
                 lat={data.location.lat}
                 lng={data.location.lng}
               />
-              <NearbyRecommendations
-                data={data}
-                origin={userLocation}
-                onSave={(place) => toggleSavePlace.mutate(place)}
-                isSaved={isSaved}
-              />
+              {nearbyQuery.isPending ? (
+                <div
+                  className="animate-pulse h-48 rounded-3xl bg-secondary"
+                  aria-label="Loading nearby places"
+                />
+              ) : nearbyQuery.isError || nearbyQuery.data === null ? (
+                <section className="rounded-3xl border p-5">
+                  <p>Nearby places could not be loaded.</p>
+                  <Button
+                    variant="outline"
+                    onClick={() => void nearbyQuery.refetch()}
+                  >
+                    Retry nearby places
+                  </Button>
+                </section>
+              ) : (
+                <NearbyRecommendations
+                  data={{ ...data, ...(nearbyQuery.data || {}) }}
+                  origin={userLocation}
+                  onSave={(place) => toggleSavePlace.mutate(place)}
+                  isSaved={isSaved}
+                />
+              )}
 
               {/* Local Rules & Safety Warnings */}
               {data.rules && (

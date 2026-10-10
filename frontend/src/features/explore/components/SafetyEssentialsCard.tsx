@@ -25,7 +25,7 @@ export function SafetyEssentialsCard({
       <h3 className="font-bold text-lg">Safety essentials</h3>
       {query.isPending ? (
         <Skeleton className="h-24" aria-label="Loading nearby essentials" />
-      ) : query.isError ? (
+      ) : query.isError || query.data === null ? (
         <div>
           <p className="text-sm">Nearby essentials could not be loaded.</p>
           <Button variant="outline" onClick={() => void query.refetch()}>

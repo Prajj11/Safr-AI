@@ -50,10 +50,16 @@ const photonSchema = z.object({
   ),
 });
 
-export async function locatePlace(place: string, state = "Goa") {
+export async function locatePlace(
+  place: string,
+  state = "Goa",
+  timeout = 6000,
+) {
   const result = photonSchema.parse(
     await fetchJson(
       `https://photon.komoot.io/api/?q=${encodeURIComponent(`${place}, ${state}, India`)}&limit=8`,
+      {},
+      timeout,
     ),
   );
   const hit = result.features.find(
