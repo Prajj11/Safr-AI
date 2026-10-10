@@ -1,5 +1,5 @@
 process.loadEnvFile();
-const { buildItinerary } = await import("../src/lib/travel.server.ts");
+const { buildItinerary } = await import("../../frontend/src/lib/travel.server.ts");
 try {
   const plan = await buildItinerary({
     place: "Panjim",

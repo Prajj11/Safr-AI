@@ -350,7 +350,6 @@ export async function buildItinerary(
                     maxItems: candidates.length,
                     items: {
                       type: "STRING",
-                      enum: candidates.map((p) => p.id),
                     },
                   },
                 },

@@ -67,9 +67,13 @@ function Emergency() {
   } | null>(null);
   const [locationError, setLocationError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
+    if (typeof navigator !== "undefined") {
+      setIsOffline(!navigator.onLine);
+    }
+
     if ("serviceWorker" in navigator && import.meta.env.PROD) {
       navigator.serviceWorker.register("/sw.js").catch(console.error);
     }
