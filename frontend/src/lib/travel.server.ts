@@ -437,6 +437,9 @@ export async function loadPlaceInsights(place: string) {
     lat: p.lat,
     lng: p.lng,
     sourceUrl: p.sourceUrl,
+    kind: p.kind,
+    openingHours: p.openingHours,
+    distanceKm: p.distanceKm,
     description: `${p.kind.replaceAll("_", " ")} · ${p.distanceKm.toFixed(1)} km straight-line distance from ${base.name}.`,
     tip: p.openingHours
       ? `Listed opening hours: ${p.openingHours}. Confirm before visiting.`

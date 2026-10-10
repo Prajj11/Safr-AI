@@ -1,3 +1,8 @@
+import { NearbyRecommendations } from "@/features/explore/components/NearbyRecommendations";
+import { SafetyEssentialsCard } from "@/features/explore/components/SafetyEssentialsCard";
+import { CrowdReportCard } from "@/features/explore/components/CrowdReportCard";
+import { GettingThere } from "@/features/explore/components/GettingThere";
+import { makePlaceKey } from "@/lib/crowd";
 import { ConditionsCard } from "@/features/explore/components/ConditionsCard";
 import { formatGoaTime } from "@/lib/conditions";
 import { ALL_FEATURED } from "@/lib/explore-featured";
@@ -144,43 +149,6 @@ function calculateHaversineDistanceKm(
   return Math.round(R * c * 10) / 10;
 }
 
-function getTransportIcon(mode?: string) {
-  switch (mode) {
-    case "car":
-      return <Car className="size-5 text-blue-500" />;
-    case "bus":
-      return <Bus className="size-5 text-emerald-500" />;
-    case "ferry":
-      return <Ship className="size-5 text-teal-500" />;
-    case "walk":
-      return <Navigation className="size-5 text-purple-500" />;
-    case "scooter":
-    default:
-      return <Compass className="size-5 text-orange-500" />;
-  }
-}
-
-function Ship(props: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={props.className}
-    >
-      <path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
-      <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76" />
-      <path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6" />
-      <path d="M12 10V4" />
-      <path d="M12 2v3" />
-    </svg>
-  );
-}
-
 function Explore() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -253,7 +221,7 @@ function Explore() {
         },
         () => {
           // Default fallback to central Goa
-          setUserLocation({ lat: 15.4989, lng: 73.8278 });
+          setUserLocation(null);
         },
         { timeout: 8000, enableHighAccuracy: true, maximumAge: 0 },
       );
@@ -1896,240 +1864,24 @@ function Explore() {
                 onRetry={() => void conditionsQuery.refetch()}
               />
 
-              {/* BEST MODE OF TRANSPORT CARD */}
-              {data.transport_advice && (
-                <section className="rounded-3xl border border-border/50 bg-card/80 backdrop-blur-xl p-6 shadow-sm">
-                  <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-4">
-                    <h3 className="text-lg font-bold flex items-center gap-2 text-foreground">
-                      {getTransportIcon(data.transport_advice.best_mode)}
-                      Best Mode of Transport: {data.transport_advice.title}
-                    </h3>
-                    <span className="rounded-full bg-primary/10 text-primary text-xs font-bold px-3 py-1 uppercase tracking-wider">
-                      Recommended
-                    </span>
-                  </div>
-
-                  <p className="mt-3 text-sm text-foreground/90 leading-relaxed">
-                    {data.transport_advice.description}
-                  </p>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-border/40 bg-secondary/30 p-4">
-                      <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1">
-                        <DollarSign className="size-3.5 text-emerald-500" />{" "}
-                        Estimated Cost
-                      </span>
-                      <p className="text-sm font-bold text-foreground mt-1">
-                        {data.transport_advice.estimated_cost}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-border/40 bg-secondary/30 p-4">
-                      <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1">
-                        <ParkingCircle className="size-3.5 text-blue-500" />{" "}
-                        Parking Availability
-                      </span>
-                      <p className="text-sm font-bold text-foreground mt-1 capitalize">
-                        {data.transport_advice.parking_ease}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {data.transport_advice.parking_tip}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-border/40 bg-secondary/30 p-4">
-                      <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1">
-                        <Compass className="size-3.5 text-orange-500" /> Road
-                        Conditions
-                      </span>
-                      <p className="text-xs font-medium text-foreground mt-1">
-                        {data.transport_advice.road_condition}
-                      </p>
-                    </div>
-                  </div>
-
-                  {data.transport_advice.safety_tips.length > 0 && (
-                    <div className="mt-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
-                        Transit & Road Safety Tips
-                      </p>
-                      <ul className="mt-2 space-y-1 text-xs text-amber-900/90 dark:text-amber-300">
-                        {data.transport_advice.safety_tips.map((tip, idx) => (
-                          <li key={idx} className="flex items-start gap-1.5">
-                            <span>•</span> <span>{tip}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {data.transport_advice.public_transit && (
-                    <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                      <Bus className="size-4 text-primary shrink-0" />
-                      <span>{data.transport_advice.public_transit}</span>
-                    </div>
-                  )}
-                </section>
-              )}
-
-              {/* Crowd Level & Smart Alternatives */}
-              {data.crowd && (
-                <section className="rounded-3xl border border-border/50 bg-card/80 backdrop-blur-xl p-6 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="flex items-center gap-2 font-bold text-lg">
-                      <Users className="size-5 text-primary" /> Crowd
-                      Information
-                    </h3>
-                    <span
-                      className={`rounded-full px-3.5 py-1 text-xs font-bold capitalize ${bandStyles[data.crowd.band]}`}
-                    >
-                      {data.crowd.percent == null
-                        ? "Unavailable"
-                        : `${data.crowd.percent}% · ${data.crowd.band}`}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-secondary">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-teal-500 via-orange-500 to-rose-500 transition-all duration-1000"
-                      style={{ width: `${data.crowd.percent ?? 0}%` }}
-                    />
-                  </div>
-
-                  <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-                    {data.crowd.reason}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-foreground">
-                    <span className="text-primary font-bold">
-                      Best visiting time today:
-                    </span>{" "}
-                    {data.crowd.best_time_today}
-                  </p>
-
-                  <div className="mt-5 space-y-2.5">
-                    <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                      Nearby alternatives (when available)
-                    </p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {data.crowd.alternatives.map((alt) => (
-                        <div
-                          key={alt.name}
-                          onClick={() => {
-                            setQuery(alt.name);
-                            insights.mutate(alt.name);
-                          }}
-                          className="rounded-2xl border border-border/40 bg-secondary/40 p-4 cursor-pointer hover:border-primary/40 hover:bg-secondary/70 transition-all"
-                        >
-                          <p className="text-sm font-bold text-foreground flex items-center justify-between">
-                            <span>{alt.name}</span>
-                            <span className="text-xs text-muted-foreground font-normal">
-                              {alt.travel_time}
-                            </span>
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                            {alt.why}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {/* Recommendations Bento: Eat, Do, Sights */}
-              {(
-                [
-                  ["Where to Eat & Beach Shacks", data.eat, "🍤"],
-                  ["Things to Do & Water Sports", data.activities, "🎯"],
-                  ["Sights & Cultural Landmarks", data.sights, "🏛️"],
-                ] as const
-              ).map(([heading, items, emoji]) => (
-                <section
-                  key={heading}
-                  className="rounded-3xl border border-border/50 bg-card/80 backdrop-blur-xl p-6 shadow-sm"
-                >
-                  <h3 className="font-bold text-lg flex items-center gap-2">
-                    <span>{emoji}</span> {heading}
-                  </h3>
-                  {items.length === 0 && (
-                    <p className="mt-3 text-sm text-muted-foreground">
-                      No mapped listings found in this category.
-                    </p>
-                  )}
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    {items.map((item) => {
-                      const itemSearch: {
-                        dest: string;
-                        lat?: string;
-                        lng?: string;
-                      } = {
-                        dest: item.name,
-                      };
-                      if (item.lat != null) itemSearch.lat = String(item.lat);
-                      if (item.lng != null) itemSearch.lng = String(item.lng);
-
-                      return (
-                        <div
-                          key={item.name}
-                          className="rounded-2xl border border-border/40 bg-secondary/30 p-4 flex flex-col justify-between"
-                        >
-                          <div>
-                            <p className="font-bold text-sm text-foreground">
-                              {item.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                              {item.description}
-                            </p>
-                          </div>
-                          <p className="mt-3 text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-lg w-fit">
-                            {item.tip}
-                          </p>
-                          <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/30 pt-2">
-                            {item.lat != null && item.lng != null ? (
-                              <Link
-                                className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-                                to="/map"
-                                search={itemSearch}
-                              >
-                                <Navigation className="size-3" /> Map
-                              </Link>
-                            ) : (
-                              <span />
-                            )}
-                            <button
-                              onClick={() =>
-                                toggleSavePlace.mutate({
-                                  name: item.name,
-                                  category: heading.includes("Eat")
-                                    ? "food"
-                                    : "sight",
-                                  lat: item.lat,
-                                  lng: item.lng,
-                                })
-                              }
-                              className={`p-1.5 rounded-full transition-colors ${
-                                isSaved(item.name)
-                                  ? "text-rose-500 bg-rose-500/10"
-                                  : "text-muted-foreground hover:text-rose-500 hover:bg-secondary"
-                              }`}
-                              title="Save to bucket list"
-                            >
-                              <Heart
-                                className={`size-3.5 ${isSaved(item.name) ? "fill-rose-500" : ""}`}
-                              />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
-
-              <p className="text-xs text-muted-foreground">
-                Nearby OpenStreetMap listings may be incomplete or out of date.
-                Distances are straight-line unless labelled by road.
-              </p>
+              <GettingThere place={data.location} origin={userLocation} />
+              <CrowdReportCard
+                placeKey={makePlaceKey(
+                  data.location.name,
+                  data.location.lat,
+                  data.location.lng,
+                )}
+              />
+              <SafetyEssentialsCard
+                lat={data.location.lat}
+                lng={data.location.lng}
+              />
+              <NearbyRecommendations
+                data={data}
+                origin={userLocation}
+                onSave={(place) => toggleSavePlace.mutate(place)}
+                isSaved={isSaved}
+              />
 
               {/* Local Rules & Safety Warnings */}
               {data.rules && (

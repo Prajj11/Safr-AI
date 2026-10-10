@@ -84,3 +84,57 @@ export const getPlaceConditions = createServerFn({ method: "POST" })
       }),
     };
   });
+
+export const getTravelTimes = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z
+      .object({
+        origin: coordinateSchema,
+        destinations: z.array(coordinateSchema).max(12),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { checkExploreAccess } = await import("./explore-access.server");
+    checkExploreAccess(context.userId);
+    const { loadTravelTimes } = await import("./explore-travel.server");
+    return loadTravelTimes(data.origin, data.destinations);
+  });
+export const getPlaceEssentials = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => coordinateSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { checkExploreAccess } = await import("./explore-access.server");
+    checkExploreAccess(context.userId);
+    const { nearbyEssentials } = await import("./places.server");
+    return nearbyEssentials(data);
+  });
+const placeKeySchema = z.string().trim().min(5).max(240);
+export const getCrowd = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z.object({ placeKey: placeKeySchema }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { checkExploreAccess } = await import("./explore-access.server");
+    checkExploreAccess(context.userId);
+    const { loadCrowd } = await import("./crowd.server");
+    return loadCrowd(data.placeKey);
+  });
+export const submitCrowdReport = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z
+      .object({
+        placeKey: placeKeySchema,
+        level: z.enum(["quiet", "moderate", "busy", "packed"]),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { checkExploreAccess } = await import("./explore-access.server");
+    checkExploreAccess(context.userId);
+    const { saveCrowdReport } = await import("./crowd.server");
+    return saveCrowdReport(context.userId, data.placeKey, data.level);
+  });

@@ -1,41 +1,16 @@
 import { z } from "zod";
 
-export const crowdBand = z.enum([
-  "quiet",
-  "moderate",
-  "busy",
-  "packed",
-  "unknown",
-]);
-
-export const alternativeSchema = z.object({
-  name: z.string(),
-  why: z.string(),
-  travel_time: z.string(),
-});
-
 export const recommendationSchema = z.object({
   lat: z.number().optional(),
   lng: z.number().optional(),
   sourceUrl: z.string().url().optional(),
   name: z.string(),
+  kind: z.string().optional(),
+  openingHours: z.string().optional(),
+  distanceKm: z.number().optional(),
   description: z.string(),
   tip: z.string(),
 });
-
-export const transportAdviceSchema = z.object({
-  best_mode: z.enum(["scooter", "car", "taxi", "bus", "ferry", "walk"]),
-  title: z.string(),
-  description: z.string(),
-  estimated_cost: z.string(),
-  parking_ease: z.enum(["easy", "moderate", "difficult", "paid"]),
-  parking_tip: z.string(),
-  road_condition: z.string(),
-  safety_tips: z.array(z.string()),
-  public_transit: z.string().optional(),
-});
-
-export type TransportAdvice = z.infer<typeof transportAdviceSchema>;
 
 export const placeInsightsSchema = z.object({
   place: z.string(),
@@ -74,16 +49,6 @@ export const placeInsightsSchema = z.object({
   eat: z.array(recommendationSchema).max(6),
   activities: z.array(recommendationSchema).max(6),
   sights: z.array(recommendationSchema).max(6),
-  transport_advice: transportAdviceSchema.optional(),
-  crowd: z
-    .object({
-      percent: z.number().min(0).max(100).nullable(),
-      band: crowdBand,
-      reason: z.string(),
-      best_time_today: z.string(),
-      alternatives: z.array(alternativeSchema).max(4),
-    })
-    .optional(),
   rules: z
     .object({
       allowed: z.array(z.string()).max(8),

@@ -356,3 +356,64 @@ export async function getPlaceDetailsServer({
     return {};
   }
 }
+
+const essentialSchema = z.object({
+  name: z.string(),
+  lat: z.number(),
+  lng: z.number(),
+  kind: z.enum(["hospital", "police", "pharmacy", "clinic"]),
+  distanceKm: z.number(),
+  openingHours: z.string().optional(),
+});
+export type NearbyEssential = z.infer<typeof essentialSchema>;
+export async function nearbyEssentials(
+  center: Coordinate,
+): Promise<NearbyEssential[] | null> {
+  const key = `essentials:${center.lat.toFixed(3)},${center.lng.toFixed(3)}`;
+  try {
+    const cached = z.array(essentialSchema).safeParse(await getCached(key));
+    if (cached.success) return cached.data;
+    const url = new URL(
+      process.env["OVERPASS_URL"] || "https://overpass-api.de/api/interpreter",
+    );
+    url.searchParams.set(
+      "data",
+      `[out:json][timeout:6];nwr(around:10000,${center.lat},${center.lng})["amenity"~"^(hospital|police|pharmacy|clinic)$"];out center tags 60;`,
+    );
+    const result = overpassSchema.parse(
+      await fetchJson(url.toString(), {}, 6000),
+    );
+    if (result.remark) return null;
+    const nearest = new Map<string, NearbyEssential>();
+    for (const element of result.elements) {
+      const tags = element.tags || {};
+      const point = essentialSchema.safeParse({
+        name: tags["name"],
+        kind: tags["amenity"],
+        lat: element.lat ?? element.center?.lat,
+        lng: element.lon ?? element.center?.lon,
+        distanceKm: 0,
+        openingHours: tags["opening_hours"],
+      });
+      if (
+        !point.success ||
+        tags["access"] === "private" ||
+        tags["disused"] === "yes"
+      )
+        continue;
+      const item = {
+        ...point.data,
+        distanceKm: distanceKm(center, point.data),
+      };
+      if (item.distanceKm > 10) continue;
+      const old = nearest.get(item.kind);
+      if (!old || item.distanceKm < old.distanceKm)
+        nearest.set(item.kind, item);
+    }
+    const items = [...nearest.values()];
+    await setCached(key, items, 86400);
+    return items;
+  } catch {
+    return null;
+  }
+}

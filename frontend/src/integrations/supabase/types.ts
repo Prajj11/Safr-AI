@@ -14,6 +14,30 @@ export type Database = {
   };
   public: {
     Tables: {
+      crowd_reports: {
+        Row: {
+          id: string;
+          user_id: string;
+          place_key: string;
+          level: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          place_key: string;
+          level: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          place_key?: string;
+          level?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       place_cache: {
         Row: {
           key: string;
