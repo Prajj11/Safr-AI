@@ -1,3 +1,5 @@
+import { matchCuratedPlace } from "./curated-match";
+import { lookupWikipedia } from "./wikipedia.server";
 import { z } from "zod";
 import { itineraryInputSchema } from "./travel-schemas";
 import { itinerarySchema, placeInsightsSchema } from "./goa-schemas";
@@ -420,7 +422,16 @@ export async function buildItinerary(
 
 export async function loadPlaceInsights(place: string) {
   const base = await locatePlace(place);
-  const places = await nearbyPlaces(base, 5);
+  const [places, wikipedia] = await Promise.all([
+    nearbyPlaces(base, 5).catch(() => []),
+    lookupWikipedia(base),
+  ]);
+  const curated = matchCuratedPlace(
+    base.name,
+    base.lat,
+    base.lng,
+    CURATED_GOA_PLACES,
+  );
   const recommend = (p: NearbyPlace) => ({
     name: p.name,
     lat: p.lat,
@@ -434,7 +445,28 @@ export async function loadPlaceInsights(place: string) {
   return placeInsightsSchema.parse({
     place: base.name,
     location: base,
-    summary: `Nearby places from OpenStreetMap around ${base.name}, Goa. Listings may be incomplete or out of date; distances are straight-line, not driving distances.`,
+    summary:
+      [curated?.highlight, wikipedia?.extract].filter(Boolean).join(" ") ||
+      `${curated?.kind || "Place"} in ${base.name}, ${base.state}. ${places.length} places nearby from OpenStreetMap.`,
+    curated: curated
+      ? {
+          highlight: curated.highlight,
+          bestTime: curated.bestTime,
+          interests: curated.interests,
+          kind: curated.kind,
+        }
+      : undefined,
+    seasonNotes: curated?.seasonNotes,
+    wikipedia: wikipedia || undefined,
+    media: wikipedia?.imageUrl
+      ? {
+          imageUrl: wikipedia.imageUrl,
+          credit: {
+            label: "Wikipedia / Wikimedia — view image attribution",
+            url: wikipedia.pageUrl,
+          },
+        }
+      : undefined,
     eat: places
       .filter((p) => p.category === "restaurant")
       .slice(0, 6)

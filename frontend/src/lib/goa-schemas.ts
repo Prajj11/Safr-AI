@@ -45,6 +45,31 @@ export const placeInsightsSchema = z.object({
     lng: z.number().min(-180).max(180),
     state: z.string(),
   }),
+  media: z
+    .object({
+      imageUrl: z.string().url(),
+      credit: z.object({ label: z.string(), url: z.string().url() }),
+    })
+    .optional(),
+  wikipedia: z
+    .object({
+      title: z.string(),
+      extract: z.string(),
+      pageUrl: z.string().url(),
+      license: z.literal("CC BY-SA 4.0"),
+    })
+    .optional(),
+  curated: z
+    .object({
+      highlight: z.string().optional(),
+      bestTime: z
+        .enum(["morning", "afternoon", "sunset", "evening", "any"])
+        .optional(),
+      interests: z.array(z.string()),
+      kind: z.string(),
+    })
+    .optional(),
+  seasonNotes: z.array(z.string()).optional(),
   summary: z.string(),
   eat: z.array(recommendationSchema).max(6),
   activities: z.array(recommendationSchema).max(6),

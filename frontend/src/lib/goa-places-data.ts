@@ -4,6 +4,7 @@ export interface CuratedPlace extends NearbyPlace {
   interests: string[];
   bestTime?: "morning" | "afternoon" | "sunset" | "evening" | "any";
   highlight?: string;
+  seasonNotes?: string[];
 }
 
 export const CURATED_GOA_PLACES: CuratedPlace[] = [

@@ -1,0 +1,44 @@
+# Seasonal notes awaiting verification
+
+No seasonal claims have been added. A human editor must verify monsoon access, sea conditions and official closures where relevant before adding notes for each place below. Record the source and review date.
+
+- Chapora Fort
+- Fort Aguada & Lighthouse
+- Reis Magos Fort
+- Basilica of Bom Jesus
+- Sé Cathedral
+- Cabo de Rama Fort
+- Houses of Goa Museum
+- Vinayak Family Restaurant
+- Gunpowder Assagao
+- Ritz Classic Panjim
+- The Fisherman's Wharf (Cavelossim)
+- Souza Lobo Calangute
+- Martin's Corner Betalbatim
+- Kokni Kanteen Panjim
+- Anjuna Beach & Flea Market Coast
+- Vagator & Ozran Beach
+- Baga Beach
+- Candolim Beach & Dunes
+- Palolem Crescent Beach
+- Agonda Turtle Beach
+- Morjim Beach & Chapora Estuary
+- Arambol Beach & Sweet Water Lake
+- Curlies Beach Shack & Lounge
+- Tito's Lane Baga
+- HillTop Vagator
+- Cohiba Bar & Kitchen Sinquerim
+- Thalassa Siolim
+- Dudhsagar Waterfalls
+- Dr. Salim Ali Bird Sanctuary
+- Bondla Wildlife Sanctuary
+- Anjuna Flea Market
+- Mapusa Friday Market
+- Fontainhas Latin Quarter & Art Shops
+- Church of Our Lady of the Immaculate Conception
+- Mangueshi Temple Priol
+- Shanta Durga Temple Kavlem
+- Baga & Calangute Water Sports Hub
+- Grand Island Scuba Diving & Snorkeling Point
+- Morjim Surf & SUP Club
+- Palolem Island Kayaking & Backwaters

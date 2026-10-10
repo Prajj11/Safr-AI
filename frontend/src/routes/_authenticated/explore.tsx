@@ -1,3 +1,5 @@
+import { ALL_FEATURED } from "@/lib/explore-featured";
+import { PlaceHero } from "@/features/explore/components/PlaceHero";
 import { normalizePlaceName } from "@/lib/place-names";
 import { PlaceImage } from "@/features/explore/components/PlaceImage";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -51,7 +53,7 @@ import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GOA_PLACES, type PlaceInsights } from "@/lib/goa-schemas";
-import { getPlaceInsights } from "@/lib/goa.functions";
+import { getPlaceInsights, getFeaturedMedia } from "@/lib/goa.functions";
 import { searchPlaces } from "@/lib/maps.functions";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -77,65 +79,6 @@ const severityStyles: Record<string, string> = {
   medium: "border-l-amber-500",
   high: "border-l-destructive",
 };
-
-const ALL_FEATURED = [
-  {
-    name: "Baga Beach",
-    desc: "Famous for nightlife, water sports, and vibrant shacks.",
-    category: "beach",
-    lat: 15.5553,
-    lng: 73.7517,
-  },
-  {
-    name: "Fort Aguada",
-    desc: "17th-century Portuguese fort with stunning ocean views.",
-    category: "monument",
-    lat: 15.492,
-    lng: 73.7737,
-  },
-  {
-    name: "Dudhsagar Waterfalls",
-    desc: "Majestic four-tiered waterfall surrounded by lush forests.",
-    category: "nature",
-    lat: 15.3144,
-    lng: 74.3143,
-  },
-  {
-    name: "Anjuna Flea Market",
-    desc: "Bohemian market offering clothes, jewelry, and live music.",
-    category: "market",
-    lat: 15.5804,
-    lng: 73.7423,
-  },
-  {
-    name: "Palolem Beach",
-    desc: "Scenic, crescent-shaped beach known for its calm waters.",
-    category: "beach",
-    lat: 15.01,
-    lng: 74.0232,
-  },
-  {
-    name: "Basilica of Bom Jesus",
-    desc: "UNESCO World Heritage site holding the mortal remains of St. Francis Xavier.",
-    category: "heritage",
-    lat: 15.5009,
-    lng: 73.9116,
-  },
-  {
-    name: "Chapora Fort",
-    desc: "Iconic fort offering panoramic views of the Arabian Sea and Vagator beach.",
-    category: "monument",
-    lat: 15.6058,
-    lng: 73.7364,
-  },
-  {
-    name: "Arambol Beach",
-    desc: "Laid-back beach popular with backpackers and musicians.",
-    category: "beach",
-    lat: 15.6869,
-    lng: 73.7042,
-  },
-];
 
 const EXPLORE_CATEGORIES = [
   {
@@ -266,6 +209,12 @@ function Explore() {
   const [notesDraft, setNotesDraft] = useState("");
 
   const insightsFn = useServerFn(getPlaceInsights);
+  const featuredMediaFn = useServerFn(getFeaturedMedia);
+  const { data: featuredMedia } = useQuery({
+    queryKey: ["explore-featured-media"],
+    queryFn: () => featuredMediaFn(),
+    staleTime: 86400000,
+  });
   const searchPlacesFn = useServerFn(searchPlaces);
 
   // MapLibre container ref for embedded map view
@@ -1767,6 +1716,7 @@ function Explore() {
                         >
                           <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors z-10" />
                           <PlaceImage
+                            src={featuredMedia?.[place.name]?.imageUrl}
                             name={place.name}
                             category={place.category}
                           />
@@ -1903,9 +1853,9 @@ function Explore() {
                   </div>
                 </div>
 
-                <p className="mt-4 text-base text-muted-foreground leading-relaxed">
-                  {data.summary}
-                </p>
+                <div className="mt-4">
+                  <PlaceHero data={data} />
+                </div>
               </section>
 
               {/* BEST MODE OF TRANSPORT CARD */}
@@ -2137,6 +2087,11 @@ function Explore() {
                   </div>
                 </section>
               ))}
+
+              <p className="text-xs text-muted-foreground">
+                Nearby OpenStreetMap listings may be incomplete or out of date.
+                Distances are straight-line unless labelled by road.
+              </p>
 
               {/* Local Rules & Safety Warnings */}
               {data.rules && (

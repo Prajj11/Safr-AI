@@ -34,3 +34,31 @@ export const getCurrentArea = createServerFn({ method: "POST" })
     const { reverseLocation } = await import("./places.server");
     return reverseLocation(data);
   });
+
+export const getFeaturedMedia = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { checkExploreAccess } = await import("./explore-access.server");
+    checkExploreAccess(context.userId);
+    const { lookupWikipedia } = await import("./wikipedia.server");
+    const { ALL_FEATURED } = await import("./explore-featured");
+    return Object.fromEntries(
+      await Promise.all(
+        ALL_FEATURED.map(async (place) => {
+          const article = await lookupWikipedia(place);
+          return [
+            place.name,
+            article?.imageUrl
+              ? {
+                  imageUrl: article.imageUrl,
+                  credit: {
+                    label: "Wikipedia / Wikimedia — view image attribution",
+                    url: article.pageUrl,
+                  },
+                }
+              : null,
+          ];
+        }),
+      ),
+    );
+  });
