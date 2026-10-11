@@ -374,6 +374,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      save_trip_with_travellers: {
+        Args: { _trip: Json; _travellers: Json; _trip_id?: string | null };
+        Returns: string;
+      };
       get_safety_tag: {
         Args: { _token: string };
         Returns: {

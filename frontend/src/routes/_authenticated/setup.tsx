@@ -1,3 +1,4 @@
+import { saveTripAtomically } from "@/lib/trip-save";
 import { validateAge } from "@/lib/age-validation";
 import {
   validatePhone,
@@ -7,7 +8,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, User, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -69,7 +70,13 @@ function Setup() {
     return validateOptionalPhone(normalized);
   };
 
-  const { data: existing } = useQuery({
+  const hydratedTrip = useRef<string | undefined>(undefined);
+  const {
+    data: existing,
+    isPending: loadingTrip,
+    isError: tripError,
+    refetch: retryTrip,
+  } = useQuery({
     queryKey: ["trip"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -84,7 +91,8 @@ function Setup() {
   });
 
   useEffect(() => {
-    if (!existing) return;
+    if (!existing || hydratedTrip.current === existing.id) return;
+    hydratedTrip.current = existing.id;
     setStyle(existing.travel_style === "group" ? "group" : "solo");
     setName(existing.traveller_name);
     setPhone(existing.phone_number ?? "");
@@ -111,6 +119,14 @@ function Setup() {
 
   const save = useMutation({
     mutationFn: async () => {
+      if (loadingTrip || tripError)
+        throw new Error("Load your existing trip before saving changes.");
+      if (!name.trim() || !destination.trim())
+        throw new Error("Enter your name and destination.");
+      if (!Number.isInteger(days) || days < 1 || days > 365)
+        throw new Error(
+          "Trip length must be a whole number from 1 to 365 days.",
+        );
       const phoneError = validatePhone(normalizePhone(phone));
       if (phoneError) throw new Error(phoneError);
 
@@ -169,45 +185,22 @@ function Setup() {
         days,
       };
 
-      let tripId = existing?.id as string | undefined;
-      if (tripId) {
-        const { error } = await supabase
-          .from("trips")
-          .update(payload)
-          .eq("id", tripId);
-        if (error) throw error;
-        const { error: deleteError } = await supabase
-          .from("travellers")
-          .delete()
-          .eq("trip_id", tripId);
-        if (deleteError) throw deleteError;
-      } else {
-        const { data, error } = await supabase
-          .from("trips")
-          .insert(payload)
-          .select("id")
-          .single();
-        if (error) throw error;
-        tripId = data.id;
-      }
-
-      if (style === "group") {
-        const rows = people
-          .filter((p) => p.name.trim() || normalizePhone(p.phone))
-          .map((p) => ({
-            trip_id: tripId!,
-            user_id: userId,
-            name: p.name.trim(),
-            age: p.age ? Number(p.age) : null,
-            category: p.category,
-            phone_number: normalizePhone(p.phone) || null,
-          }));
-        if (rows.length > 0) {
-          const { error } = await supabase.from("travellers").insert(rows);
-          if (error) throw error;
-        }
-      }
-      return tripId;
+      const rows =
+        style === "group"
+          ? people
+              .filter((person) => person.name.trim())
+              .map((person) => ({
+                name: person.name.trim(),
+                age: Number(person.age),
+                category: person.category,
+                phone_number: normalizePhone(person.phone) || null,
+              }))
+          : [];
+      return saveTripAtomically(supabase, {
+        _trip: payload,
+        _travellers: rows,
+        _trip_id: existing?.id ?? null,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trip"] });
@@ -229,306 +222,343 @@ function Setup() {
 
   return (
     <AppShell title="Trip setup" subtitle="Step " back>
-      {step === 0 && (
-        <div className="space-y-3">
-          <h2 className="text-xl font-semibold">How are you travelling?</h2>
-          {(
-            [
-              {
-                value: "solo",
-                icon: User,
-                title: "Solo",
-                text: "Just me exploring",
-              },
-              {
-                value: "group",
-                icon: Users,
-                title: "In a group",
-                text: "Family or friends travelling together",
-              },
-            ] as const
-          ).map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => {
-                setStyle(opt.value);
-                setStep(1);
-              }}
-              className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-colors ${
-                style === opt.value
-                  ? "border-primary bg-secondary"
-                  : "border-border bg-card hover:border-primary"
-              }`}
-            >
-              <opt.icon className="size-6 text-primary" />
-              <span>
-                <span className="block font-semibold">{opt.title}</span>
-                <span className="block text-sm text-muted-foreground">
-                  {opt.text}
-                </span>
-              </span>
-            </button>
-          ))}
+      {tripError && (
+        <div
+          role="alert"
+          className="mb-4 rounded-2xl border border-destructive/30 p-4 text-sm"
+        >
+          Your trip could not be loaded. Retry before making changes.
+          <Button
+            variant="outline"
+            className="ml-2"
+            onClick={() => void retryTrip()}
+          >
+            Retry
+          </Button>
         </div>
       )}
-
-      {step === 1 && (
-        <form
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!name.trim()) {
-              toast.error("Please add your name");
-              return;
-            }
-            const phoneError = validatePhone(normalizePhone(phone));
-            if (phoneError) {
-              toast.error(phoneError);
-              return;
-            }
-            if (style === "group") setStep(2);
-            else save.mutate();
-          }}
-        >
-          <h2 className="text-xl font-semibold">Your trip details</h2>
-          <div className="space-y-1.5">
-            <Label htmlFor="tname">Your name</Label>
-            <Input
-              id="tname"
-              value={name}
-              maxLength={60}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="phone">Phone number</Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={phone}
-              placeholder="e.g. 9876543210"
-              maxLength={15}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="dest">Which city are you based in?</Label>
-            <select
-              id="dest"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              {GOA_PLACES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="start">Arriving on</Label>
-              <Input
-                id="start"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="days">Number of days</Label>
-              <Input
-                id="days"
-                type="number"
-                min={1}
-                max={60}
-                value={days}
-                onChange={(e) =>
-                  setDays(
-                    Math.max(1, Math.min(60, Number(e.target.value) || 1)),
-                  )
-                }
-              />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => setStep(0)}>
-              Back
-            </Button>
-            <Button type="submit" className="flex-1" disabled={save.isPending}>
-              {style === "group"
-                ? "Next: who's travelling"
-                : save.isPending
-                  ? "Saving…"
-                  : "Save trip"}
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {step === 2 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Who's travelling?</h2>
-          <p className="text-sm text-muted-foreground">
-            Add each person. We use kids and seniors to tailor safety tips and
-            QR tags.
-            <br />
-            Only the phone numbers you add here can be tracked later. Add a
-            number for anyone you want to be able to find if you get separated.
-          </p>
+      {loadingTrip && <p role="status">Loading your trip…</p>}
+      <fieldset
+        disabled={loadingTrip || tripError || save.isPending}
+        className="min-w-0"
+      >
+        {step === 0 && (
           <div className="space-y-3">
-            {people.map((p, i) => (
-              <div
-                key={i}
-                className="rounded-2xl border border-border bg-card p-4"
+            <h2 className="text-xl font-semibold">How are you travelling?</h2>
+            {(
+              [
+                {
+                  value: "solo",
+                  icon: User,
+                  title: "Solo",
+                  text: "Just me exploring",
+                },
+                {
+                  value: "group",
+                  icon: Users,
+                  title: "In a group",
+                  text: "Family or friends travelling together",
+                },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  setStyle(opt.value);
+                  setStep(1);
+                }}
+                className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-colors ${
+                  style === opt.value
+                    ? "border-primary bg-secondary"
+                    : "border-border bg-card hover:border-primary"
+                }`}
               >
-                <div className="grid grid-cols-[1fr_5rem] gap-2">
-                  <Input
-                    placeholder="Name"
-                    value={p.name}
-                    maxLength={60}
-                    onChange={(e) =>
-                      setPeople(
-                        people.map((x, j) =>
-                          j === i ? { ...x, name: e.target.value } : x,
-                        ),
-                      )
-                    }
-                  />
-                  <Input
-                    placeholder="Age"
-                    type="number"
-                    min={0}
-                    max={120}
-                    value={p.age}
-                    onChange={(e) =>
-                      setPeople(
-                        people.map((x, j) =>
-                          j === i ? { ...x, age: e.target.value } : x,
-                        ),
-                      )
-                    }
-                  />
-                </div>
-                <div className="mt-2">
-                  <Input
-                    id={`person-phone-${i}`}
-                    type="tel"
-                    inputMode="tel"
-                    maxLength={20}
-                    placeholder="Phone number (optional)"
-                    value={p.phone}
-                    aria-invalid={!!phoneErrors[i]}
-                    aria-describedby={
-                      phoneErrors[i] ? `phone-error-${i}` : undefined
-                    }
-                    onChange={(e) => {
-                      const newPeople = people.map((x, j) =>
-                        j === i ? { ...x, phone: e.target.value } : x,
-                      );
-                      setPeople(newPeople);
-                      if (phoneTouched[i] && phoneErrors[i]) {
-                        const err = validatePersonPhone(
-                          i,
-                          e.target.value,
-                          newPeople,
-                          phone,
-                        );
-                        setPhoneErrors((prev) => ({ ...prev, [i]: err || "" }));
-                      }
-                    }}
-                    onBlur={() => {
-                      setPhoneTouched((prev) => ({ ...prev, [i]: true }));
-                      const err = validatePersonPhone(
-                        i,
-                        p.phone,
-                        people,
-                        phone,
-                      );
-                      setPhoneErrors((prev) => ({ ...prev, [i]: err || "" }));
-                    }}
-                  />
-                  {phoneErrors[i] && (
-                    <p
-                      id={`phone-error-${i}`}
-                      className="mt-1 text-sm text-destructive"
-                    >
-                      {phoneErrors[i]}
-                    </p>
-                  )}
-                  {p.phone.trim() !== "" && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Only numbers added here can be tracked. They must agree to
-                      share their location on their own phone.
-                    </p>
-                  )}
-                </div>
-                <div className="mt-2 flex gap-2">
-                  {(["adult", "kid", "senior"] as const).map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() =>
+                <opt.icon className="size-6 text-primary" />
+                <span>
+                  <span className="block font-semibold">{opt.title}</span>
+                  <span className="block text-sm text-muted-foreground">
+                    {opt.text}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {step === 1 && (
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!name.trim()) {
+                toast.error("Please add your name");
+                return;
+              }
+              const phoneError = validatePhone(normalizePhone(phone));
+              if (phoneError) {
+                toast.error(phoneError);
+                return;
+              }
+              if (style === "group") setStep(2);
+              else save.mutate();
+            }}
+          >
+            <h2 className="text-xl font-semibold">Your trip details</h2>
+            <div className="space-y-1.5">
+              <Label htmlFor="tname">Your name</Label>
+              <Input
+                id="tname"
+                value={name}
+                maxLength={60}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="phone">Phone number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={phone}
+                placeholder="e.g. 9876543210"
+                maxLength={15}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="dest">Which city are you based in?</Label>
+              <select
+                id="dest"
+                value={destination}
+                onChange={(e) => setDestination(e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {GOA_PLACES.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="start">Arriving on</Label>
+                <Input
+                  id="start"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="days">Number of days</Label>
+                <Input
+                  id="days"
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={days}
+                  onChange={(e) =>
+                    setDays(
+                      Math.max(1, Math.min(60, Number(e.target.value) || 1)),
+                    )
+                  }
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep(0)}
+              >
+                Back
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={save.isPending}
+              >
+                {style === "group"
+                  ? "Next: who's travelling"
+                  : save.isPending
+                    ? "Saving…"
+                    : "Save trip"}
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Who's travelling?</h2>
+            <p className="text-sm text-muted-foreground">
+              Add each person. We use kids and seniors to tailor safety tips and
+              QR tags.
+              <br />
+              Only the phone numbers you add here can be tracked later. Add a
+              number for anyone you want to be able to find if you get
+              separated.
+            </p>
+            <div className="space-y-3">
+              {people.map((p, i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl border border-border bg-card p-4"
+                >
+                  <div className="grid grid-cols-[1fr_5rem] gap-2">
+                    <Input
+                      placeholder="Name"
+                      value={p.name}
+                      maxLength={60}
+                      onChange={(e) =>
                         setPeople(
                           people.map((x, j) =>
-                            j === i ? { ...x, category: c } : x,
+                            j === i ? { ...x, name: e.target.value } : x,
                           ),
                         )
                       }
-                      className={`rounded-full px-3 py-1 text-xs capitalize ${
-                        p.category === c
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-secondary-foreground"
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                  {people.length > 1 && (
-                    <button
-                      type="button"
-                      aria-label="Remove traveller"
-                      className="ml-auto text-muted-foreground hover:text-destructive"
-                      onClick={() =>
-                        setPeople(people.filter((_, j) => j !== i))
+                    />
+                    <Input
+                      placeholder="Age"
+                      type="number"
+                      min={0}
+                      max={120}
+                      value={p.age}
+                      onChange={(e) =>
+                        setPeople(
+                          people.map((x, j) =>
+                            j === i ? { ...x, age: e.target.value } : x,
+                          ),
+                        )
                       }
-                    >
-                      <Minus className="size-4" />
-                    </button>
-                  )}
+                    />
+                  </div>
+                  <div className="mt-2">
+                    <Input
+                      id={`person-phone-${i}`}
+                      type="tel"
+                      inputMode="tel"
+                      maxLength={20}
+                      placeholder="Phone number (optional)"
+                      value={p.phone}
+                      aria-invalid={!!phoneErrors[i]}
+                      aria-describedby={
+                        phoneErrors[i] ? `phone-error-${i}` : undefined
+                      }
+                      onChange={(e) => {
+                        const newPeople = people.map((x, j) =>
+                          j === i ? { ...x, phone: e.target.value } : x,
+                        );
+                        setPeople(newPeople);
+                        if (phoneTouched[i] && phoneErrors[i]) {
+                          const err = validatePersonPhone(
+                            i,
+                            e.target.value,
+                            newPeople,
+                            phone,
+                          );
+                          setPhoneErrors((prev) => ({
+                            ...prev,
+                            [i]: err || "",
+                          }));
+                        }
+                      }}
+                      onBlur={() => {
+                        setPhoneTouched((prev) => ({ ...prev, [i]: true }));
+                        const err = validatePersonPhone(
+                          i,
+                          p.phone,
+                          people,
+                          phone,
+                        );
+                        setPhoneErrors((prev) => ({ ...prev, [i]: err || "" }));
+                      }}
+                    />
+                    {phoneErrors[i] && (
+                      <p
+                        id={`phone-error-${i}`}
+                        className="mt-1 text-sm text-destructive"
+                      >
+                        {phoneErrors[i]}
+                      </p>
+                    )}
+                    {p.phone.trim() !== "" && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Only numbers added here can be tracked. They must agree
+                        to share their location on their own phone.
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    {(["adult", "kid", "senior"] as const).map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() =>
+                          setPeople(
+                            people.map((x, j) =>
+                              j === i ? { ...x, category: c } : x,
+                            ),
+                          )
+                        }
+                        className={`rounded-full px-3 py-1 text-xs capitalize ${
+                          p.category === c
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-secondary text-secondary-foreground"
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                    {people.length > 1 && (
+                      <button
+                        type="button"
+                        aria-label="Remove traveller"
+                        className="ml-auto text-muted-foreground hover:text-destructive"
+                        onClick={() =>
+                          setPeople(people.filter((_, j) => j !== i))
+                        }
+                      >
+                        <Minus className="size-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() =>
-              setPeople([
-                ...people,
-                { name: "", age: "", category: "adult", phone: "" },
-              ])
-            }
-          >
-            <Plus className="size-4" /> Add person
-          </Button>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => setStep(1)}>
-              Back
-            </Button>
+              ))}
+            </div>
             <Button
-              className="flex-1"
-              onClick={() => save.mutate()}
-              disabled={save.isPending}
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setPeople([
+                  ...people,
+                  { name: "", age: "", category: "adult", phone: "" },
+                ])
+              }
             >
-              {save.isPending ? "Saving…" : "Save trip"}
+              <Plus className="size-4" /> Add person
             </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep(1)}
+              >
+                Back
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => save.mutate()}
+                disabled={save.isPending}
+              >
+                {save.isPending ? "Saving…" : "Save trip"}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </fieldset>
     </AppShell>
   );
 }

@@ -221,20 +221,19 @@ function Explore() {
   };
 
   // Fetch saved places from Supabase
-  const { data: savedPlaces = [] } = useQuery({
+  const {
+    data: savedPlaces = [],
+    isError: savedPlacesError,
+    isPending: savedPlacesPending,
+    refetch: retrySavedPlaces,
+  } = useQuery({
     queryKey: ["saved-places"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("saved_places")
         .select("*")
         .order("created_at", { ascending: false });
-      if (error) {
-        console.warn(
-          "Could not fetch saved places from supabase, fallback to empty",
-          error,
-        );
-        return [];
-      }
+      if (error) throw error;
       return data as SavedPlace[];
     },
   });
@@ -309,6 +308,11 @@ function Explore() {
       toast.success(`Saved ${name} to your bucket list ❤️`);
     },
     onMutate: async (newPlace) => {
+      if (savedPlacesError || savedPlacesPending) {
+        throw new Error(
+          "Load your bucket list before changing saved places. Please retry.",
+        );
+      }
       await queryClient.cancelQueries({ queryKey: ["saved-places"] });
       const previous =
         queryClient.getQueryData<SavedPlace[]>(["saved-places"]) || [];
@@ -1104,6 +1108,18 @@ function Explore() {
       {/* SAVED PLACES BUCKET LIST TAB */}
       {activeTab === "saved" && (
         <div className="space-y-6 animate-in fade-in duration-300">
+          {savedPlacesError && (
+            <div
+              role="alert"
+              className="rounded-2xl border border-destructive/30 p-4 text-sm"
+            >
+              Your bucket list could not be loaded.{" "}
+              <Button variant="outline" onClick={() => void retrySavedPlaces()}>
+                Retry
+              </Button>
+            </div>
+          )}
+          {savedPlacesPending && <p role="status">Loading your bucket list…</p>}
           {/* Header & Visited Progress Bar */}
           <div className="rounded-3xl border border-border/50 bg-card/70 backdrop-blur-xl p-6 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

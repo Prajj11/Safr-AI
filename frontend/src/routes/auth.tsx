@@ -54,7 +54,8 @@ function AuthPage() {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const errorDesc = hashParams.get("error_description");
       if (errorDesc) {
-        toast.error(decodeURIComponent(errorDesc.replace(/\+/g, " ")));
+        // URLSearchParams already decodes percent escapes and plus signs.
+        toast.error(errorDesc);
       }
     }
 

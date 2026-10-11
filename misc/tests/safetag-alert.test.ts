@@ -86,6 +86,10 @@ test("input sanitization strips HTML tags and caps length", () => {
   assert.equal(sanitizeText(null, 100), null);
   assert.equal(sanitizeCoordinates("15.5523"), 15.5523);
   assert.equal(sanitizeCoordinates("abc"), null);
+  assert.equal(sanitizeCoordinates("15.55junk"), null);
+  assert.equal(sanitizeCoordinates(""), null);
+  assert.equal(sanitizeCoordinates(true), null);
+  assert.equal(sanitizeText({ location: "unexpected object" }, 50), null);
 });
 
 test("rate limiting enforces 5 requests per 10 minutes per IP/code", () => {

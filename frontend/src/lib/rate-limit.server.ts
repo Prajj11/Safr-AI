@@ -50,11 +50,8 @@ export function checkRateLimit(
   return { allowed: true };
 }
 
-export function sanitizeText(
-  input: string | null | undefined,
-  maxLength: number,
-): string | null {
-  if (!input) return null;
+export function sanitizeText(input: unknown, maxLength: number): string | null {
+  if (typeof input !== "string") return null;
   const stripped = input
     .replace(/<[^>]*>/g, "")
     .replace(/javascript:/gi, "")
@@ -65,7 +62,9 @@ export function sanitizeText(
 
 export function sanitizeCoordinates(val: unknown): number | null {
   if (val == null) return null;
-  const num = typeof val === "number" ? val : parseFloat(String(val));
+  if (typeof val !== "number" && typeof val !== "string") return null;
+  if (typeof val === "string" && !val.trim()) return null;
+  const num = typeof val === "number" ? val : Number(val);
   if (isNaN(num) || !isFinite(num)) return null;
   return num;
 }

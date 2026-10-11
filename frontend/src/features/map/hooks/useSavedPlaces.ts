@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Hit } from "../lib/types";
 import { useLatest } from "./useLatest";
+import { resolvedCentre } from "@/lib/resolved-centre";
 
 export interface UseSavedPlacesOptions {
   map: MapLibreMap | null;
@@ -36,17 +37,19 @@ export function useSavedPlaces({
   const onAddStopLatest = useLatest(onAddStop);
 
   // Saved places from Supabase
-  const { data: savedPlaces = [] } = useQuery({
+  const {
+    data: savedPlaces = [],
+    isError: savedPlacesError,
+    isPending: savedPlacesPending,
+    refetch: refetchSavedPlaces,
+  } = useQuery({
     queryKey: ["saved-places"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("saved_places")
         .select("*")
         .order("created_at", { ascending: false });
-      if (error) {
-        console.error("Error fetching saved places:", error);
-        return [];
-      }
+      if (error) throw error;
       return data || [];
     },
   });
@@ -86,7 +89,9 @@ export function useSavedPlaces({
         map.removeSource("safr-saved-places-src");
 
       if (showSavedPlaces && savedPlaces.length > 0) {
-        const validPlaces = savedPlaces.filter((p) => p.lat && p.lng);
+        const validPlaces = savedPlaces.filter((p) =>
+          resolvedCentre(p.lat, p.lng),
+        );
         const savedGeojson: FeatureCollection = {
           type: "FeatureCollection",
           features: validPlaces.map((p) => ({
@@ -293,6 +298,9 @@ export function useSavedPlaces({
 
   return {
     savedPlaces,
+    savedPlacesError,
+    savedPlacesPending,
+    refetchSavedPlaces,
     savedRoutesList,
     savedRoutesError,
     savedRoutesPending,

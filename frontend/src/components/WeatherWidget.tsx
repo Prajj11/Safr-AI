@@ -17,33 +17,10 @@ import {
   Info,
 } from "lucide-react";
 
-interface WeatherData {
-  current: {
-    time: string;
-    temperature_2m: number;
-    relative_humidity_2m: number;
-    wind_speed_10m: number;
-    weather_code: number;
-    is_day: number;
-  };
-  daily?: {
-    time: string[];
-    weather_code: number[];
-    temperature_2m_max: number[];
-    temperature_2m_min: number[];
-    precipitation_probability_max: number[];
-    uv_index_max: number[];
-  };
-  hourly?: {
-    time: string[];
-    temperature_2m: number[];
-    precipitation_probability: number[];
-    weather_code: number[];
-  };
-}
+import { parseWidgetWeather, type WidgetWeather } from "@/lib/widget-weather";
 
 export function WeatherWidget() {
-  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [weather, setWeather] = useState<WidgetWeather | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -105,14 +82,8 @@ export function WeatherWidget() {
             },
           );
           if (!response.ok) throw new Error("Weather service unavailable");
-          const data = await response.json();
-          if (
-            data.error ||
-            !data.current ||
-            !Number.isFinite(data.current.temperature_2m)
-          ) {
-            throw new Error("Invalid weather response");
-          }
+          const data = parseWidgetWeather(await response.json());
+          if (!data) throw new Error("Invalid weather response");
           if (!disposed && controller === request) {
             setWeather(data);
             setCoordinates(`${latitude.toFixed(3)}, ${longitude.toFixed(3)}`);
@@ -164,7 +135,7 @@ export function WeatherWidget() {
       return { text: "Snow Showers", icon: CloudSnow };
     if (code >= 95 && code <= 99)
       return { text: "Thunderstorm", icon: CloudLightning };
-    return { text: "Pleasant", icon: Cloud };
+    return { text: "Conditions unavailable", icon: Cloud };
   };
 
   const getBeachSafety = (_windSpeed: number, _weatherCode: number) => ({

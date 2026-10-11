@@ -244,7 +244,7 @@ export function useRoutePlanner({
     [updateStepMarker],
   );
 
-  const handleShareRoute = useCallback(() => {
+  const handleShareRoute = useCallback(async () => {
     if (!destination) {
       toast.error("Set a destination first to share this trip.");
       return;
@@ -266,8 +266,12 @@ export function useRoutePlanner({
     }
     const url = `${window.location.origin}/map?${params.toString()}`;
     if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(url);
-      toast.success("Shareable route link copied to clipboard!");
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("Shareable route link copied to clipboard!");
+      } catch {
+        toast.info(`Could not copy automatically. Share link: ${url}`);
+      }
     } else {
       toast.info(`Share link: ${url}`);
     }
@@ -381,13 +385,11 @@ export function useRoutePlanner({
 
   const removeStop = useCallback(
     (idx: number) => {
-      setWaypoints((prev) => {
-        const copy = prev.filter((_, i) => i !== idx);
-        calculateCurrentRoute(origin, destination, copy, travelMode);
-        return copy;
-      });
+      const updated = waypoints.filter((_, i) => i !== idx);
+      setWaypoints(updated);
+      calculateCurrentRoute(origin, destination, updated, travelMode);
     },
-    [calculateCurrentRoute, destination, origin, travelMode],
+    [calculateCurrentRoute, destination, origin, travelMode, waypoints],
   );
 
   const addStop = useCallback(

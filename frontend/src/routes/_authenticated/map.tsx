@@ -32,7 +32,7 @@ import { SavedPlacesPicker } from "@/features/map/components/SavedPlacesPicker";
 import { MapViewport } from "@/features/map/components/MapViewport";
 import { GoaDiscovery } from "@/features/map/components/GoaDiscovery";
 
-import { DEFAULT_ORIGIN } from "@/features/map/lib/constants";
+import { resolvedCentre } from "@/lib/resolved-centre";
 import { isGoaNight } from "@/features/map/lib/goa-time";
 import {
   getRecentSearches,
@@ -225,6 +225,7 @@ function MapPage() {
     setOriginHits,
     originSearchMutation,
     requestUserLocation,
+    cancelPendingLocation,
   } = useOrigin({
     map: ready ? mapRef.current : null,
     currentAreaFn: currentArea,
@@ -243,6 +244,9 @@ function MapPage() {
 
   const {
     savedPlaces,
+    savedPlacesError,
+    savedPlacesPending,
+    refetchSavedPlaces,
     savedRoutesList,
     savedRoutesError,
     savedRoutesPending,
@@ -390,6 +394,7 @@ function MapPage() {
   });
 
   const handleSelectOrigin = (h: Hit) => {
+    cancelPendingLocation();
     setOrigin({ lat: h.lat, lng: h.lng, name: h.name });
     setOriginLabel(h.name);
     setIsGpsOrigin(false);
@@ -421,8 +426,10 @@ function MapPage() {
       setQuery(dest.name);
     }
     if (orig) {
+      cancelPendingLocation();
       setOrigin(orig);
       setOriginLabel(orig.name);
+      setIsGpsOrigin(false);
     }
     setWaypoints(wps);
     if (mode) setTravelMode(mode);
@@ -511,6 +518,7 @@ function MapPage() {
                   disabled={!destination}
                   onClick={() => {
                     if (!destination) return;
+                    cancelPendingLocation();
                     const previousOrigin: Hit = {
                       id: "swapped-origin",
                       name: originLabel,
@@ -648,24 +656,41 @@ function MapPage() {
       <SavedPlacesPicker
         isOpen={showSavedPicker}
         savedPlaces={savedPlaces}
+        error={savedPlacesError}
+        pending={savedPlacesPending}
+        onRetry={() => void refetchSavedPlaces()}
         onClose={() => setShowSavedPicker(false)}
         onAddStop={(sp) => {
+          const point = resolvedCentre(sp.lat, sp.lng);
+          if (!point) {
+            toast.error(
+              "This place has no saved coordinates. Search for it to plan a route.",
+            );
+            return;
+          }
           addStop({
             id: sp.id,
             name: sp.place_name,
             address: sp.category || "Goa",
-            lat: sp.lat || DEFAULT_ORIGIN.lat,
-            lng: sp.lng || DEFAULT_ORIGIN.lng,
+            lat: point.lat,
+            lng: point.lng,
           });
           setShowSavedPicker(false);
         }}
         onSetDestination={(sp) => {
+          const point = resolvedCentre(sp.lat, sp.lng);
+          if (!point) {
+            toast.error(
+              "This place has no saved coordinates. Search for it to plan a route.",
+            );
+            return;
+          }
           const hit: Hit = {
             id: sp.id,
             name: sp.place_name,
             address: sp.category || "Goa",
-            lat: sp.lat || DEFAULT_ORIGIN.lat,
-            lng: sp.lng || DEFAULT_ORIGIN.lng,
+            lat: point.lat,
+            lng: point.lng,
           };
           handleSelectDestination(hit);
           setShowSavedPicker(false);

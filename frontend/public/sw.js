@@ -20,7 +20,7 @@ self.addEventListener("activate", (event) => {
       .then((cacheNames) => {
         return Promise.all(
           cacheNames
-            .filter((name) => name !== CACHE_NAME)
+            .filter((name) => name.startsWith("safr-") && name !== CACHE_NAME)
             .map((name) => caches.delete(name)),
         );
       })
@@ -30,6 +30,8 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
+  if (event.request.method !== "GET" || url.origin !== self.location.origin)
+    return;
 
   if (
     url.pathname.startsWith("/api/") ||

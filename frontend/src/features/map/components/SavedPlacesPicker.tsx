@@ -12,6 +12,9 @@ export interface SavedPlaceRecord {
 export interface SavedPlacesPickerProps {
   isOpen: boolean;
   savedPlaces: SavedPlaceRecord[];
+  error?: boolean;
+  pending?: boolean;
+  onRetry?: () => void;
   onClose: () => void;
   onAddStop: (place: SavedPlaceRecord) => void;
   onSetDestination: (place: SavedPlaceRecord) => void;
@@ -20,6 +23,9 @@ export interface SavedPlacesPickerProps {
 export function SavedPlacesPicker({
   isOpen,
   savedPlaces,
+  error,
+  pending,
+  onRetry,
   onClose,
   onAddStop,
   onSetDestination,
@@ -43,7 +49,18 @@ export function SavedPlacesPicker({
           </Button>
         </div>
 
-        {savedPlaces.length === 0 ? (
+        {error ? (
+          <div role="alert" className="space-y-2 text-sm">
+            <p>Your bucket list could not be loaded.</p>
+            <Button variant="outline" onClick={onRetry}>
+              Retry
+            </Button>
+          </div>
+        ) : pending ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            Loading your bucket list…
+          </p>
+        ) : savedPlaces.length === 0 ? (
           <p className="text-xs text-muted-foreground py-4 text-center">
             Your bucket list is empty. Explore places in Goa and tap the heart
             icon to save them!

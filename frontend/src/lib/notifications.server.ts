@@ -198,24 +198,34 @@ export async function sendSafeTagAlert(
   const masked = maskPhone(toE164);
   const message = formatAlertMessage(params);
 
-  const isMock =
-    mode === "mock" ||
-    !accountSid ||
-    !authToken ||
-    accountSid.startsWith("AC_YOUR_") ||
-    authToken === "your_auth_token";
-
   const results: NotificationResult = {
     whatsapp: { status: "skipped", timestamp: new Date().toISOString() },
     sms: { status: "skipped", timestamp: new Date().toISOString() },
   };
 
-  if (isMock) {
+  if (mode === "mock") {
     results.whatsapp = {
       status: "mocked",
       timestamp: new Date().toISOString(),
     };
     results.sms = { status: "mocked", timestamp: new Date().toISOString() };
+    return results;
+  }
+
+  if (
+    !accountSid ||
+    !authToken ||
+    accountSid.startsWith("AC_YOUR_") ||
+    authToken === "your_auth_token"
+  ) {
+    for (const channel of ["whatsapp", "sms"] as const) {
+      if (activeChannels.includes(channel))
+        results[channel] = {
+          status: "failed",
+          error: "Notification service is not configured.",
+          timestamp: new Date().toISOString(),
+        };
+    }
     return results;
   }
 

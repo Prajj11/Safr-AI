@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../integrations/supabase/client.server";
 import { sendSafeTagAlert } from "./notifications.server";
+import { resolvedCentre } from "./resolved-centre";
 import {
   checkRateLimit,
   sanitizeCoordinates,
@@ -44,21 +45,32 @@ export async function handleTagAlertRequest(
     }
 
     let body: {
-      location?: string;
-      finderContact?: string;
+      location?: unknown;
+      finderContact?: unknown;
       lat?: unknown;
       lng?: unknown;
     } = {};
     try {
-      body = await request.json();
+      const parsed: unknown = await request.json();
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return Response.json(
+          { error: "Invalid alert details." },
+          { status: 400 },
+        );
+      }
+      body = parsed;
     } catch {
       // Body can be empty if finder sent no notes
     }
 
     const locationText = sanitizeText(body.location, 500);
     const finderContact = sanitizeText(body.finderContact, 100);
-    const lat = sanitizeCoordinates(body.lat);
-    const lng = sanitizeCoordinates(body.lng);
+    const coordinates = resolvedCentre(
+      sanitizeCoordinates(body.lat),
+      sanitizeCoordinates(body.lng),
+    );
+    const lat = coordinates?.lat ?? null;
+    const lng = coordinates?.lng ?? null;
 
     if (
       !process.env["SUPABASE_URL"] ||
@@ -77,6 +89,7 @@ export async function handleTagAlertRequest(
       .from("safety_tags")
       .select("id, token, person_name, guardian_name, guardian_phone")
       .eq("token", cleanCode)
+      .abortSignal(AbortSignal.timeout(6000))
       .maybeSingle();
 
     if (tagError || !tag) {
@@ -110,7 +123,7 @@ export async function handleTagAlertRequest(
     });
 
     const notified = Object.values(deliveryStatus).some(
-      (ch) => ch?.status === "sent" || ch?.status === "mocked",
+      (ch) => ch?.status === "sent",
     );
 
     if (!notified) {
@@ -130,7 +143,8 @@ export async function handleTagAlertRequest(
         lat,
         lng,
         delivery_status: deliveryStatus,
-      });
+      })
+      .abortSignal(AbortSignal.timeout(6000));
 
     if (scanError) {
       console.error("[SafeTag Alert] Error saving scan record:", scanError);

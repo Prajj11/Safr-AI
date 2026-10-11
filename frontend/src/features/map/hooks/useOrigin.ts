@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { DEFAULT_ORIGIN } from "../lib/constants";
 import type { Hit } from "../lib/types";
+import { resolvedCentre } from "@/lib/resolved-centre";
 
 export interface UseOriginOptions {
   map: MapLibreMap | null;
@@ -40,6 +41,19 @@ export function useOrigin({
   const [showOriginSearch, setShowOriginSearch] = useState(false);
   const [originQuery, setOriginQuery] = useState("");
   const [originHits, setOriginHits] = useState<Hit[]>([]);
+  const initialized = useRef(false);
+  const locationRequest = useRef(0);
+  const cancelPendingLocation = useCallback(() => {
+    locationRequest.current++;
+    setLocating(false);
+  }, []);
+  useEffect(
+    () => () => {
+      locationRequest.current++;
+      initialized.current = false;
+    },
+    [],
+  );
 
   const onLocationAppliedRef = useRef(onLocationApplied);
   onLocationAppliedRef.current = onLocationApplied;
@@ -60,6 +74,7 @@ export function useOrigin({
 
   const requestUserLocation = useCallback(
     (isAutomatic = false) => {
+      const requestId = ++locationRequest.current;
       if (!navigator.geolocation) {
         if (!isAutomatic)
           toast.error("Geolocation is not supported by your browser");
@@ -71,6 +86,7 @@ export function useOrigin({
       setLocating(true);
 
       const applyLocation = async (lat: number, lng: number) => {
+        if (requestId !== locationRequest.current) return;
         const coords = { lat, lng, name: "Your Location" };
         setOrigin(coords);
         setIsGpsOrigin(true);
@@ -88,6 +104,7 @@ export function useOrigin({
         } catch {
           label = `Your Location (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
         }
+        if (requestId !== locationRequest.current) return;
         setOriginLabel(label);
 
         try {
@@ -105,10 +122,12 @@ export function useOrigin({
       };
 
       const handleFailure = (err?: GeolocationPositionError) => {
+        if (requestId !== locationRequest.current) return;
         if (err && err.code === err.TIMEOUT) {
           navigator.geolocation.getCurrentPosition(
             (pos) => applyLocation(pos.coords.latitude, pos.coords.longitude),
             () => {
+              if (requestId !== locationRequest.current) return;
               setLocating(false);
               setLocationReady(true);
               setOriginLabel((prev) =>
@@ -158,20 +177,30 @@ export function useOrigin({
 
   // Restore cached origin on mount or request fresh GPS
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    // Shared routes must keep their explicit start instead of requesting GPS.
+    if (resolvedCentre(initialOrigin?.lat, initialOrigin?.lng)) return;
     let hasCached = false;
     let cachedIsGps = false;
     try {
       const saved = localStorage.getItem("safr_last_origin");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (
-          parsed?.coords?.lat &&
-          parsed?.coords?.lng &&
-          Number.isFinite(parsed.coords.lat) &&
-          Number.isFinite(parsed.coords.lng)
-        ) {
-          setOrigin(parsed.coords);
-          setOriginLabel(parsed.label || "Last used location");
+        const cached = resolvedCentre(parsed?.coords?.lat, parsed?.coords?.lng);
+        if (cached) {
+          setOrigin({
+            ...cached,
+            name:
+              typeof parsed.coords.name === "string"
+                ? parsed.coords.name
+                : "Last used location",
+          });
+          setOriginLabel(
+            typeof parsed.label === "string"
+              ? parsed.label
+              : "Last used location",
+          );
           cachedIsGps = Boolean(parsed.isGps);
           setIsGpsOrigin(cachedIsGps);
           setLocationReady(true);
@@ -187,21 +216,25 @@ export function useOrigin({
     if (!hasCached || cachedIsGps) {
       requestUserLocation(true);
     }
-  }, [requestUserLocation]);
+  }, [requestUserLocation, initialOrigin?.lat, initialOrigin?.lng]);
 
   // Handle URL origin params
   useEffect(() => {
-    if (initialOrigin?.lat && initialOrigin?.lng) {
-      const lat = parseFloat(initialOrigin.lat);
-      const lng = parseFloat(initialOrigin.lng);
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        setOrigin({ lat, lng, name: initialOrigin.name || "Custom Start" });
-        setOriginLabel(initialOrigin.name || "Custom Starting Point");
-        setIsGpsOrigin(false);
-        setLocationReady(true);
-      }
+    const point = resolvedCentre(initialOrigin?.lat, initialOrigin?.lng);
+    if (point) {
+      cancelPendingLocation();
+      const { lat, lng } = point;
+      setOrigin({ lat, lng, name: initialOrigin?.name || "Custom Start" });
+      setOriginLabel(initialOrigin?.name || "Custom Starting Point");
+      setIsGpsOrigin(false);
+      setLocationReady(true);
     }
-  }, [initialOrigin?.name, initialOrigin?.lat, initialOrigin?.lng]);
+  }, [
+    initialOrigin?.name,
+    initialOrigin?.lat,
+    initialOrigin?.lng,
+    cancelPendingLocation,
+  ]);
 
   return {
     origin,
@@ -220,5 +253,6 @@ export function useOrigin({
     setOriginHits,
     originSearchMutation,
     requestUserLocation,
+    cancelPendingLocation,
   };
 }

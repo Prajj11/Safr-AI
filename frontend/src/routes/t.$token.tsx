@@ -69,7 +69,7 @@ function TagPage() {
   const [note, setNote] = useState("");
   const [contact, setContact] = useState("");
   const [sent, setSent] = useState(false);
-  const [notified, setNotified] = useState(true);
+  const [notified, setNotified] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery({
@@ -101,6 +101,7 @@ function TagPage() {
           lat: coords?.lat ?? null,
           lng: coords?.lng ?? null,
         }),
+        signal: AbortSignal.timeout(30000),
       });
 
       const json = (await res.json()) as {
@@ -114,7 +115,7 @@ function TagPage() {
       return json;
     },
     onSuccess: (data) => {
-      setNotified(data.notified ?? true);
+      setNotified(data.notified === true);
       setSent(true);
     },
     onError: (err) => {
