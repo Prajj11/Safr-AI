@@ -428,10 +428,12 @@ export function GoogleTranslate() {
       {/* Global CSS to hide Google Translate top bar and popups */}
       <style>{`
         body { top: 0 !important; position: static !important; }
-        .goog-te-banner-frame, iframe.goog-te-banner-frame { display: none !important; }
-        .skiptranslate iframe, iframe.skiptranslate { display: none !important; }
-        #goog-gt-tt, .goog-te-balloon-frame { display: none !important; }
-        .goog-te-spinner-pos, .goog-te-spinner-animation { display: none !important; }
+        .goog-te-banner-frame, iframe.goog-te-banner-frame { display: none !important; pointer-events: none !important; }
+        .skiptranslate, .skiptranslate iframe, iframe.skiptranslate { pointer-events: none !important; }
+        .skiptranslate:not(.notranslate) { display: none !important; }
+        #goog-gt-tt, .goog-te-balloon-frame, .VIpgJd-yAWdn-mAjFeg { display: none !important; pointer-events: none !important; }
+        .goog-te-spinner-pos, .goog-te-spinner-animation { display: none !important; pointer-events: none !important; }
+        .notranslate, .notranslate select { pointer-events: auto !important; }
       `}</style>
     </div>
   );
