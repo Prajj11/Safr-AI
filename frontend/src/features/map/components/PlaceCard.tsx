@@ -158,7 +158,7 @@ export function PlaceCard({
       role="dialog"
       aria-label={place.name}
       tabIndex={-1}
-      className="fixed bottom-0 left-0 right-0 z-30 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-border bg-card p-4 shadow-2xl transition-all duration-300 outline-none md:absolute md:bottom-auto md:left-4 md:right-auto md:top-20 md:w-[360px] md:rounded-2xl md:border md:border-border"
+      className="fixed bottom-0 left-0 right-0 z-50 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t border-border bg-card p-4 shadow-2xl transition-all duration-300 outline-none md:absolute md:bottom-auto md:left-4 md:right-auto md:top-20 md:w-[360px] md:rounded-2xl md:border md:border-border"
     >
       {/* Mobile drag handle bar */}
       <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-muted-foreground/30 md:hidden" />

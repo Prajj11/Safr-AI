@@ -92,136 +92,142 @@ export function useRouteLayers({
       }
     }
 
-    curRoutes.forEach((r, i) => {
-      if (!r.polyline) return;
-      try {
-        const pathCoords = JSON.parse(r.polyline) as [number, number][];
-        if (!pathCoords || pathCoords.length === 0) return;
+    curRoutes
+      .map((r, i) => ({ r, i }))
+      .sort((a, b) => Number(a.i === curSelected) - Number(b.i === curSelected))
+      .forEach(({ r, i }) => {
+        if (!r.polyline) return;
+        try {
+          const pathCoords = JSON.parse(r.polyline) as [number, number][];
+          if (!pathCoords || pathCoords.length === 0) return;
 
-        const coords = pathCoords.map(
-          ([lat, lng]) => [lng, lat] as [number, number],
-        );
-        const isSelected = i === curSelected;
-        const color = routeColor(r.kind, isSelected);
+          const coords = pathCoords.map(
+            ([lat, lng]) => [lng, lat] as [number, number],
+          );
+          const isSelected = i === curSelected;
+          const color = routeColor(r.kind, isSelected);
 
-        // If stepping through route, split into traveled and remaining
-        let remainingCoords = coords;
-        let traveledCoords: [number, number][] = [];
+          // If stepping through route, split into traveled and remaining
+          let remainingCoords = coords;
+          let traveledCoords: [number, number][] = [];
 
-        if (
-          isSelected &&
-          curStepIdx !== null &&
-          r.steps[curStepIdx]?.location
-        ) {
-          const stepLoc = r.steps[curStepIdx]!.location!;
-          let closestIdx = 0;
-          let minDist = Infinity;
-          for (let cIdx = 0; cIdx < coords.length; cIdx++) {
-            const d = Math.hypot(
-              coords[cIdx]![0] - stepLoc[1],
-              coords[cIdx]![1] - stepLoc[0],
-            );
-            if (d < minDist) {
-              minDist = d;
-              closestIdx = cIdx;
+          if (
+            isSelected &&
+            curStepIdx !== null &&
+            r.steps[curStepIdx]?.location
+          ) {
+            const stepLoc = r.steps[curStepIdx]!.location!;
+            let closestIdx = 0;
+            let minDist = Infinity;
+            for (let cIdx = 0; cIdx < coords.length; cIdx++) {
+              const d = Math.hypot(
+                coords[cIdx]![0] - stepLoc[1],
+                coords[cIdx]![1] - stepLoc[0],
+              );
+              if (d < minDist) {
+                minDist = d;
+                closestIdx = cIdx;
+              }
+            }
+            if (closestIdx > 0) {
+              traveledCoords = coords.slice(0, closestIdx + 1);
+              remainingCoords = coords.slice(closestIdx);
             }
           }
-          if (closestIdx > 0) {
-            traveledCoords = coords.slice(0, closestIdx + 1);
-            remainingCoords = coords.slice(closestIdx);
-          }
-        }
 
-        const sourceId = `safr-route-${i}`;
-        const geojson: FeatureCollection = {
-          type: "FeatureCollection",
-          features: [
-            {
-              type: "Feature",
-              properties: {},
-              geometry: { type: "LineString", coordinates: remainingCoords },
-            },
-          ],
-        };
-        map.addSource(sourceId, { type: "geojson", data: geojson });
+          const sourceId = `safr-route-${i}`;
+          const geojson: FeatureCollection = {
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                properties: {},
+                geometry: { type: "LineString", coordinates: remainingCoords },
+              },
+            ],
+          };
+          map.addSource(sourceId, { type: "geojson", data: geojson });
 
-        // Casing (dark outline)
-        map.addLayer({
-          id: `safr-route-casing-${i}`,
-          type: "line",
-          source: sourceId,
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: {
-            "line-color": isSelected ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.1)",
-            "line-width": isSelected ? 9 : 5,
-            "line-opacity": isSelected ? 1 : 0.35,
-          },
-        });
-
-        // Main line
-        map.addLayer({
-          id: `safr-route-line-${i}`,
-          type: "line",
-          source: sourceId,
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: {
-            "line-color": color,
-            "line-width": isSelected ? 6 : 3.5,
-            "line-opacity": isSelected ? 1 : 0.35,
-          },
-        });
-
-        // Traveled progress line (muted color)
-        if (traveledCoords.length >= 2) {
-          const traveledSourceId = `safr-route-traveled-${i}`;
-          map.addSource(traveledSourceId, {
-            type: "geojson",
-            data: {
-              type: "FeatureCollection",
-              features: [
-                {
-                  type: "Feature",
-                  properties: {},
-                  geometry: { type: "LineString", coordinates: traveledCoords },
-                },
-              ],
-            },
-          });
+          // Casing (dark outline)
           map.addLayer({
-            id: `safr-route-line-traveled-${i}`,
+            id: `safr-route-casing-${i}`,
             type: "line",
-            source: traveledSourceId,
+            source: sourceId,
             layout: { "line-join": "round", "line-cap": "round" },
             paint: {
-              "line-color": "#64748b",
-              "line-width": 5,
-              "line-opacity": 0.7,
-              "line-dasharray": [1.5, 1.5],
+              "line-color": isSelected ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.1)",
+              "line-width": isSelected ? 9 : 5,
+              "line-opacity": isSelected ? 1 : 0.35,
             },
           });
-        }
 
-        // Direction arrows on selected route
-        if (isSelected) {
-          addArrowImage(map);
+          // Main line
           map.addLayer({
-            id: `safr-route-arrows-${i}`,
-            type: "symbol",
+            id: `safr-route-line-${i}`,
+            type: "line",
             source: sourceId,
-            layout: {
-              "symbol-placement": "line",
-              "icon-image": "safr-route-arrow",
-              "icon-size": 0.7,
-              "icon-rotation-alignment": "map",
-              "icon-allow-overlap": true,
-              "symbol-spacing": 80,
+            layout: { "line-join": "round", "line-cap": "round" },
+            paint: {
+              "line-color": color,
+              "line-width": isSelected ? 6 : 3.5,
+              "line-opacity": isSelected ? 1 : 0.35,
             },
           });
+
+          // Traveled progress line (muted color)
+          if (traveledCoords.length >= 2) {
+            const traveledSourceId = `safr-route-traveled-${i}`;
+            map.addSource(traveledSourceId, {
+              type: "geojson",
+              data: {
+                type: "FeatureCollection",
+                features: [
+                  {
+                    type: "Feature",
+                    properties: {},
+                    geometry: {
+                      type: "LineString",
+                      coordinates: traveledCoords,
+                    },
+                  },
+                ],
+              },
+            });
+            map.addLayer({
+              id: `safr-route-line-traveled-${i}`,
+              type: "line",
+              source: traveledSourceId,
+              layout: { "line-join": "round", "line-cap": "round" },
+              paint: {
+                "line-color": "#64748b",
+                "line-width": 5,
+                "line-opacity": 0.7,
+                "line-dasharray": [1.5, 1.5],
+              },
+            });
+          }
+
+          // Direction arrows on selected route
+          if (isSelected) {
+            addArrowImage(map);
+            map.addLayer({
+              id: `safr-route-arrows-${i}`,
+              type: "symbol",
+              source: sourceId,
+              layout: {
+                "symbol-placement": "line",
+                "icon-image": "safr-route-arrow",
+                "icon-size": 0.7,
+                "icon-rotation-alignment": "map",
+                "icon-allow-overlap": true,
+                "symbol-spacing": 80,
+              },
+            });
+          }
+        } catch (e) {
+          console.error("Failed to add route layer", e);
         }
-      } catch (e) {
-        console.error("Failed to add route layer", e);
-      }
-    });
+      });
   }, [map, routesLatest, selectedLatest, activeStepIndexLatest]);
 
   // Update step marker helper

@@ -3,9 +3,7 @@ import { Sparkles, X } from "lucide-react";
 import { RecenterButton } from "./RecenterButton";
 import { PlaceCard } from "./PlaceCard";
 import { MapStatusOverlays } from "./MapStatusOverlays";
-import { MobileRouteSheet } from "./MobileRouteSheet";
 import type { PickedPlace } from "../lib/place-picking";
-import type { ScoredRoute } from "@/lib/maps.server";
 import type { UserLocationResult } from "../hooks/useUserLocation";
 import type { SavedPlaceRecord } from "../hooks/useToggleSavedPlace";
 
@@ -24,11 +22,6 @@ export interface MapViewportProps {
   isLoadingMap: boolean;
   mapLoadError: boolean;
   onRetryMap: () => void;
-  currentRoute: ScoredRoute | undefined;
-  sheetExpanded: boolean;
-  setSheetExpanded: (val: boolean | ((prev: boolean) => boolean)) => void;
-  onShareRoute: () => void;
-  onSaveRoute: () => void;
 }
 
 export function MapViewport({
@@ -46,14 +39,9 @@ export function MapViewport({
   isLoadingMap,
   mapLoadError,
   onRetryMap,
-  currentRoute,
-  sheetExpanded,
-  setSheetExpanded,
-  onShareRoute,
-  onSaveRoute,
 }: MapViewportProps) {
   return (
-    <div className="relative w-full h-[55vh] min-h-[360px] lg:h-[calc(100vh-8rem)] lg:sticky lg:top-24 rounded-3xl border border-border/60 bg-secondary/40 shadow-inner overflow-hidden z-0">
+    <div className="relative w-full h-full min-h-0 rounded-3xl border border-border/60 bg-secondary/40 shadow-inner overflow-hidden">
       <div ref={mapEl} className="h-full w-full" />
 
       <div className="absolute top-[146px] right-2.5 z-10 pointer-events-auto">
@@ -109,14 +97,6 @@ export function MapViewport({
         isLoadingMap={isLoadingMap}
         mapLoadError={mapLoadError}
         onRetry={onRetryMap}
-      />
-
-      <MobileRouteSheet
-        currentRoute={currentRoute}
-        sheetExpanded={sheetExpanded}
-        setSheetExpanded={setSheetExpanded}
-        onShareRoute={onShareRoute}
-        onSaveRoute={onSaveRoute}
       />
     </div>
   );

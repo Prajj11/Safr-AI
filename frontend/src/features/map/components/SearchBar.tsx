@@ -26,7 +26,7 @@ export function SearchBar({
   return (
     <div className="rounded-3xl border border-border/60 bg-card/85 backdrop-blur-xl p-4 shadow-xs">
       <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">
-        Destination
+        To
       </span>
       <form
         className="flex gap-2"

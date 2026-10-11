@@ -1,5 +1,6 @@
+import { reorderStops } from "@/lib/reorder-stops";
 import { z } from "zod";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Map as MapLibreMap } from "maplibre-gl";
@@ -61,7 +62,8 @@ export function useRoutePlanner({
   const [routes, setRoutes] = useState<ScoredRoute[]>([]);
   const [selected, setSelected] = useState(0);
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
-  const [showDirections, setShowDirections] = useState(true);
+  const [showDirections, setShowDirections] = useState(false);
+  const latestRequest = useRef(0);
 
   // Multi-stop waypoints (max 5)
   const [waypoints, setWaypoints] = useState<Hit[]>([]);
@@ -119,6 +121,8 @@ export function useRoutePlanner({
       destination: Hit;
       waypoints: Hit[];
       mode: TravelMode;
+      requestId: number;
+      isNight: boolean;
     }) => {
       const wpPayload: Waypoint[] = params.waypoints.map((w) => ({
         lat: w.lat,
@@ -127,11 +131,7 @@ export function useRoutePlanner({
       }));
       return (await routeFn({
         data: {
-          origin: {
-            lat: params.origin.lat,
-            lng: params.origin.lng,
-            name: originLabel,
-          },
+          origin: params.origin,
           destination: {
             lat: params.destination.lat,
             lng: params.destination.lng,
@@ -139,11 +139,12 @@ export function useRoutePlanner({
           },
           waypoints: wpPayload,
           mode: params.mode,
-          isNight: isNightTime,
+          isNight: params.isNight,
         },
       })) as ScoredRoute[];
     },
     onSuccess: (data, variables) => {
+      if (variables.requestId !== latestRequest.current) return;
       setRoutes(data);
       setSelected(0);
       setDestination(variables.destination);
@@ -156,23 +157,37 @@ export function useRoutePlanner({
         toast.success(`Routes calculated for ${variables.destination.name}`);
       }
     },
-    onError: (e) =>
+    onError: (e, variables) => {
+      if (variables.requestId !== latestRequest.current) return;
       toast.error(
         e instanceof Error ? e.message : "Could not calculate routes",
-      ),
+      );
+    },
   });
 
   const calculateCurrentRoute = useCallback(
     (orig = origin, dest = destination, wps = waypoints, m = travelMode) => {
       if (!dest) return;
+      setRoutes([]);
+      setActiveStepIndex(null);
       routeMutation.mutate({
-        origin: orig,
+        origin: { ...orig, name: orig.name || originLabel },
         destination: dest,
         waypoints: wps,
         mode: m,
+        requestId: ++latestRequest.current,
+        isNight: isNightTime,
       });
     },
-    [origin, destination, waypoints, travelMode, routeMutation],
+    [
+      origin,
+      originLabel,
+      destination,
+      waypoints,
+      travelMode,
+      isNightTime,
+      routeMutation,
+    ],
   );
 
   const fitMapToRoute = useCallback(() => {
@@ -208,7 +223,17 @@ export function useRoutePlanner({
       map.setMaxBounds(GOA_BOUNDS);
     }
 
-    map.fitBounds(bounds, { padding: 48 });
+    map.fitBounds(bounds, {
+      padding: {
+        top: 48,
+        left: 48,
+        right: 48,
+        bottom:
+          window.innerWidth < 1024
+            ? Math.min(160, map.getContainer().clientHeight / 3)
+            : 48,
+      },
+    });
   }, [map, maplibre, origin, waypoints, destination, routes]);
 
   const handleStepClick = useCallback(
@@ -308,7 +333,7 @@ export function useRoutePlanner({
       });
       if (!isSafestAlso && safestIdx !== -1) {
         comparisonCards.push({
-          title: "Safest route (estimate)",
+          title: "Road-condition preference",
           index: safestIdx,
           detail: "Based on mapped road conditions; not a guarantee",
         });
@@ -335,7 +360,7 @@ export function useRoutePlanner({
       }
       if (!isFastestSafest && !isShortestSafest && safestIdx !== -1) {
         comparisonCards.push({
-          title: "Safest route (estimate)",
+          title: "Road-condition preference",
           index: safestIdx,
           detail: "Based on mapped road conditions; not a guarantee",
         });
@@ -343,33 +368,16 @@ export function useRoutePlanner({
     }
   }
 
-  const moveStopUp = useCallback(
-    (idx: number) => {
-      setWaypoints((prev) => {
-        const copy = [...prev];
-        const temp = copy[idx - 1]!;
-        copy[idx - 1] = copy[idx]!;
-        copy[idx] = temp;
-        calculateCurrentRoute(origin, destination, copy, travelMode);
-        return copy;
-      });
+  const reorderStop = useCallback(
+    (from: number, to: number) => {
+      const updated = reorderStops(waypoints, from, to);
+      setWaypoints(updated);
+      calculateCurrentRoute(origin, destination, updated, travelMode);
     },
-    [calculateCurrentRoute, destination, origin, travelMode],
+    [waypoints, calculateCurrentRoute, origin, destination, travelMode],
   );
-
-  const moveStopDown = useCallback(
-    (idx: number) => {
-      setWaypoints((prev) => {
-        const copy = [...prev];
-        const temp = copy[idx + 1]!;
-        copy[idx + 1] = copy[idx]!;
-        copy[idx] = temp;
-        calculateCurrentRoute(origin, destination, copy, travelMode);
-        return copy;
-      });
-    },
-    [calculateCurrentRoute, destination, origin, travelMode],
-  );
+  const moveStopUp = (index: number) => reorderStop(index, index - 1);
+  const moveStopDown = (index: number) => reorderStop(index, index + 1);
 
   const removeStop = useCallback(
     (idx: number) => {
@@ -400,6 +408,7 @@ export function useRoutePlanner({
   );
 
   return {
+    reorderStop,
     moveStopUp,
     moveStopDown,
     removeStop,

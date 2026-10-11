@@ -1,3 +1,6 @@
+import { MapWorkspace } from "@/features/map/components/MapWorkspace";
+import { Button } from "@/components/ui/button";
+import { ArrowDownUp } from "lucide-react";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -113,6 +116,9 @@ function MapPage() {
   const [customTime, setCustomTime] = useState("19:00");
   const [travelMode, setTravelMode] = useState<TravelMode>("car");
   const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [workspaceView, setWorkspaceView] = useState<"discover" | "plan">(
+    searchParams.dest ? "plan" : "discover",
+  );
   const [activeStyleId, setActiveStyleId] = useState(getDefaultStyleId);
   const [is3d, setIs3d] = useState(false);
   const [recentDestinations, setRecentDestinations] = useState<Hit[]>([]);
@@ -168,6 +174,18 @@ function MapPage() {
   const isNightTime =
     departureMode === "now" ? isGoaNight() : isGoaNight(customTime);
 
+  useEffect(() => {
+    if (destination) {
+      setWorkspaceView("plan");
+      setSheetExpanded(true);
+    }
+  }, [destination]);
+  useEffect(() => {
+    if (!ready || !mapEl.current) return;
+    const observer = new ResizeObserver(() => mapRef.current?.resize());
+    observer.observe(mapEl.current);
+    return () => observer.disconnect();
+  }, [ready, mapRef]);
   const search = useServerFn(searchPlaces);
   const route = useServerFn(getRoutes);
   const currentArea = useServerFn(getCurrentArea);
@@ -252,6 +270,7 @@ function MapPage() {
   });
 
   const {
+    reorderStop,
     moveStopUp,
     moveStopDown,
     removeStop,
@@ -296,6 +315,18 @@ function MapPage() {
     onClearHits: () => setHits([]),
     onOpenSheet: () => setSheetExpanded(true),
   });
+
+  const previousPreferences = useRef({ travelMode, isNightTime });
+  useEffect(() => {
+    const previous = previousPreferences.current;
+    previousPreferences.current = { travelMode, isNightTime };
+    if (
+      previous.travelMode !== travelMode ||
+      previous.isNightTime !== isNightTime
+    ) {
+      calculateCurrentRoute();
+    }
+  }, [travelMode, isNightTime, calculateCurrentRoute]);
 
   fitMapToRouteFnRef.current = fitMapToRoute;
 
@@ -404,101 +435,195 @@ function MapPage() {
     <AppShell
       title="Your Goa map"
       subtitle="Discover places, save favourites, and plan your route"
+      wide
       back
     >
-      <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 items-start">
-        <div className="flex flex-col gap-4 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto pr-1">
-          <GoaDiscovery
-            map={ready ? mapRef.current : null}
-            onPick={selectPlace}
-          />
-          <OriginPicker
-            originLabel={originLabel}
-            isGpsOrigin={isGpsOrigin}
-            locating={locating}
-            onRequestLocation={() => requestUserLocation(false)}
-            showOriginSearch={showOriginSearch}
-            setShowOriginSearch={setShowOriginSearch}
-            originQuery={originQuery}
-            setOriginQuery={setOriginQuery}
-            onSearchOrigin={(q) => originSearchMutation.mutate(q)}
-            isSearchingOrigin={originSearchMutation.isPending}
-            originHits={originHits}
-            onSelectOrigin={handleSelectOrigin}
-          />
-          <StopsEditor
-            waypoints={waypoints}
-            onMoveStopUp={moveStopUp}
-            onMoveStopDown={moveStopDown}
-            onRemoveStop={removeStop}
-            onOpenBucketList={() => setShowSavedPicker(true)}
-            showAddStop={showAddStop}
-            setShowAddStop={setShowAddStop}
-            stopQuery={stopQuery}
-            setStopQuery={setStopQuery}
-            onSearchStop={(q) => stopSearchMutation.mutate(q)}
-            isSearchingStop={stopSearchMutation.isPending}
-            stopHits={stopHits}
-            onSelectStop={addStop}
-          />
-          <SearchBar
-            query={query}
-            setQuery={setQuery}
-            onSearch={(q) => searchMutation.mutate(q)}
-            isSearching={searchMutation.isPending}
-            recentDestinations={recentDestinations}
-            hits={hits}
-            onSelectDestination={handleSelectDestination}
-          />
-          <RoutePanel
-            travelMode={travelMode}
-            setTravelMode={setTravelMode}
-            routingConfig={routingConfig}
-            departureMode={departureMode}
-            setDepartureMode={setDepartureMode}
-            customTime={customTime}
-            setCustomTime={setCustomTime}
-            isNightTime={isNightTime}
-            showSavedPlaces={showSavedPlaces}
-            setShowSavedPlaces={setShowSavedPlaces}
-            showSavedRoutes={showSavedRoutes}
-            setShowSavedRoutes={setShowSavedRoutes}
-            savedRoutesCount={savedRoutesList.length}
-            isCalculatingRoute={routeMutation.isPending}
-            routes={routes}
-            selected={selected}
-            setSelected={setSelected}
-            currentRoute={currentRoute}
-            comparisonCards={comparisonCards}
-            activeStepIndex={activeStepIndex}
-            setActiveStepIndex={setActiveStepIndex}
-            showDirections={showDirections}
-            setShowDirections={setShowDirections}
-            onStepClick={handleStepClick}
-            onShareRoute={handleShareRoute}
-            onSaveRoute={handleSaveRoute}
-            onModeOrTimeChange={(newM) => {
-              if (destination)
-                calculateCurrentRoute(
-                  origin,
-                  destination,
-                  waypoints,
-                  newM || travelMode,
-                );
-            }}
-          />
-          <SavedRoutesPanel
-            isOpen={showSavedRoutes}
-            savedRoutesList={savedRoutesList}
-            error={savedRoutesError}
-            pending={savedRoutesPending}
-            onRetry={() => void refetchSavedRoutes()}
-            onClose={() => setShowSavedRoutes(false)}
-            onSelectRoute={handleSelectSavedRoute}
-            onDeleteRoute={deleteSavedRoute}
-          />
-        </div>
-
+      <MapWorkspace
+        expanded={sheetExpanded}
+        onExpand={setSheetExpanded}
+        summary={
+          routeMutation.isPending
+            ? "Updating route…"
+            : currentRoute
+              ? `${currentRoute.durationMin} min · ${currentRoute.distanceKm} km · ${waypoints.length} stops`
+              : destination
+                ? `${originLabel} → ${destination.name}`
+                : "Choose a place or plan a route"
+        }
+        planner={
+          <>
+            <div
+              className="grid grid-cols-2 gap-1 rounded-2xl bg-secondary p-1"
+              role="group"
+              aria-label="Map activity"
+            >
+              <Button
+                variant={workspaceView === "discover" ? "default" : "ghost"}
+                aria-pressed={workspaceView === "discover"}
+                onClick={() => setWorkspaceView("discover")}
+              >
+                Discover
+              </Button>
+              <Button
+                variant={workspaceView === "plan" ? "default" : "ghost"}
+                aria-pressed={workspaceView === "plan"}
+                onClick={() => setWorkspaceView("plan")}
+              >
+                Plan trip
+              </Button>
+            </div>
+            {workspaceView === "discover" && (
+              <>
+                <GoaDiscovery
+                  map={ready ? mapRef.current : null}
+                  onPick={selectPlace}
+                />
+              </>
+            )}
+            {workspaceView === "plan" && (
+              <>
+                <OriginPicker
+                  originLabel={originLabel}
+                  isGpsOrigin={isGpsOrigin}
+                  locating={locating}
+                  onRequestLocation={() => requestUserLocation(false)}
+                  showOriginSearch={showOriginSearch}
+                  setShowOriginSearch={setShowOriginSearch}
+                  originQuery={originQuery}
+                  setOriginQuery={setOriginQuery}
+                  onSearchOrigin={(q) => originSearchMutation.mutate(q)}
+                  isSearchingOrigin={originSearchMutation.isPending}
+                  originHits={originHits}
+                  onSelectOrigin={handleSelectOrigin}
+                />
+                <SearchBar
+                  query={query}
+                  setQuery={setQuery}
+                  onSearch={(q) => searchMutation.mutate(q)}
+                  isSearching={searchMutation.isPending}
+                  recentDestinations={recentDestinations}
+                  hits={hits}
+                  onSelectDestination={handleSelectDestination}
+                />
+                <Button
+                  variant="outline"
+                  className="self-end rounded-full"
+                  disabled={!destination}
+                  onClick={() => {
+                    if (!destination) return;
+                    const previousOrigin: Hit = {
+                      id: "swapped-origin",
+                      name: originLabel,
+                      address: "Goa",
+                      lat: origin.lat,
+                      lng: origin.lng,
+                    };
+                    const newOrigin = {
+                      lat: destination.lat,
+                      lng: destination.lng,
+                      name: destination.name,
+                    };
+                    const reversed = [...waypoints].reverse();
+                    setOrigin(newOrigin);
+                    setOriginLabel(destination.name);
+                    setIsGpsOrigin(false);
+                    setDestination(previousOrigin);
+                    setQuery(previousOrigin.name);
+                    setWaypoints(reversed);
+                    calculateCurrentRoute(
+                      newOrigin,
+                      previousOrigin,
+                      reversed,
+                      travelMode,
+                    );
+                  }}
+                >
+                  <ArrowDownUp className="size-4 mr-2" />
+                  Swap start and destination
+                </Button>
+                <StopsEditor
+                  waypoints={waypoints}
+                  onReorderStop={reorderStop}
+                  onMoveStopUp={moveStopUp}
+                  onMoveStopDown={moveStopDown}
+                  onRemoveStop={removeStop}
+                  onOpenBucketList={() => setShowSavedPicker(true)}
+                  showAddStop={showAddStop}
+                  setShowAddStop={setShowAddStop}
+                  stopQuery={stopQuery}
+                  setStopQuery={setStopQuery}
+                  onSearchStop={(q) => stopSearchMutation.mutate(q)}
+                  isSearchingStop={stopSearchMutation.isPending}
+                  stopHits={stopHits}
+                  onSelectStop={addStop}
+                />
+                <Button
+                  disabled={!destination || routeMutation.isPending}
+                  className="rounded-2xl h-11"
+                  onClick={() => calculateCurrentRoute()}
+                >
+                  {routeMutation.isPending
+                    ? "Planning your route…"
+                    : "Plan route"}
+                </Button>
+                {routeMutation.isError && (
+                  <div
+                    role="alert"
+                    className="rounded-2xl border border-destructive/30 bg-destructive/5 p-3 text-sm"
+                  >
+                    Routes could not be loaded. Check your connection and try
+                    Plan route again.
+                  </div>
+                )}
+                {routeMutation.isSuccess && !routes.length && (
+                  <p role="status" className="text-sm p-3">
+                    No route was returned for these stops. Try another
+                    destination or travel mode.
+                  </p>
+                )}
+                <RoutePanel
+                  travelMode={travelMode}
+                  setTravelMode={setTravelMode}
+                  routingConfig={routingConfig}
+                  departureMode={departureMode}
+                  setDepartureMode={setDepartureMode}
+                  customTime={customTime}
+                  setCustomTime={setCustomTime}
+                  isNightTime={isNightTime}
+                  showSavedPlaces={showSavedPlaces}
+                  setShowSavedPlaces={setShowSavedPlaces}
+                  showSavedRoutes={showSavedRoutes}
+                  setShowSavedRoutes={setShowSavedRoutes}
+                  savedRoutesCount={savedRoutesList.length}
+                  isCalculatingRoute={routeMutation.isPending}
+                  routes={routes}
+                  selected={selected}
+                  setSelected={setSelected}
+                  currentRoute={currentRoute}
+                  comparisonCards={comparisonCards}
+                  activeStepIndex={activeStepIndex}
+                  setActiveStepIndex={setActiveStepIndex}
+                  showDirections={showDirections}
+                  setShowDirections={setShowDirections}
+                  onStepClick={handleStepClick}
+                  onShareRoute={handleShareRoute}
+                  onSaveRoute={handleSaveRoute}
+                />
+                <SavedRoutesPanel
+                  isOpen={showSavedRoutes}
+                  savedRoutesList={savedRoutesList}
+                  error={savedRoutesError}
+                  pending={savedRoutesPending}
+                  onRetry={() => void refetchSavedRoutes()}
+                  onClose={() => setShowSavedRoutes(false)}
+                  onSelectRoute={handleSelectSavedRoute}
+                  onDeleteRoute={deleteSavedRoute}
+                />
+              </>
+            )}
+          </>
+        }
+      >
         <MapViewport
           mapEl={mapEl}
           userLocation={userLocation}
@@ -517,13 +642,8 @@ function MapPage() {
           isLoadingMap={isLoadingMap}
           mapLoadError={mapLoadError}
           onRetryMap={handleRetryMap}
-          currentRoute={currentRoute}
-          sheetExpanded={sheetExpanded}
-          setSheetExpanded={setSheetExpanded}
-          onShareRoute={handleShareRoute}
-          onSaveRoute={handleSaveRoute}
         />
-      </div>
+      </MapWorkspace>
 
       <SavedPlacesPicker
         isOpen={showSavedPicker}

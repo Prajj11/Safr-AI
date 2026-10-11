@@ -48,7 +48,6 @@ export interface RoutePanelProps {
   onStepClick: (step: RouteStep, idx: number) => void;
   onShareRoute: () => void;
   onSaveRoute: () => void;
-  onModeOrTimeChange: (newMode?: TravelMode) => void;
 }
 
 export function RoutePanel({
@@ -78,7 +77,6 @@ export function RoutePanel({
   onStepClick,
   onShareRoute,
   onSaveRoute,
-  onModeOrTimeChange,
 }: RoutePanelProps) {
   return (
     <>
@@ -89,55 +87,53 @@ export function RoutePanel({
           <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">
             Travel Mode
           </span>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="flex gap-1.5">
             {[
               { id: "car", label: "Car", icon: Car },
               { id: "motor_scooter", label: "Scooter", icon: Bike },
               { id: "bicycle", label: "Bicycle", icon: Zap },
               { id: "walking", label: "Walking", icon: Footprints },
-            ].map((modeItem) => {
-              const isSupported = routingConfig?.supportedModes
-                ? (routingConfig.supportedModes as readonly string[]).includes(
-                    modeItem.id,
-                  )
-                : modeItem.id === "car";
-              const isSelected = travelMode === modeItem.id;
-              const Icon = modeItem.icon;
+            ]
+              .filter((mode) =>
+                (routingConfig?.supportedModes || ["car"]).includes(mode.id),
+              )
+              .map((modeItem) => {
+                const isSupported = routingConfig?.supportedModes
+                  ? (
+                      routingConfig.supportedModes as readonly string[]
+                    ).includes(modeItem.id)
+                  : modeItem.id === "car";
+                const isSelected = travelMode === modeItem.id;
+                const Icon = modeItem.icon;
 
-              return (
-                <button
-                  key={modeItem.id}
-                  type="button"
-                  disabled={!isSupported}
-                  title={
-                    !isSupported
-                      ? "Requires Valhalla routing provider"
-                      : modeItem.label
-                  }
-                  aria-label={`Travel mode: ${modeItem.label}`}
-                  onClick={() => {
-                    const newM = modeItem.id as TravelMode;
-                    setTravelMode(newM);
-                    onModeOrTimeChange(newM);
-                  }}
-                  className={`flex flex-col items-center justify-center p-2 rounded-2xl border text-xs font-semibold transition-all ${
-                    isSelected
-                      ? "bg-primary/15 border-primary text-primary shadow-xs"
-                      : "bg-secondary/40 border-border/50 text-foreground hover:bg-secondary/70"
-                  }`}
-                >
-                  <Icon className="size-4 mb-1" />
-                  <span className="text-[10px]">{modeItem.label}</span>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={modeItem.id}
+                    type="button"
+                    disabled={!isSupported}
+                    title={
+                      !isSupported
+                        ? "Requires Valhalla routing provider"
+                        : modeItem.label
+                    }
+                    aria-pressed={isSelected}
+                    aria-label={`Travel mode: ${modeItem.label}`}
+                    onClick={() => {
+                      const newM = modeItem.id as TravelMode;
+                      setTravelMode(newM);
+                    }}
+                    className={`flex flex-1 flex-col items-center justify-center p-2 rounded-2xl border text-xs font-semibold transition-all ${
+                      isSelected
+                        ? "bg-primary/15 border-primary text-primary shadow-xs"
+                        : "bg-secondary/40 border-border/50 text-foreground hover:bg-secondary/70"
+                    }`}
+                  >
+                    <Icon className="size-4 mb-1" />
+                    <span className="text-[10px]">{modeItem.label}</span>
+                  </button>
+                );
+              })}
           </div>
-          {routingConfig?.provider === "osrm" && (
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              (OSRM mode is active: scooter, bike & walk routing require
-              Valhalla)
-            </p>
-          )}
         </div>
 
         {/* Departure Time */}
@@ -151,7 +147,6 @@ export function RoutePanel({
                 type="button"
                 onClick={() => {
                   setDepartureMode("now");
-                  onModeOrTimeChange();
                 }}
                 className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-colors ${
                   departureMode === "now"
@@ -165,7 +160,6 @@ export function RoutePanel({
                 type="button"
                 onClick={() => {
                   setDepartureMode("custom");
-                  onModeOrTimeChange();
                 }}
                 className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-colors ${
                   departureMode === "custom"
@@ -185,7 +179,6 @@ export function RoutePanel({
                 value={customTime}
                 onChange={(e) => {
                   setCustomTime(e.target.value);
-                  onModeOrTimeChange();
                 }}
                 className="h-8 rounded-xl text-xs bg-background/80"
               />
@@ -236,21 +229,37 @@ export function RoutePanel({
         <div className="flex items-center justify-center gap-3 rounded-3xl border border-primary/20 bg-primary/5 p-4 animate-pulse">
           <Loader2 className="size-5 animate-spin text-primary" />
           <span className="text-xs font-bold text-primary">
-            Calculating optimal routes…
+            Comparing routes…
           </span>
         </div>
       )}
 
       {routes.length > 0 && currentRoute && (
         <div className="space-y-4">
+          <p className="text-xs text-muted-foreground px-1">
+            {travelMode === "walking"
+              ? "Walking"
+              : travelMode === "bicycle"
+                ? "Cycling"
+                : "Driving"}{" "}
+            estimate · no live traffic. Compare routes below.
+          </p>
           {/* Comparison Cards */}
           <div className="grid gap-2">
-            {comparisonCards.map((choice) => {
-              const r = choice.index !== -1 ? routes[choice.index] : undefined;
+            {routes.map((r, index) => {
+              const choice = comparisonCards.find(
+                (card) => card.index === index,
+              ) || {
+                title: `Route ${index + 1}`,
+                index,
+                detail: "Alternative route",
+                alsoSafest: false,
+              };
               const isCur = r && choice.index === selected;
               return (
                 <button
-                  key={choice.title}
+                  key={choice.index}
+                  aria-pressed={Boolean(isCur)}
                   type="button"
                   disabled={!r}
                   onClick={() => {
@@ -271,7 +280,7 @@ export function RoutePanel({
                     </span>
                     {choice.alsoSafest && (
                       <span className="rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-bold">
-                        Also safest
+                        Road preference
                       </span>
                     )}
                   </div>
@@ -322,20 +331,24 @@ export function RoutePanel({
                 >
                   <Bookmark className="size-3.5 text-primary" />
                 </Button>
-                {currentRoute.googleMapsUrl && (
-                  <a
-                    href={currentRoute.googleMapsUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="Open in Google Maps"
-                    className="inline-flex items-center justify-center h-8 px-3 rounded-full bg-primary text-primary-foreground text-xs font-bold gap-1 shadow-xs hover:scale-102 transition-transform"
-                  >
-                    <ExternalLink className="size-3" /> GMaps
-                  </a>
-                )}
               </div>
             </div>
 
+            {currentRoute.googleMapsUrl && (
+              <a
+                href={currentRoute.googleMapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-primary text-primary-foreground py-3 text-sm font-bold"
+              >
+                <ExternalLink className="size-4" />
+                Start navigation · Google Maps
+              </a>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Road information comes from mapped data and may be incomplete. It
+              does not guarantee safety.
+            </p>
             {/* Per-leg summary if multi-stop */}
             {currentRoute.legs && currentRoute.legs.length > 1 && (
               <div className="space-y-1.5 pt-1">
@@ -362,7 +375,7 @@ export function RoutePanel({
             {/* Safety Reasons */}
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
-                Safety & Road Characteristics
+                Mapped road information
               </span>
               <ul className="space-y-1 text-xs text-foreground/90">
                 {currentRoute.reasons.map((reason, idx) => (

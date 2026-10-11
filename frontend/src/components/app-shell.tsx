@@ -38,12 +38,14 @@ export function AppShell({
   subtitle,
   back,
   publicPage = false,
+  wide = false,
   children,
 }: {
   title: string;
   subtitle?: string;
   back?: boolean;
   publicPage?: boolean;
+  wide?: boolean;
   children: ReactNode;
 }) {
   const navigate = useNavigate();
@@ -135,7 +137,9 @@ export function AppShell({
       </header>
 
       {/* Main Content Area */}
-      <main className="relative z-10 mx-auto max-w-4xl px-4 py-6 sm:px-6">
+      <main
+        className={`relative z-10 mx-auto ${wide ? "max-w-[1600px]" : "max-w-4xl"} px-4 py-6 sm:px-6`}
+      >
         {children}
       </main>
 
