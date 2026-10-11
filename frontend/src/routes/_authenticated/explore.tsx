@@ -190,11 +190,15 @@ function Explore() {
 
   const insightsFn = useServerFn(getPlaceInsights);
   const featuredMediaFn = useServerFn(getFeaturedMedia);
-  const { data: featuredMedia } = useQuery({
+  const featuredMediaQuery = useQuery({
     queryKey: ["explore-featured-media"],
     queryFn: () => featuredMediaFn(),
-    staleTime: 86400000,
+    staleTime: (query) => {
+      const media = query.state.data;
+      return media && Object.values(media).every(Boolean) ? 86400000 : 60000;
+    },
   });
+  const featuredMedia = featuredMediaQuery.data;
   const searchPlacesFn = useServerFn(searchPlaces);
 
   // MapLibre container ref for embedded map view
@@ -1771,6 +1775,24 @@ function Explore() {
                     <RefreshCw className="size-4" />
                   </button>
                 </div>
+                {(!featuredMedia ||
+                  Object.values(featuredMedia).some((media) => !media)) && (
+                  <div className="mb-4 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                    <p>
+                      {featuredMediaQuery.isFetching
+                        ? "Finding verified place photos…"
+                        : "Photos appear when a matching source is available."}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={featuredMediaQuery.isFetching}
+                      onClick={() => void featuredMediaQuery.refetch()}
+                    >
+                      Retry photos
+                    </Button>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {shuffledFeatured.map((place) => {
                     const saved = isSaved(place.name);
@@ -1784,16 +1806,28 @@ function Explore() {
                             setQuery(place.name);
                             openPlace(place.name);
                           }}
-                          className="cursor-pointer"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Explore ${place.name}`}
+                          onKeyDown={(event) => {
+                            if (event.target !== event.currentTarget) return;
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setQuery(place.name);
+                              openPlace(place.name);
+                            }
+                          }}
+                          className="cursor-pointer focus-visible:outline-2 focus-visible:outline-primary"
                         >
-                          <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors z-10" />
                           <PlaceImage
+                            key={`${place.name}:${featuredMediaQuery.dataUpdatedAt}`}
                             src={featuredMedia?.[place.name]?.imageUrl}
                             name={place.name}
                             category={place.category}
+                            pending={featuredMediaQuery.isFetching}
                           />
-                          <div className="absolute bottom-0 left-0 right-0 p-4 z-20 bg-gradient-to-t from-black/85 via-black/50 to-transparent">
-                            <h4 className="text-white font-bold text-base flex items-center justify-between">
+                          <div className="p-4 bg-card">
+                            <h4 className="text-foreground font-bold text-base flex items-center justify-between">
                               <span>{place.name}</span>
                               {saved && (
                                 <span className="text-[10px] bg-rose-500 text-white font-bold px-2 py-0.5 rounded-full">
@@ -1801,12 +1835,12 @@ function Explore() {
                                 </span>
                               )}
                             </h4>
-                            <p className="text-white/80 text-xs mt-1 line-clamp-1">
+                            <p className="text-muted-foreground text-xs mt-1 line-clamp-2">
                               {place.desc}
                             </p>
                             {featuredMedia?.[place.name]?.credit && (
                               <a
-                                className="text-[10px] text-white/80 underline"
+                                className="text-[10px] text-muted-foreground underline"
                                 href={featuredMedia[place.name]!.credit.url}
                                 target="_blank"
                                 rel="noreferrer"

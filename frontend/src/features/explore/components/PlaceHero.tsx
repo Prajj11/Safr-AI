@@ -14,7 +14,7 @@ export function PlaceHero({
         src={data.media?.imageUrl}
         name={data.location.name}
         category={data.curated?.kind}
-        className="h-56 w-full rounded-2xl"
+        className={`${data.media?.imageUrl ? "h-56" : "h-24"} w-full rounded-2xl`}
       />
       {data.curated?.kind && (
         <p className="text-sm capitalize text-primary">

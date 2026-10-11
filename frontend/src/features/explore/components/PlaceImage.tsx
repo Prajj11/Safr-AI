@@ -13,11 +13,13 @@ export function PlaceImage({
   name,
   category,
   className = "h-44 w-full",
+  pending = false,
 }: {
   src?: string | undefined;
   name: string;
   category?: string | undefined;
   className?: string;
+  pending?: boolean;
 }) {
   const [failedSrc, setFailedSrc] = useState<string>();
   const Icon =
@@ -45,11 +47,14 @@ export function PlaceImage({
     />
   ) : (
     <div
-      className={`${className} flex items-center justify-center bg-gradient-to-br from-secondary to-muted text-muted-foreground`}
+      className={`${className} flex flex-col gap-2 items-center justify-center bg-gradient-to-br from-secondary to-muted text-muted-foreground`}
       role="img"
       aria-label={`${name} — no photo available`}
     >
       <Icon className="size-12" />
+      <span className="text-xs">
+        {pending ? "Finding a photo…" : "Photo unavailable"}
+      </span>
     </div>
   );
 }

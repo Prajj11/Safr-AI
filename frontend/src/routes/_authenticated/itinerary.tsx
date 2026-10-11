@@ -1,3 +1,5 @@
+import { itineraryDate } from "@/lib/itinerary-dates";
+import { ItinerarySummary } from "@/features/itinerary/components/ItinerarySummary";
 import { resolvedCentre } from "@/lib/resolved-centre";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -16,7 +18,7 @@ import {
   Sparkles,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -59,23 +61,9 @@ const typeEmoji: Record<string, string> = {
   travel: "🛵",
 };
 
-function getTodayDate(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-}
-
-function getTomorrowDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-}
-
-function getWeekendDate(): string {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = day <= 5 ? 6 - day : 0;
-  d.setDate(d.getDate() + diff);
-  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-}
+const getTodayDate = () => itineraryDate("today");
+const getTomorrowDate = () => itineraryDate("tomorrow");
+const getWeekendDate = () => itineraryDate("weekend");
 
 function ItineraryPage() {
   const searchParams = Route.useSearch();
@@ -165,6 +153,17 @@ function ItineraryPage() {
 
   const [visitedStops, setVisitedStops] = useState<Record<number, boolean>>({});
 
+  const [result, setResult] = useState<Itinerary>();
+  const [editing, setEditing] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "failed" | "none">(
+    "none",
+  );
+  const resultRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!result) return;
+    resultRef.current?.focus({ preventScroll: true });
+    resultRef.current?.scrollIntoView({ block: "start" });
+  }, [result]);
   const generate = useServerFn(generateItinerary);
 
   const plan = useMutation({
@@ -183,8 +182,12 @@ function ItineraryPage() {
           returnToStart,
         },
       })) as Itinerary;
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData.user) {
+      // A storage outage must not discard a successfully generated day.
+      try {
+        const { data: userData, error: authError } =
+          await supabase.auth.getUser();
+        if (authError || !userData.user)
+          throw new Error("Sign in to save your itinerary.");
         const { error } = await supabase.from("itineraries").insert({
           user_id: userData.user.id,
           place,
@@ -193,12 +196,20 @@ function ItineraryPage() {
           interests,
           plan: result as unknown as never,
         });
-        if (error)
-          toast.warning(
-            "Your plan is ready, but could not be saved. Print it to keep a copy.",
-          );
+        if (error) throw error;
+        setSaveStatus("saved");
+      } catch {
+        setSaveStatus("failed");
+        toast.warning(
+          "Your plan is ready, but could not be saved. Print it to keep a copy.",
+        );
       }
       return result;
+    },
+    onSuccess: (itinerary) => {
+      setResult(itinerary);
+      setVisitedStops({});
+      setEditing(false);
     },
     onError: (e) =>
       toast.error(e instanceof Error ? e.message : "Could not build itinerary"),
@@ -218,280 +229,303 @@ function ItineraryPage() {
       subtitle="Map-based schedules for your destination and current location"
       back
     >
+      {result && (
+        <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
+          <p className="text-sm text-muted-foreground">
+            Your day is ready. Adjust your preferences to make a new plan.
+          </p>
+          <Button
+            variant="outline"
+            aria-expanded={editing}
+            aria-controls="itinerary-preferences"
+            onClick={() => setEditing(!editing)}
+          >
+            {editing ? "Hide preferences" : "Edit preferences"}
+          </Button>
+        </div>
+      )}
       {/* Configuration Form Card */}
       <form
-        className="space-y-5 rounded-3xl border border-border/60 bg-card/75 backdrop-blur-2xl p-6 sm:p-8 shadow-sm"
+        id="itinerary-preferences"
+        hidden={!editing}
+        className="print:hidden space-y-5 rounded-3xl border border-border/60 bg-card/75 backdrop-blur-2xl p-6 sm:p-8 shadow-sm"
         onSubmit={(e) => {
           e.preventDefault();
           if (interests.length === 0) {
             toast.error("Please select at least one travel interest");
             return;
           }
-          setVisitedStops({});
-          plan.mutate();
+          if (!plan.isPending) plan.mutate();
         }}
       >
-        <div className="flex items-center justify-between border-b border-border/40 pb-4">
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-              Time-Budget Planner
-            </span>
-            <h3 className="text-xl font-bold font-display text-foreground">
-              Plan Your Day
-            </h3>
+        <fieldset disabled={plan.isPending} className="space-y-5 min-w-0">
+          <div className="flex items-center justify-between border-b border-border/40 pb-4">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                Time-Budget Planner
+              </span>
+              <h3 className="text-xl font-bold font-display text-foreground">
+                Plan Your Day
+              </h3>
+            </div>
+            <Sparkles className="size-6 text-primary" />
           </div>
-          <Sparkles className="size-6 text-primary" />
-        </div>
 
-        {/* Location Dropdown */}
-        <div className="space-y-1.5">
-          <Label
-            htmlFor="place"
-            className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"
-          >
-            <MapPin className="size-3.5 text-primary" /> Destination or Starting
-            Area
-          </Label>
-          <Input
-            id="place"
-            list="goa-destinations"
-            required
-            maxLength={120}
-            value={place}
-            onChange={(e) => {
-              setPlace(e.target.value);
-              setOrigin(undefined);
-            }}
-          />
-          <datalist id="goa-destinations">
-            {GOA_PLACES.map((p) => (
-              <option key={p} value={p} />
-            ))}
-          </datalist>
-          <Label htmlFor="state">State in India</Label>
-          <Input
-            id="state"
-            required
-            maxLength={80}
-            value={state}
-            onChange={(e) => {
-              setState(e.target.value);
-              setOrigin(undefined);
-            }}
-          />
-          <div className="flex flex-wrap gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={locating}
-              onClick={handleCurrentLocation}
-            >
-              {locating
-                ? "Finding your area…"
-                : "Use my current location & state"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void handleTripDestination()}
-            >
-              Use saved trip destination
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {origin
-              ? "The initial drive starts at the selected coordinates."
-              : "The initial drive starts at the mapped destination center."}{" "}
-            Times use the India time zone and driving routes.
-          </p>
-          <label className="flex gap-2 text-sm pt-2">
-            <input
-              type="checkbox"
-              checked={returnToStart}
-              onChange={(e) => setReturnToStart(e.target.checked)}
-            />{" "}
-            Include the drive back to my starting point
-          </label>
-        </div>
-
-        {/* Date of Visit & Quick Date Pills */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
+          {/* Location Dropdown */}
+          <div className="space-y-1.5">
             <Label
-              htmlFor="date"
+              htmlFor="place"
               className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"
             >
-              <Calendar className="size-3.5 text-primary" /> Date of Exploration
+              <MapPin className="size-3.5 text-primary" /> Destination or
+              Starting Area
             </Label>
-            <div className="flex gap-1.5">
-              {[
-                { label: "Today", fn: getTodayDate },
-                { label: "Tomorrow", fn: getTomorrowDate },
-                { label: "Weekend", fn: getWeekendDate },
-              ].map((pill) => {
-                const isSelected = date === pill.fn();
+            <Input
+              id="place"
+              list="goa-destinations"
+              required
+              maxLength={120}
+              value={place}
+              onChange={(e) => {
+                setPlace(e.target.value);
+                setOrigin(undefined);
+              }}
+            />
+            <datalist id="goa-destinations">
+              {GOA_PLACES.map((p) => (
+                <option key={p} value={p} />
+              ))}
+            </datalist>
+            <Label htmlFor="state">State in India</Label>
+            <Input
+              id="state"
+              required
+              maxLength={80}
+              value={state}
+              onChange={(e) => {
+                setState(e.target.value);
+                setOrigin(undefined);
+              }}
+            />
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={locating}
+                onClick={handleCurrentLocation}
+              >
+                {locating
+                  ? "Finding your area…"
+                  : "Use my current location & state"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleTripDestination()}
+              >
+                Use saved trip destination
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {origin
+                ? "The initial drive starts at the selected coordinates."
+                : "The initial drive starts at the mapped destination center."}{" "}
+              Times use the India time zone and driving routes.
+            </p>
+            <label className="flex gap-2 text-sm pt-2">
+              <input
+                type="checkbox"
+                checked={returnToStart}
+                onChange={(e) => setReturnToStart(e.target.checked)}
+              />{" "}
+              Include the drive back to my starting point
+            </label>
+          </div>
+
+          {/* Date of Visit & Quick Date Pills */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label
+                htmlFor="date"
+                className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"
+              >
+                <Calendar className="size-3.5 text-primary" /> Date of
+                Exploration
+              </Label>
+              <div className="flex gap-1.5">
+                {[
+                  { label: "Today", fn: getTodayDate },
+                  { label: "Tomorrow", fn: getTomorrowDate },
+                  { label: "Weekend", fn: getWeekendDate },
+                ].map((pill) => {
+                  const isSelected = date === pill.fn();
+                  return (
+                    <button
+                      key={pill.label}
+                      type="button"
+                      onClick={() => setDate(pill.fn())}
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold transition-all ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                      }`}
+                    >
+                      {pill.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <Input
+              id="date"
+              type="date"
+              required
+              value={date}
+              min={getTodayDate()}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full h-11 rounded-2xl bg-secondary/40 border-border/60"
+            />
+          </div>
+
+          {/* Start Time and Available Duration */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="start"
+                className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"
+              >
+                <Clock className="size-3.5 text-primary" /> Start Time
+              </Label>
+              <Input
+                id="start"
+                type="time"
+                required
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="h-11 rounded-2xl bg-secondary/40 border-border/60 font-semibold"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="hours"
+                className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"
+              >
+                <Zap className="size-3.5 text-amber" /> Free Hours ({hours}h)
+              </Label>
+              <Input
+                id="hours"
+                type="number"
+                min={1}
+                max={24}
+                value={hours}
+                onChange={(e) =>
+                  setHours(
+                    Math.max(1, Math.min(24, Number(e.target.value) || 1)),
+                  )
+                }
+                className="h-11 rounded-2xl bg-secondary/40 border-border/60 font-bold"
+              />
+            </div>
+          </div>
+
+          {/* Pacing Speed Controls */}
+          <div className="space-y-2">
+            <Label className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+              Exploration Pace
+            </Label>
+            <div className="grid grid-cols-3 gap-2.5">
+              {(["relaxed", "balanced", "packed"] as const).map((p) => {
+                const isSelected = pace === p;
                 return (
                   <button
-                    key={pill.label}
+                    key={p}
                     type="button"
-                    onClick={() => setDate(pill.fn())}
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold transition-all ${
+                    aria-pressed={isSelected}
+                    onClick={() => setPace(p)}
+                    className={`rounded-2xl py-2.5 text-xs font-bold capitalize transition-all ${
                       isSelected
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-[1.02]"
+                        : "bg-secondary/70 text-secondary-foreground hover:bg-secondary"
                     }`}
                   >
-                    {pill.label}
+                    {p}
                   </button>
                 );
               })}
             </div>
           </div>
-          <Input
-            id="date"
-            type="date"
-            required
-            value={date}
-            min={getTodayDate()}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full h-11 rounded-2xl bg-secondary/40 border-border/60"
-          />
-        </div>
 
-        {/* Start Time and Available Duration */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label
-              htmlFor="start"
-              className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"
-            >
-              <Clock className="size-3.5 text-primary" /> Start Time
+          {/* Interest Tags Selector */}
+          <div className="space-y-2">
+            <Label className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+              What do you enjoy?
             </Label>
-            <Input
-              id="start"
-              type="time"
-              required
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="h-11 rounded-2xl bg-secondary/40 border-border/60 font-semibold"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label
-              htmlFor="hours"
-              className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"
-            >
-              <Zap className="size-3.5 text-amber" /> Free Hours ({hours}h)
-            </Label>
-            <Input
-              id="hours"
-              type="number"
-              min={1}
-              max={24}
-              value={hours}
-              onChange={(e) =>
-                setHours(Math.max(1, Math.min(24, Number(e.target.value) || 1)))
-              }
-              className="h-11 rounded-2xl bg-secondary/40 border-border/60 font-bold"
-            />
-          </div>
-        </div>
-
-        {/* Pacing Speed Controls */}
-        <div className="space-y-2">
-          <Label className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-            Exploration Pace
-          </Label>
-          <div className="grid grid-cols-3 gap-2.5">
-            {(["relaxed", "balanced", "packed"] as const).map((p) => {
-              const isSelected = pace === p;
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPace(p)}
-                  className={`rounded-2xl py-2.5 text-xs font-bold capitalize transition-all ${
-                    isSelected
-                      ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-[1.02]"
-                      : "bg-secondary/70 text-secondary-foreground hover:bg-secondary"
-                  }`}
-                >
-                  {p}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Interest Tags Selector */}
-        <div className="space-y-2">
-          <Label className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-            What do you enjoy?
-          </Label>
-          <div className="flex flex-wrap gap-2">
-            {INTERESTS.map((i) => {
-              const isSelected = interests.includes(i);
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() =>
-                    setInterests(
+            <div className="flex flex-wrap gap-2">
+              {INTERESTS.map((i) => {
+                const isSelected = interests.includes(i);
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() =>
+                      setInterests(
+                        isSelected
+                          ? interests.filter((x) => x !== i)
+                          : [...interests, i],
+                      )
+                    }
+                    className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
                       isSelected
-                        ? interests.filter((x) => x !== i)
-                        : [...interests, i],
-                    )
-                  }
-                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                    isSelected
-                      ? "bg-primary text-primary-foreground shadow-xs scale-105"
-                      : "bg-secondary/70 text-secondary-foreground hover:bg-secondary"
-                  }`}
-                >
-                  {i}
-                </button>
-              );
-            })}
+                        ? "bg-primary text-primary-foreground shadow-xs scale-105"
+                        : "bg-secondary/70 text-secondary-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    {i}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
 
-        {/* Custom Notes / Constraints */}
-        <div className="space-y-1.5">
-          <Label
-            htmlFor="notes"
-            className="font-semibold text-xs uppercase tracking-wider text-muted-foreground"
+          {/* Custom Notes / Constraints */}
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="notes"
+              className="font-semibold text-xs uppercase tracking-wider text-muted-foreground"
+            >
+              Special Requests & Notes (optional)
+            </Label>
+            <Textarea
+              id="notes"
+              maxLength={400}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Travelling with a toddler, vegetarian only, prefer scooter-accessible spots…"
+              className="rounded-2xl bg-secondary/40 border-border/60 text-xs sm:text-sm resize-none"
+              rows={2}
+            />
+          </div>
+
+          {/* Submit Button */}
+          <Button
+            type="submit"
+            disabled={plan.isPending || locating}
+            className="w-full h-12 rounded-full font-bold bg-primary text-primary-foreground shadow-md transition-all hover:scale-[1.01] active:scale-95"
           >
-            Special Requests & Notes (optional)
-          </Label>
-          <Textarea
-            id="notes"
-            maxLength={400}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Travelling with a toddler, vegetarian only, prefer scooter-accessible spots…"
-            className="rounded-2xl bg-secondary/40 border-border/60 text-xs sm:text-sm resize-none"
-            rows={2}
-          />
-        </div>
-
-        {/* Submit Button */}
-        <Button
-          type="submit"
-          disabled={plan.isPending || locating}
-          className="w-full h-12 rounded-full font-bold bg-primary text-primary-foreground shadow-md transition-all hover:scale-[1.01] active:scale-95"
-        >
-          {plan.isPending ? (
-            <>
-              <Loader2 className="size-4 animate-spin mr-2" /> Synthesizing
-              Itinerary…
-            </>
-          ) : (
-            <>
-              <Sparkles className="size-4 mr-2" /> Generate AI Itinerary
-            </>
-          )}
-        </Button>
+            {plan.isPending ? (
+              <>
+                <Loader2 className="size-4 animate-spin mr-2" /> Planning your
+                day…
+              </>
+            ) : (
+              <>
+                <Sparkles className="size-4 mr-2" /> Generate AI Itinerary
+              </>
+            )}
+          </Button>
+        </fieldset>
       </form>
 
       {plan.isPending && (
@@ -501,9 +535,38 @@ function ItineraryPage() {
         </p>
       )}
 
+      {plan.isError && (
+        <div
+          role="alert"
+          className="my-5 rounded-2xl border border-destructive/30 bg-destructive/5 p-4"
+        >
+          <p className="text-sm">
+            {plan.error instanceof Error
+              ? plan.error.message
+              : "Your itinerary could not be created. Please try again."}
+          </p>
+          {result && (
+            <p className="text-xs mt-2">
+              Your previous plan is still available below.
+            </p>
+          )}
+          <Button
+            variant="outline"
+            className="mt-3"
+            onClick={() => setEditing(true)}
+          >
+            Review preferences
+          </Button>
+        </div>
+      )}
       {/* RESULTING ITINERARY TIMELINE */}
-      {plan.data && !plan.isPending && (
-        <section className="mt-8 rounded-3xl border border-border/60 bg-card/80 backdrop-blur-2xl p-6 sm:p-8 shadow-sm animate-in fade-in slide-in-from-bottom-6 duration-500">
+      {result && !plan.isPending && (
+        <section
+          ref={resultRef}
+          tabIndex={-1}
+          aria-label="Your planned day"
+          className="itinerary-result scroll-mt-24 mt-8 rounded-3xl border border-border/60 bg-card/80 backdrop-blur-2xl p-6 sm:p-8 shadow-sm animate-in fade-in slide-in-from-bottom-6 duration-500"
+        >
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-5">
             <div>
@@ -512,18 +575,19 @@ function ItineraryPage() {
                   Time-Budgeted Schedule
                 </span>
                 <span className="rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold">
-                  {plan.data.aiStatus === "used"
-                    ? "AI + OSRM"
-                    : "Map-based fallback"}
+                  {result.aiStatus === "used"
+                    ? "AI-assisted plan"
+                    : "Map-based plan"}
                 </span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold font-display text-foreground mt-1.5">
-                {plan.data.title}
+                {result.title}
               </h2>
-              {plan.data.date && (
+              {result.date && (
                 <p className="text-xs font-semibold text-muted-foreground mt-1 flex items-center gap-1.5">
                   <Calendar className="size-3.5 text-primary" />
-                  {new Date(plan.data.date).toLocaleDateString("en-US", {
+                  {new Date(result.date).toLocaleDateString("en-US", {
+                    timeZone: "Asia/Kolkata",
                     weekday: "long",
                     month: "long",
                     day: "numeric",
@@ -543,34 +607,45 @@ function ItineraryPage() {
             </Button>
           </div>
 
+          <ItinerarySummary
+            itinerary={result}
+            visited={Object.values(visitedStops).filter(Boolean).length}
+          />
+          {saveStatus !== "none" && (
+            <p className="mt-3 text-xs text-muted-foreground" role="status">
+              {saveStatus === "saved"
+                ? "Saved to your account."
+                : "Not saved to your account. Use Print / Save PDF to keep this plan."}
+            </p>
+          )}
           {/* Live Coastal Telemetry Banner */}
-          {(plan.data.liveWeather || plan.data.liveSwell) && (
+          {(result.liveWeather || result.liveSwell) && (
             <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-3 rounded-2xl bg-secondary/50 border border-border/50 p-3 text-xs text-foreground">
-              {plan.data.liveWeather && (
+              {result.liveWeather && (
                 <span className="font-semibold flex items-center gap-1.5">
-                  {plan.data.liveWeather}
+                  {result.liveWeather}
                 </span>
               )}
-              {plan.data.liveWeather && plan.data.liveSwell && (
+              {result.liveWeather && result.liveSwell && (
                 <span className="text-muted-foreground hidden sm:inline">
                   ·
                 </span>
               )}
-              {plan.data.liveSwell && (
+              {result.liveSwell && (
                 <span className="font-semibold flex items-center gap-1.5">
-                  {plan.data.liveSwell}
+                  {result.liveSwell}
                 </span>
               )}
             </div>
           )}
 
           <p className="mt-4 text-sm text-foreground/90 leading-relaxed font-medium">
-            {plan.data.overview}
+            {result.overview}
           </p>
 
           {/* Sequential Timeline Stops */}
           <ol className="mt-8 space-y-6 border-l-2 border-primary/30 pl-6 ml-2">
-            {plan.data.stops.map((stop, i) => {
+            {result.stops.map((stop, i) => {
               const isVisited = Boolean(visitedStops[i]);
               return (
                 <li key={i} className="relative group">
@@ -583,6 +658,8 @@ function ItineraryPage() {
                         ? "bg-emerald-500 text-white scale-110 ring-2 ring-emerald-300"
                         : "bg-primary text-primary-foreground group-hover:scale-110"
                     }`}
+                    aria-pressed={isVisited}
+                    aria-label={`${isVisited ? "Mark as not visited" : "Mark as visited"}: ${stop.title}`}
                     title={
                       isVisited ? "Mark as not visited" : "Mark as visited"
                     }
@@ -667,11 +744,11 @@ function ItineraryPage() {
                                 : {}),
                             }}
                           >
-                            <Navigation className="size-3 mr-0.5" /> Safe Route
+                            <Navigation className="size-3 mr-0.5" /> Directions
                           </Link>
                         </Button>
 
-                        {stop.lat && stop.lng && (
+                        {stop.lat != null && stop.lng != null && (
                           <a
                             href={`https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`}
                             target="_blank"
@@ -723,13 +800,13 @@ function ItineraryPage() {
           </ol>
 
           {/* Travel Tips & Good to Know */}
-          {plan.data.tips.length > 0 && (
+          {result.tips.length > 0 && (
             <div className="mt-8 rounded-2xl bg-primary/5 border border-primary/20 p-5">
               <p className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
                 <span>💡</span> Local Travel Insights & Pro-Tips
               </p>
               <ul className="mt-2.5 space-y-1.5 text-xs sm:text-sm text-foreground/90 leading-relaxed">
-                {plan.data.tips.map((t, idx) => (
+                {result.tips.map((t, idx) => (
                   <li key={idx} className="flex items-start gap-2">
                     <span className="text-primary font-bold">•</span>
                     <span>{t}</span>

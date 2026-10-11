@@ -4,7 +4,11 @@ import { normalizePlaceName } from "./place-names";
 export const WIKIPEDIA_MATCH_THRESHOLD = 0.6;
 export function titleMatchScore(name: string, title: string): number {
   const a = new Set(normalizePlaceName(name).split(" ").filter(Boolean));
-  const b = new Set(normalizePlaceName(title).split(" ").filter(Boolean));
+  // Geographic disambiguators are not part of the landmark's name.
+  const unqualifiedTitle = title.replace(/(?:,\s*Goa|\s*\(Goa\))$/i, "");
+  const b = new Set(
+    normalizePlaceName(unqualifiedTitle).split(" ").filter(Boolean),
+  );
   if (!a.size || !b.size) return 0;
   return (
     [...a].filter((token) => b.has(token)).length / Math.max(a.size, b.size)

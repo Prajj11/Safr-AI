@@ -42,25 +42,35 @@ export const getFeaturedMedia = createServerFn({ method: "GET" })
     checkExploreAccess(context.userId);
     const { lookupWikipedia } = await import("./wikipedia.server");
     const { ALL_FEATURED } = await import("./explore-featured");
-    return Object.fromEntries(
-      await Promise.all(
-        ALL_FEATURED.map(async (place) => {
-          const article = await lookupWikipedia(place);
-          return [
-            place.name,
-            article?.imageUrl
-              ? {
-                  imageUrl: article.imageUrl,
-                  credit: {
-                    label: "Wikipedia / Wikimedia — view image attribution",
-                    url: article.pageUrl,
-                  },
-                }
-              : null,
-          ];
-        }),
-      ),
-    );
+    const entries: [
+      string,
+      { imageUrl: string; credit: { label: string; url: string } } | null,
+    ][] = [];
+    // Keep public Wikipedia request bursts small; successful results are cached.
+    for (let offset = 0; offset < ALL_FEATURED.length; offset += 2) {
+      entries.push(
+        ...(await Promise.all(
+          ALL_FEATURED.slice(offset, offset + 2).map(
+            async (place): Promise<(typeof entries)[number]> => {
+              const article = await lookupWikipedia(place);
+              return [
+                place.name,
+                article?.imageUrl
+                  ? {
+                      imageUrl: article.imageUrl,
+                      credit: {
+                        label: "Wikipedia / Wikimedia — view image attribution",
+                        url: article.pageUrl,
+                      },
+                    }
+                  : null,
+              ];
+            },
+          ),
+        )),
+      );
+    }
+    return Object.fromEntries(entries);
   });
 
 export const getPlaceConditions = createServerFn({ method: "POST" })
