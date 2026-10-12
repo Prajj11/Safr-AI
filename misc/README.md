@@ -10,9 +10,12 @@ This folder contains project-wide technical documentation, test suites, and deve
 misc/
 ├── MASTER_PROJECT_DOCUMENTATION.md   # Exhaustive 50KB+ technical architecture & engineering guide
 ├── information.md                    # Technical documentation, API schemas, and feature breakdown
-├── tests/                            # Automated test suite (23 passing tests)
+├── tests/                            # Automated test suite (28 test files, 105 passing tests)
 │   ├── travel.test.ts                # Schedule budgeting, phone validation & route tests
 │   ├── services.test.ts              # External provider fallbacks & itinerary generation tests
+│   ├── valhalla.test.ts              # Valhalla multi-modal routing & OSRM failover tests
+│   ├── safetag-alert.test.ts         # SafeTag alert formatting, sanitization & mock mode tests
+│   ├── trip-save.test.ts             # Atomic trip save & companion transaction tests
 │   └── route-comparison.test.ts      # Road surface, illumination & safety score tests
 ├── scripts/                          # Utility & test helper scripts
 │   └── register-typescript.mjs       # TypeScript import loader for native Node tests
