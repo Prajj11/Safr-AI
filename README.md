@@ -272,7 +272,7 @@ For in-depth blueprints covering database architecture, RLS security policies, m
 
 ## 👥 Authors & Credits
 
-* **Development Team**: Team KoS
+* **Development Team**: Team KoPS
 * **Initiative**: Safr (Smart Travel Safety Companion for India)
 
 ---
