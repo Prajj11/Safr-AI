@@ -159,7 +159,7 @@ export async function sendTwilioMessage(
         Authorization: authHeader,
       },
       body: formData.toString(),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(6000),
     });
 
     const data = (await response.json().catch(() => ({}))) as {
@@ -183,6 +183,13 @@ export async function sendTwilioMessage(
 export async function sendSafeTagAlert(
   params: SafeTagAlertParams,
 ): Promise<NotificationResult> {
+  return sendEmergencyMessage(params.guardianPhone, formatAlertMessage(params));
+}
+
+export async function sendEmergencyMessage(
+  phone: string,
+  message: string,
+): Promise<NotificationResult> {
   const mode = process.env["NOTIFY_MODE"] || "mock";
   const activeChannels = getNotifyChannels() as NotificationChannel[];
 
@@ -194,9 +201,8 @@ export async function sendSafeTagAlert(
   const smsFrom =
     process.env["TWILIO_SMS_FROM"] || process.env["TWILIO_PHONE_NUMBER"];
 
-  const toE164 = normalizeE164(params.guardianPhone);
+  const toE164 = normalizeE164(phone);
   const masked = maskPhone(toE164);
-  const message = formatAlertMessage(params);
 
   const results: NotificationResult = {
     whatsapp: { status: "skipped", timestamp: new Date().toISOString() },

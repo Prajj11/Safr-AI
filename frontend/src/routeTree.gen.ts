@@ -21,6 +21,7 @@ import { Route as AuthenticatedLiveTrackingRouteImport } from './routes/_authent
 import { Route as AuthenticatedMapRouteImport } from './routes/_authenticated/map'
 import { Route as AuthenticatedSafetyTagsRouteImport } from './routes/_authenticated/safety-tags'
 import { Route as AuthenticatedSetupRouteImport } from './routes/_authenticated/setup'
+import { Route as ShareTokenRouteImport } from './routes/share.$token'
 import { Route as TTokenRouteImport } from './routes/t.$token'
 
 const IndexRoute = IndexRouteImport.update({
@@ -83,6 +84,11 @@ const AuthenticatedSetupRoute = AuthenticatedSetupRouteImport.update({
   path: '/setup',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ShareTokenRoute = ShareTokenRouteImport.update({
+  id: '/share/$token',
+  path: '/share/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TTokenRoute = TTokenRouteImport.update({
   id: '/t/$token',
   path: '/t/$token',
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/map': typeof AuthenticatedMapRoute
   '/safety-tags': typeof AuthenticatedSafetyTagsRoute
   '/setup': typeof AuthenticatedSetupRoute
+  '/share/$token': typeof ShareTokenRoute
   '/t/$token': typeof TTokenRoute
 }
 export interface FileRoutesByTo {
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/map': typeof AuthenticatedMapRoute
   '/safety-tags': typeof AuthenticatedSafetyTagsRoute
   '/setup': typeof AuthenticatedSetupRoute
+  '/share/$token': typeof ShareTokenRoute
   '/t/$token': typeof TTokenRoute
 }
 export interface FileRoutesById {
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/_authenticated/map': typeof AuthenticatedMapRoute
   '/_authenticated/safety-tags': typeof AuthenticatedSafetyTagsRoute
   '/_authenticated/setup': typeof AuthenticatedSetupRoute
+  '/share/$token': typeof ShareTokenRoute
   '/t/$token': typeof TTokenRoute
 }
 export interface FileRouteTypes {
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/map'
     | '/safety-tags'
     | '/setup'
+    | '/share/$token'
     | '/t/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/map'
     | '/safety-tags'
     | '/setup'
+    | '/share/$token'
     | '/t/$token'
   id:
     | '__root__'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/_authenticated/map'
     | '/_authenticated/safety-tags'
     | '/_authenticated/setup'
+    | '/share/$token'
     | '/t/$token'
   fileRoutesById: FileRoutesById
 }
@@ -185,6 +197,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   EmergencyRoute: typeof EmergencyRoute
   FindRoute: typeof FindRoute
+  ShareTokenRoute: typeof ShareTokenRoute
   TTokenRoute: typeof TTokenRoute
 }
 
@@ -274,6 +287,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSetupRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/share/$token': {
+      id: '/share/$token'
+      path: '/share/$token'
+      fullPath: '/share/$token'
+      preLoaderRoute: typeof ShareTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/t/$token': {
       id: '/t/$token'
       path: '/t/$token'
@@ -313,6 +333,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   EmergencyRoute: EmergencyRoute,
   FindRoute: FindRoute,
+  ShareTokenRoute: ShareTokenRoute,
   TTokenRoute: TTokenRoute,
 }
 export const routeTree = rootRouteImport

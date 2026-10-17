@@ -23,6 +23,7 @@ export const Route = createFileRoute("/_authenticated/setup")({
 });
 
 type Person = {
+  id?: string;
   name: string;
   age: string;
   category: "adult" | "kid" | "senior";
@@ -100,6 +101,7 @@ function Setup() {
     setStartDate(existing.start_date ?? "");
     setDays(existing.days);
     const t = (existing.travellers ?? []) as Array<{
+      id: string;
       name: string;
       age: number | null;
       category: string;
@@ -108,6 +110,7 @@ function Setup() {
     if (t.length > 0) {
       setPeople(
         t.map((p) => ({
+          id: p.id,
           name: p.name,
           age: p.age != null ? String(p.age) : "",
           category: p.category as Person["category"],
@@ -190,6 +193,7 @@ function Setup() {
           ? people
               .filter((person) => person.name.trim())
               .map((person) => ({
+                id: person.id ?? null,
                 name: person.name.trim(),
                 age: Number(person.age),
                 category: person.category,
@@ -204,6 +208,7 @@ function Setup() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trip"] });
+      queryClient.invalidateQueries({ queryKey: ["tracking-workspace"] });
       toast.success("Trip saved");
       navigate({ to: "/dashboard" });
     },

@@ -14,6 +14,36 @@ export type Database = {
   };
   public: {
     Tables: {
+      location_links: {
+        Row: import("../../lib/companion-tracking").TrackingLink;
+        Insert: Partial<import("../../lib/companion-tracking").TrackingLink> & {
+          owner_id: string;
+          trip_id: string;
+          traveller_id: string;
+          phone_number: string | null;
+        };
+        Update: Partial<import("../../lib/companion-tracking").TrackingLink>;
+        Relationships: [];
+      };
+      trip_meeting_points: {
+        Row: import("../../lib/companion-tracking").MeetingPoint;
+        Insert: Omit<
+          import("../../lib/companion-tracking").MeetingPoint,
+          "id" | "created_at"
+        >;
+        Update: Partial<import("../../lib/companion-tracking").MeetingPoint>;
+        Relationships: [];
+      };
+      sos_incidents: {
+        Row: import("../../lib/companion-tracking").Incident;
+        Insert: Omit<
+          import("../../lib/companion-tracking").Incident,
+          "id" | "created_at" | "resolved_at"
+        >;
+        Update: Partial<import("../../lib/companion-tracking").Incident>;
+        Relationships: [];
+      };
+
       crowd_reports: {
         Row: {
           id: string;

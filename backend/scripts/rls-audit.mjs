@@ -14,6 +14,8 @@ export const auditedTables = [
   "location_audit",
   "place_cache",
   "crowd_reports",
+  "trip_meeting_points",
+  "sos_incidents",
 ];
 
 // An empty anonymous read cannot prove RLS: the table itself may simply be empty.

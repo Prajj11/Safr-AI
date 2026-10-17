@@ -1,3 +1,5 @@
+import { SosPanicControl } from "@/components/sos/SosPanicControl";
+import { GuardianSafetyStatus } from "@/components/sos/GuardianSafetyStatus";
 import {
   Link,
   useNavigate,
@@ -68,6 +70,7 @@ export function AppShell({
       <div className="pointer-events-none fixed top-0 left-0 -translate-x-1/2 -translate-y-1/2 h-[450px] w-[450px] rounded-full bg-coral/10 blur-[100px] z-0" />
       <div className="pointer-events-none fixed bottom-0 right-0 translate-x-1/3 translate-y-1/3 h-[550px] w-[550px] rounded-full bg-cyan/10 blur-[120px] z-0" />
 
+      {!publicPage && <GuardianSafetyStatus />}
       {/* Floating Top Glass Header */}
       <header className="sticky top-0 z-40 border-b border-border/40 bg-card/70 backdrop-blur-2xl shadow-sm transition-all">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
@@ -103,6 +106,7 @@ export function AppShell({
           </div>
 
           <div className="flex items-center gap-2">
+            <SosPanicControl localOnly={publicPage} />
             <div className="hidden md:block">
               <GoogleTranslate />
             </div>
