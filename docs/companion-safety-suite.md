@@ -4,6 +4,14 @@ Implemented on 2026-10-18. The Reunite workspace is `/live-tracking`; companion 
 
 ## Deployment
 
+### Repair for an older database (2026-10-22)
+
+Read-only checks of the configured remote project found missing `trips.phone_number`, `travellers.phone_number`, `location_links`, `trip_meeting_points`, and `sos_incidents`. The local server service-role key is also absent. Changing the UI alone cannot restore these features.
+
+Apply `backend/supabase/repairs/20261022_reunite.sql` in the intended project's SQL Editor. It combines the missing phone columns, location-sharing dependencies, meeting/SOS tables and policies, and the current atomic trip-saving function in one transaction, then refreshes the API schema cache. It preserves existing rows and can be rerun against the repository schema. If existing rows violate a unique constraint, the transaction stops for manual reconciliation rather than deleting data. The repair has not been executed here because no database administrator connection is configured.
+
+Add the service-role key privately to the server environment, restart the server, and run `npm run check:tracking` from `frontend/`. That check requests zero rows and never prints keys. It uses the operating system's trusted certificate store; TLS verification stays enabled. Then verify trip saving, invitation creation, and the two-device checks below. Do not put a service-role key in chat or a browser-prefixed environment variable.
+
 1. Apply existing prerequisite migrations, including `20261008000000_location_sharing.sql`, then `20261018000000_meeting_points_and_sos.sql`. The consolidated schema mirrors this migration. It also updates the atomic trip-save function to preserve existing companion IDs and their invitations when editing a trip.
 2. Configure the existing server-only `SUPABASE_SERVICE_ROLE_KEY` alongside the Supabase URL. Never use a `VITE_` prefix for this secret. No new environment variable names are introduced.
 3. For real messages, configure existing `NOTIFY_MODE`, `NOTIFY_CHANNELS`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and the WhatsApp/SMS sender settings. The default notification mode is mock. Set channels to `whatsapp,sms` for both, subject to provider permissions and recipient eligibility. Provider acceptance is not confirmed delivery.

@@ -17,16 +17,14 @@ import {
 } from "./companion-tracking";
 import { sendEmergencyMessage, normalizeE164 } from "./notifications.server";
 import type { GuardianAction, CompanionAction } from "./tracking-actions";
+import { trackingDatabaseError } from "./tracking-errors";
 const limiter = createRateLimiter({ windowMs: 60000, max: 90 });
 const publicLimiter = createRateLimiter({ windowMs: 60000, max: 1200 });
 const invites = createRateLimiter({ windowMs: 600000, max: 30 });
 const emergencyLimiter = createRateLimiter({ windowMs: 60000, max: 5 });
 const timeout = () => AbortSignal.timeout(6000);
 function checked<T>(result: { data: T; error: unknown }): T {
-  if (result.error)
-    throw new Error(
-      "Family coordination is temporarily unavailable. Please retry. Emergency call buttons still work.",
-    );
+  if (result.error) throw new Error(trackingDatabaseError(result.error));
   return result.data;
 }
 function required<T>(result: { data: T; error: unknown }): NonNullable<T> {

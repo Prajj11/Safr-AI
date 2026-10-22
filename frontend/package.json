@@ -17,7 +17,8 @@
     "typecheck": "tsc --noEmit",
     "check:services": "node ../backend/scripts/check-services.mjs",
     "check:itinerary": "node --import ../misc/scripts/register-typescript.mjs ../backend/scripts/check-itinerary.mjs",
-    "check:rls": "node ../backend/scripts/check-rls.mjs"
+    "check:rls": "node ../backend/scripts/check-rls.mjs",
+    "check:tracking": "node --use-system-ca ../backend/scripts/check-tracking.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.44",
