@@ -10,14 +10,14 @@ const input = {
   pace: "balanced" as const,
   interests: ["History & heritage"],
   startTime: "09:00",
-  origin: { lat: 15.4, lng: 73.8 },
+  origin: { lat: 19.4, lng: 73.8 },
 };
 const osm = {
   elements: [
     {
       type: "node",
       id: 41,
-      lat: 15.4001,
+      lat: 19.4001,
       lon: 73.8001,
       tags: { name: "Museum", tourism: "museum" },
     },
@@ -74,7 +74,7 @@ test("AI cannot introduce invented place IDs or timings", async (t) => {
           : osm,
     ),
   );
-  const plan = await buildItinerary({ ...input, origin: { lat: 15.4002, lng: 73.8002 } });
+  const plan = await buildItinerary({ ...input, origin: { lat: 19.4002, lng: 73.8002 } });
   assert.equal(plan.aiStatus, "unavailable");
   assert.equal(plan.stops[0]!.arrivalMinute, 555);
 });
@@ -122,4 +122,59 @@ test("OSRM no-route response fails explicitly", async (t) => {
 test("empty nearby results stay empty rather than creating generic businesses", async (t) => {
   t.mock.method(globalThis, "fetch", async () => Response.json({ elements: [] }));
   assert.deepEqual(await nearbyPlaces({ lat: 17, lng: 75 }, 2), []);
+});
+
+test("partial AI ranking retains reachable alternatives when its first choice cannot fit", async (t) => {
+  const previous = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "test-key";
+  t.after(() => {
+    if (previous === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = previous;
+  });
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    if (url.includes("generativelanguage"))
+      return Response.json({
+        candidates: [{ content: { parts: [{ text: '{"orderedIds":["node/41"]}' }] } }],
+      });
+    if (url.includes("/table/"))
+      return Response.json({
+        code: "Ok",
+        sources: [{ distance: 0 }, { distance: 0 }, { distance: 0 }],
+        durations: [
+          [0, 7200, 300],
+          [7200, 0, 7200],
+          [300, 7200, 0],
+        ],
+        distances: [
+          [0, 90000, 1500],
+          [90000, 0, 90000],
+          [1500, 90000, 0],
+        ],
+      });
+    return Response.json({
+      elements: [
+        ...osm.elements,
+        {
+          ...osm.elements[0],
+          id: 42,
+          lat: 19.4101,
+          tags: { name: "Nearby museum", tourism: "museum" },
+        },
+      ],
+    });
+  });
+  const plan = await buildItinerary({ ...input, origin: { lat: 19.402, lng: 73.8 } });
+  assert.equal(plan.aiStatus, "used");
+  assert.equal(plan.stops[0]?.title, "Nearby museum");
+  assert.ok(plan.totalMinutes! <= 60);
+});
+
+test("truncated routing matrix is rejected instead of silently removing stops", async (t) => {
+  t.mock.method(globalThis, "fetch", async () =>
+    Response.json({ ...table, durations: [[0], [300, 0]] }),
+  );
+  await assert.rejects(
+    () => drivingMatrix([input.origin, { lat: 19.41, lng: 73.8 }]),
+    /Road travel times are unavailable/,
+  );
 });

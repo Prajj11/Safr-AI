@@ -321,7 +321,9 @@ export async function drivingMatrix(points: Coordinate[]) {
   if (
     result.code !== "Ok" ||
     result.durations?.length !== points.length ||
-    result.distances?.length !== points.length
+    result.distances?.length !== points.length ||
+    result.durations.some((row) => row.length !== points.length) ||
+    result.distances.some((row) => row.length !== points.length)
   ) {
     throw new Error(
       "Road travel times are unavailable. Please retry; a timed itinerary cannot be verified without routing.",

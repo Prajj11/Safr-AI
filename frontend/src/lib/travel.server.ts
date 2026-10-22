@@ -165,22 +165,13 @@ export async function buildItinerary(
   const searchRadius = Math.min(18, Math.max(5, input.hours * 2));
   let places = await nearbyPlaces(base, searchRadius);
 
-  // Merge curated Goa destinations unless running in mock single-node test mode
-  const isMockTest = places.length === 1 && places[0]?.id === "node/41";
-  if (!isMockTest) {
-    const curatedNear = CURATED_GOA_PLACES.map((p) => ({
-      ...p,
-      distanceKm: distanceKm(base, p),
-    })).filter((p) => p.distanceKm <= searchRadius * 1.5);
-    const existingIds = new Set(places.map((p) => p.id));
-    const merged = [...places];
-    for (const c of curatedNear) {
-      if (!existingIds.has(c.id)) {
-        merged.push(c);
-      }
-    }
-    places = merged;
-  }
+  // Supplement live results with known nearby landmarks, regardless of provider IDs.
+  const curatedNear = CURATED_GOA_PLACES.map((p) => ({
+    ...p,
+    distanceKm: distanceKm(base, p),
+  })).filter((p) => p.distanceKm <= searchRadius * 1.5);
+  const existingIds = new Set(places.map((p) => p.id));
+  places = [...places, ...curatedNear.filter((p) => !existingIds.has(p.id))];
 
   // 1. Prioritize user notes (specific desired works, attractions or activities)
   const notesLower = (input.notes || "").toLowerCase();
@@ -369,7 +360,8 @@ export async function buildItinerary(
       const valid = new Set(candidates.map((p) => p.id));
       if (ranked.orderedIds.some((id) => !valid.has(id)))
         throw new Error("Ungrounded AI result");
-      preferredIds = [...new Set(ranked.orderedIds)];
+      // Ranking is a preference, not permission to discard reachable alternatives.
+      preferredIds = [...new Set([...ranked.orderedIds, ...preferredIds])];
       aiStatus = "used";
     } catch (error) {
       // Log only a category/status, never provider response bodies, prompts or credentials.
