@@ -17,7 +17,10 @@ import {
 } from "./companion-tracking";
 import { sendEmergencyMessage, normalizeE164 } from "./notifications.server";
 import type { GuardianAction, CompanionAction } from "./tracking-actions";
-import { trackingDatabaseError } from "./tracking-errors";
+import {
+  trackingDatabaseError,
+  TRACKING_SETUP_MESSAGE,
+} from "./tracking-errors";
 const limiter = createRateLimiter({ windowMs: 60000, max: 90 });
 const publicLimiter = createRateLimiter({ windowMs: 60000, max: 1200 });
 const invites = createRateLimiter({ windowMs: 600000, max: 30 });
@@ -34,9 +37,7 @@ function required<T>(result: { data: T; error: unknown }): NonNullable<T> {
 }
 export function checkTrackingAccess(key: string) {
   if (!process.env["SUPABASE_URL"] || !process.env["SUPABASE_SERVICE_ROLE_KEY"])
-    throw new Error(
-      "Family coordination is temporarily unavailable. Emergency call buttons still work.",
-    );
+    throw new Error(TRACKING_SETUP_MESSAGE);
   if (!(key.startsWith("ip:") ? publicLimiter : limiter).check(key).allowed)
     throw new Error("Too many updates. Wait a minute and retry.");
 }

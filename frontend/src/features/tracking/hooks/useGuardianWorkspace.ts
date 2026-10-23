@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { getTrackingWorkspace } from "@/lib/location-sharing.functions";
+import { trackingFailureKind } from "@/lib/tracking-errors";
 import {
   sampleSchema,
   mergeTrackingSnapshot,
@@ -29,9 +30,17 @@ export function useGuardianWorkspace(listen = false) {
       const current = client.getQueryData<GuardianState>(trackingKey);
       return mergeTrackingSnapshot(current, state);
     },
-    retry: 1,
+    retry: (count, error) =>
+      trackingFailureKind(error) === "temporary" && count < 1,
     staleTime: 10000,
-    refetchInterval: 30000,
+    refetchInterval: (query) =>
+      query.state.error &&
+      trackingFailureKind(query.state.error) !== "temporary"
+        ? false
+        : 30000,
+    refetchOnWindowFocus: (query) =>
+      !query.state.error ||
+      trackingFailureKind(query.state.error) === "temporary",
   });
   const connection = useQuery({
     queryKey: ["tracking-connection"],

@@ -4,6 +4,16 @@ Implemented on 2026-10-18. The Reunite workspace is `/live-tracking`; companion 
 
 ## Deployment
 
+### Finding the settings and repairing the project
+
+1. Sign in at https://supabase.com/dashboard/project/bfxtulimqxggjageyxrm/sql/new and confirm this is your Safr project.
+2. Open `backend/supabase/repairs/20261022_reunite.sql`, copy its entire contents into a new SQL query, and click Run. It must finish successfully; if it fails, keep the error text for diagnosis. The transaction rolls back on failure.
+3. Open Project Settings → API Keys. Under Legacy API Keys, reveal the `service_role` key; an existing server secret key (`sb_secret_…`) is also supported. Do not copy the publishable/anon key for this setting. Do not rotate or remove existing keys to perform this repair.
+4. Edit `frontend/.env` locally and add `SUPABASE_SERVICE_ROLE_KEY=` followed by that private key. Never paste the key into chat or commit the file. A deployed app needs the same value in its hosting provider's server environment settings.
+5. Stop and restart the app with `npm run dev` from `frontend/`. Run `npm run check:tracking`; missing tables, columns or credentials should no longer be reported. Open Reunite and click Check again.
+
+The 2026-10-24 browser investigation reproduced an itinerary authentication failure under the old start command. Development and production start commands now enable Node's system CA store, preserving TLS verification. This makes normal app launches use the same trusted certificates as diagnostics. The actual authenticated itinerary page subsequently generated a five-stop Anjuna plan and confirmed it was saved to the account. Reunite's missing configuration stops automatic retry/polling until a manual recheck; a missing trip offers trip setup, while an expired session offers sign-in.
+
 ### Repair for an older database (2026-10-22)
 
 Read-only checks of the configured remote project found missing `trips.phone_number`, `travellers.phone_number`, `location_links`, `trip_meeting_points`, and `sos_incidents`. The local server service-role key is also absent. Changing the UI alone cannot restore these features.

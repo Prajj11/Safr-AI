@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { guardianTrackingAction } from "@/lib/location-sharing.functions";
 import { searchPlaces } from "@/lib/maps.functions";
+import { trackingFailureKind } from "@/lib/tracking-errors";
 import type { GuardianAction } from "@/lib/tracking-actions";
 import {
   distanceBearing,
@@ -155,20 +156,34 @@ export function GuardianWorkspace() {
           Manage companions
         </Link>
       </div>
-      <p role="status" className="mb-4 text-xs text-muted-foreground">
-        {query.connection === "live"
-          ? "Live trip connection active"
-          : "Live connection unavailable or connecting. Saved positions refresh every 30 seconds."}
-      </p>
+      {data && !query.isError && (
+        <p role="status" className="mb-4 text-xs text-muted-foreground">
+          {query.connection === "live"
+            ? "Live trip connection active"
+            : "Live connection unavailable or connecting. Saved positions refresh every 30 seconds."}
+        </p>
+      )}
       {query.isPending ? (
         <p role="status">Loading your trip…</p>
       ) : query.isError ? (
         <div role="alert" className="rounded-2xl border p-5 space-y-3">
           <p>{query.error.message}</p>
-          <Button onClick={() => void query.refetch()}>Retry</Button>
-          <Link to="/setup" className="ml-4 underline">
-            Set up a trip
-          </Link>
+          <Button
+            disabled={query.isFetching}
+            onClick={() => void query.refetch()}
+          >
+            {query.isFetching ? "Checking…" : "Check again"}
+          </Button>
+          {trackingFailureKind(query.error) === "trip" && (
+            <Link to="/setup" className="ml-4 underline">
+              Set up a trip
+            </Link>
+          )}
+          {trackingFailureKind(query.error) === "session" && (
+            <Link to="/auth" className="ml-4 underline">
+              Sign in again
+            </Link>
+          )}
         </div>
       ) : (
         data && (
