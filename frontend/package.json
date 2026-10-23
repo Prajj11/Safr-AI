@@ -18,7 +18,8 @@
     "check:services": "node --use-system-ca ../backend/scripts/check-services.mjs",
     "check:itinerary": "node --use-system-ca --import ../misc/scripts/register-typescript.mjs ../backend/scripts/check-itinerary.mjs",
     "check:rls": "node --use-system-ca ../backend/scripts/check-rls.mjs",
-    "check:tracking": "node --use-system-ca ../backend/scripts/check-tracking.mjs"
+    "check:tracking": "node --use-system-ca ../backend/scripts/check-tracking.mjs",
+    "check:deployment": "node --use-system-ca --import ../misc/scripts/register-typescript.mjs ../backend/scripts/check-deployment.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.44",

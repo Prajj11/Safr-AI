@@ -3,6 +3,8 @@
  * Default channel: whatsapp (SMS is paid and fails on unpaid Twilio accounts).
  */
 
+import { notificationReadiness } from "./notification-config";
+
 export type NotificationChannel = "whatsapp" | "sms";
 
 export type DeliveryStatus = {
@@ -190,7 +192,8 @@ export async function sendEmergencyMessage(
   phone: string,
   message: string,
 ): Promise<NotificationResult> {
-  const mode = process.env["NOTIFY_MODE"] || "mock";
+  const configuration = notificationReadiness(process.env);
+  const mode = configuration.mode;
   const activeChannels = getNotifyChannels() as NotificationChannel[];
 
   const accountSid = process.env["TWILIO_ACCOUNT_SID"];
@@ -208,6 +211,22 @@ export async function sendEmergencyMessage(
     whatsapp: { status: "skipped", timestamp: new Date().toISOString() },
     sms: { status: "skipped", timestamp: new Date().toISOString() },
   };
+
+  if (
+    !["mock", "live"].includes(mode) ||
+    !configuration.channels.length ||
+    configuration.channels.some(
+      (channel) => channel !== "sms" && channel !== "whatsapp",
+    )
+  ) {
+    for (const channel of ["whatsapp", "sms"] as const)
+      results[channel] = {
+        status: "failed",
+        error: "Notification settings are invalid. Contact the administrator.",
+        timestamp: new Date().toISOString(),
+      };
+    return results;
+  }
 
   if (mode === "mock") {
     results.whatsapp = {
