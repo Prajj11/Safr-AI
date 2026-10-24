@@ -679,7 +679,7 @@ journey
 - **Categorized Directory:**
   - **Police:** All-India Police (100/112), Goa Tourist Police (`+918322428383`).
   - **Medical:** 108 Ambulance Service, Goa Medical College Hospital Bambolim (`+918322495000`).
-  - **Coastal & Marine:** Drishti Marine Lifeguard Control Room (`+918322520717`).
+  - **Coastal & Marine:** Drishti Lifesaving emergency line (`1-800-833-1511`, verified 2026-10-25 from Drishti's official site).
   - **Helplines:** Women's Helpline (1091), Childline (1098), Disaster Management (1077).
   - **Road & Highway:** Traffic & Highway Accident Assistance (1073).
 

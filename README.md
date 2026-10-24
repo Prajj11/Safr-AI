@@ -57,7 +57,7 @@ Traditional tourism apps only recommend places to visit; **Safr** actively prote
 
 ### 7. 🚨 Public Verified Emergency Directory (`/emergency`)
 * **100% Public Access**: Fully accessible without login during urgent crises.
-* **Verified Official Contacts**: Goa Police (100 / 112), Ambulance (108), Fire (101), Pink Force, Drishti Marine Lifeguards (+91 832 252 0717), Goa Tourist Police (+91 832 242 8383), GMC Hospital Bambolim (+91 832 249 5000), Women Helpline (1091), Child Helpline (1098).
+* **Verified Official Contacts**: Emergency/Police (112 / 100), Ambulance (108 / 102), Fire (101), Women Helpline (1091), Child Helpline (1098), Cyber Crime (1930), and Drishti Marine Lifeguards (1-800-833-1511). The in-app directory records its source URL and verification date.
 * **1-Tap Direct Call**: Immediate dialer triggers and emergency hospital locator.
 
 ### 8. 🌐 Konkani & Multi-Language Indian Translator
