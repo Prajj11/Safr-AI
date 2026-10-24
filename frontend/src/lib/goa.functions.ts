@@ -41,18 +41,22 @@ export const getFeaturedMedia = createServerFn({ method: "GET" })
     const { checkExploreAccess } = await import("./explore-access.server");
     checkExploreAccess(context.userId);
     const { lookupWikipedia } = await import("./wikipedia.server");
+    const { lookupWikimediaImage } = await import("./wikimedia.server");
     const { ALL_FEATURED } = await import("./explore-featured");
     const entries: [
       string,
       { imageUrl: string; credit: { label: string; url: string } } | null,
     ][] = [];
-    // Keep public Wikipedia request bursts small; successful results are cached.
+    // Keep public Wikimedia request bursts small; successful results are cached.
     for (let offset = 0; offset < ALL_FEATURED.length; offset += 2) {
       entries.push(
         ...(await Promise.all(
           ALL_FEATURED.slice(offset, offset + 2).map(
             async (place): Promise<(typeof entries)[number]> => {
               const article = await lookupWikipedia(place);
+              const fallback = article?.imageUrl
+                ? null
+                : await lookupWikimediaImage(place);
               return [
                 place.name,
                 article?.imageUrl
@@ -63,7 +67,7 @@ export const getFeaturedMedia = createServerFn({ method: "GET" })
                         url: article.pageUrl,
                       },
                     }
-                  : null,
+                  : fallback,
               ];
             },
           ),
@@ -175,11 +179,15 @@ export const getPlaceArticle = createServerFn({ method: "POST" })
     const { checkExploreAccess } = await import("./explore-access.server");
     checkExploreAccess(context.userId);
     const { lookupWikipedia } = await import("./wikipedia.server");
+    const { lookupWikimediaImage } = await import("./wikimedia.server");
     const article = await lookupWikipedia(data);
-    if (!article) return null;
+    const fallback = article?.imageUrl
+      ? null
+      : await lookupWikimediaImage(data);
+    if (!article && !fallback) return null;
     return {
-      wikipedia: article,
-      ...(article.imageUrl
+      ...(article ? { wikipedia: article } : {}),
+      ...(article?.imageUrl
         ? {
             media: {
               imageUrl: article.imageUrl,
@@ -189,6 +197,44 @@ export const getPlaceArticle = createServerFn({ method: "POST" })
               },
             },
           }
-        : {}),
+        : fallback
+          ? { media: fallback }
+          : {}),
     };
+  });
+
+export const getPlaceMedia = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z
+      .array(
+        z.object({
+          key: z.string().min(1).max(300),
+          name: z.string().trim().min(2).max(160),
+          lat: z.number().min(-90).max(90).optional(),
+          lng: z.number().min(-180).max(180).optional(),
+        }),
+      )
+      .max(30)
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { checkExploreAccess } = await import("./explore-access.server");
+    checkExploreAccess(context.userId);
+    const { lookupWikimediaImage } = await import("./wikimedia.server");
+    const entries: [
+      string,
+      { imageUrl: string; credit: { label: string; url: string } } | null,
+    ][] = [];
+    for (let offset = 0; offset < data.length; offset += 5) {
+      entries.push(
+        ...(await Promise.all(
+          data.slice(offset, offset + 5).map(async (place) => {
+            const media = await lookupWikimediaImage(place);
+            return [place.key, media] as (typeof entries)[number];
+          }),
+        )),
+      );
+    }
+    return Object.fromEntries(entries);
   });

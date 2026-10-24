@@ -1,4 +1,3 @@
-import { getPlaceArticle } from "@/lib/goa.functions";
 import { ExploreSearch } from "@/features/explore/components/ExploreSearch";
 import { NearbyRecommendations } from "@/features/explore/components/NearbyRecommendations";
 import { SafetyEssentialsCard } from "@/features/explore/components/SafetyEssentialsCard";
@@ -67,6 +66,8 @@ import {
   getFeaturedMedia,
   getPlaceConditions,
   getPlaceNearby,
+  getPlaceArticle,
+  getPlaceMedia,
 } from "@/lib/goa.functions";
 import { searchPlaces } from "@/lib/maps.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -199,6 +200,7 @@ function Explore() {
     },
   });
   const featuredMedia = featuredMediaQuery.data;
+  const placeMediaFn = useServerFn(getPlaceMedia);
   const searchPlacesFn = useServerFn(searchPlaces);
 
   // MapLibre container ref for embedded map view
@@ -237,6 +239,31 @@ function Explore() {
       return data as SavedPlace[];
     },
   });
+  const savedMediaInput = useMemo(
+    () =>
+      savedPlaces.map((place) => ({
+        key: place.id,
+        name: place.place_name,
+        ...(place.lat != null ? { lat: place.lat } : {}),
+        ...(place.lng != null ? { lng: place.lng } : {}),
+      })),
+    [savedPlaces],
+  );
+  const savedMediaQuery = useQuery({
+    queryKey: ["saved-place-media", savedMediaInput],
+    queryFn: async () => {
+      const batches = [];
+      for (let offset = 0; offset < savedMediaInput.length; offset += 30) {
+        batches.push(
+          placeMediaFn({ data: savedMediaInput.slice(offset, offset + 30) }),
+        );
+      }
+      return Object.assign({}, ...(await Promise.all(batches)));
+    },
+    enabled: activeTab === "saved" && savedMediaInput.length > 0,
+    staleTime: 7 * 86400000,
+    retry: false,
+  });
 
   // Toggle Save Place with Geocoding Fallback and Optimistic Updates
   const toggleSavePlace = useMutation({
@@ -248,8 +275,8 @@ function Explore() {
       lng,
     }: {
       name: string;
-      category?: string;
-      imageUrl?: string;
+      category?: string | undefined;
+      imageUrl?: string | undefined;
       lat?: number | null | undefined;
       lng?: number | null | undefined;
     }) => {
@@ -525,7 +552,7 @@ function Explore() {
       data?.location.lng,
     ],
     queryFn: () => articleFn({ data: data!.location }),
-    enabled: Boolean(data) && !data?.wikipedia && !nearMe,
+    enabled: Boolean(data) && (!data?.wikipedia || !data?.media) && !nearMe,
     staleTime: 7 * 86400000,
     retry: false,
   });
@@ -1473,6 +1500,34 @@ function Explore() {
                               : "border-border/50 bg-card/80 backdrop-blur-md"
                           }`}
                         >
+                          {(() => {
+                            const media = savedMediaQuery.data?.[place.id];
+                            return (
+                              <div className="relative">
+                                <PlaceImage
+                                  src={
+                                    media?.imageUrl ||
+                                    place.image_url ||
+                                    undefined
+                                  }
+                                  name={place.place_name}
+                                  category={place.category}
+                                  className="h-36 w-full"
+                                  pending={savedMediaQuery.isFetching}
+                                />
+                                {media?.credit && (
+                                  <a
+                                    href={media.credit.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-1 text-[9px] font-medium text-white backdrop-blur-sm hover:bg-black/75"
+                                  >
+                                    Photo attribution
+                                  </a>
+                                )}
+                              </div>
+                            );
+                          })()}
                           <div className="p-5">
                             {/* Card Top Row: Status badge, Priority Star, and Multi-select / Delete */}
                             <div className="flex items-start justify-between gap-3">
@@ -1875,6 +1930,7 @@ function Explore() {
                             toggleSavePlace.mutate({
                               name: place.name,
                               category: place.category,
+                              imageUrl: featuredMedia?.[place.name]?.imageUrl,
                               lat: place.lat,
                               lng: place.lng,
                             });
@@ -1947,6 +2003,9 @@ function Explore() {
                         toggleSavePlace.mutate({
                           name: data.location.name,
                           category: "sight",
+                          imageUrl:
+                            articleQuery.data?.media?.imageUrl ||
+                            data.media?.imageUrl,
                           lat: data.location.lat,
                           lng: data.location.lng,
                         })

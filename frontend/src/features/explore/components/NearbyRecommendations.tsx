@@ -7,13 +7,16 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { getTravelTimes } from "@/lib/goa.functions";
+import { getPlaceMedia } from "@/lib/goa.functions";
 import type { PlaceInsights } from "@/lib/goa-schemas";
 import type { Coordinate } from "@/lib/geo";
 import { Button } from "@/components/ui/button";
+import { PlaceImage } from "./PlaceImage";
 
 export type SaveExplorePlace = (place: {
   name: string;
-  category?: string;
+  category?: string | undefined;
+  imageUrl?: string | undefined;
   lat?: number | undefined;
   lng?: number | undefined;
 }) => void;
@@ -48,6 +51,7 @@ export function NearbyRecommendations({
   const hours = (item: PlaceInsights["eat"][number]) =>
     parseOpeningHours(item.openingHours, now);
   const travel = useServerFn(getTravelTimes);
+  const placeMedia = useServerFn(getPlaceMedia);
   const items = useMemo(
     () => [...data.eat, ...data.activities, ...data.sights],
     [data],
@@ -60,6 +64,23 @@ export function NearbyRecommendations({
       ),
     [items],
   );
+  const mediaInput = useMemo(
+    () =>
+      items.slice(0, 30).map((item) => ({
+        key: resultKey(item),
+        name: item.name,
+        ...(item.lat != null ? { lat: item.lat } : {}),
+        ...(item.lng != null ? { lng: item.lng } : {}),
+      })),
+    [items],
+  );
+  const media = useQuery({
+    queryKey: ["explore-nearby-media", mediaInput],
+    queryFn: () => placeMedia({ data: mediaInput }),
+    enabled: view === "list" && mediaInput.length > 0,
+    staleTime: 7 * 86400000,
+    retry: false,
+  });
   const start = origin || data.location;
   const times = useQuery({
     queryKey: [
@@ -186,86 +207,111 @@ export function NearbyRecommendations({
                         (timeFor(b)?.minutes ?? Infinity)
                       : (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity),
                   )
-                  .map((item) => (
-                    <article
-                      key={resultKey(item)}
-                      tabIndex={-1}
-                      ref={(node) => {
-                        if (node) cards.current.set(resultKey(item), node);
-                        else cards.current.delete(resultKey(item));
-                      }}
-                      aria-label={
-                        selected === resultKey(item)
-                          ? `${item.name}, selected on map`
-                          : item.name
-                      }
-                      style={
-                        selected === resultKey(item)
-                          ? { outline: "2px solid var(--primary)" }
-                          : undefined
-                      }
-                      className="rounded-2xl bg-secondary/30 border border-border p-4 space-y-2"
-                    >
-                      <h5 className="font-semibold text-sm">{item.name}</h5>
-                      <p className="text-xs text-muted-foreground">
-                        {item.description}
-                      </p>
-                      {hours(item).statusBadge && (
-                        <p className="text-xs font-medium">
-                          {hours(item).statusBadge}
+                  .map((item) => {
+                    const photo = media.data?.[resultKey(item)];
+                    return (
+                      <article
+                        key={resultKey(item)}
+                        tabIndex={-1}
+                        ref={(node) => {
+                          if (node) cards.current.set(resultKey(item), node);
+                          else cards.current.delete(resultKey(item));
+                        }}
+                        aria-label={
+                          selected === resultKey(item)
+                            ? `${item.name}, selected on map`
+                            : item.name
+                        }
+                        style={
+                          selected === resultKey(item)
+                            ? { outline: "2px solid var(--primary)" }
+                            : undefined
+                        }
+                        className="rounded-2xl bg-secondary/30 border border-border p-4 space-y-2"
+                      >
+                        <div className="relative -mx-1 -mt-1">
+                          <PlaceImage
+                            src={photo?.imageUrl}
+                            name={item.name}
+                            category={category}
+                            className="h-28 w-full rounded-xl"
+                            pending={media.isFetching}
+                          />
+                          {photo?.credit && (
+                            <a
+                              href={photo.credit.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-1 text-[9px] text-white"
+                            >
+                              Attribution
+                            </a>
+                          )}
+                        </div>
+                        <h5 className="font-semibold text-sm">{item.name}</h5>
+                        <p className="text-xs text-muted-foreground">
+                          {item.description}
                         </p>
-                      )}
-                      {item.openingHours && (
-                        <p className="text-xs">
-                          Listed hours: {item.openingHours}
-                        </p>
-                      )}
-                      {timeFor(item) && (
-                        <p className="text-xs font-medium text-primary">
-                          about {timeFor(item)!.minutes} min by road ·{" "}
-                          {timeFor(item)!.km} km
-                        </p>
-                      )}
-                      {item.lat != null && item.lng != null && (
-                        <NearbyPlaceDetails
-                          place={{
-                            name: item.name,
-                            lat: item.lat,
-                            lng: item.lng,
-                          }}
-                        />
-                      )}
-                      <div className="flex gap-3 items-center flex-wrap">
-                        {item.lat != null && item.lng != null && (
-                          <Link
-                            className="text-xs text-primary underline"
-                            to="/map"
-                            search={{
-                              dest: item.name,
-                              lat: String(item.lat),
-                              lng: String(item.lng),
-                            }}
-                          >
-                            Directions
-                          </Link>
+                        {hours(item).statusBadge && (
+                          <p className="text-xs font-medium">
+                            {hours(item).statusBadge}
+                          </p>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            onSave({
+                        {item.openingHours && (
+                          <p className="text-xs">
+                            Listed hours: {item.openingHours}
+                          </p>
+                        )}
+                        {timeFor(item) && (
+                          <p className="text-xs font-medium text-primary">
+                            about {timeFor(item)!.minutes} min by road ·{" "}
+                            {timeFor(item)!.km} km
+                          </p>
+                        )}
+                        {item.lat != null && item.lng != null && (
+                          <NearbyPlaceDetails
+                            place={{
                               name: item.name,
-                              category,
                               lat: item.lat,
                               lng: item.lng,
-                            })
-                          }
-                        >
-                          {isSaved(item.name) ? "Saved" : "Add to bucket list"}
-                        </Button>
-                      </div>
-                    </article>
-                  ))}
+                            }}
+                          />
+                        )}
+                        <div className="flex gap-3 items-center flex-wrap">
+                          {item.lat != null && item.lng != null && (
+                            <Link
+                              className="text-xs text-primary underline"
+                              to="/map"
+                              search={{
+                                dest: item.name,
+                                lat: String(item.lat),
+                                lng: String(item.lng),
+                              }}
+                            >
+                              Directions
+                            </Link>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              onSave({
+                                name: item.name,
+                                category,
+                                imageUrl: photo?.imageUrl,
+                                lat: item.lat,
+                                lng: item.lng,
+                              })
+                            }
+                          >
+                            {isSaved(item.name)
+                              ? "Saved"
+                              : "Add to bucket list"}
+                          </Button>
+                        </div>
+                      </article>
+                    );
+                  })}
               </div>
             </section>
           ),
