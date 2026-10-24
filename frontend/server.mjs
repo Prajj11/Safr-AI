@@ -1,4 +1,9 @@
 import { staticResponseHeaders } from "./server-static.mjs";
+import {
+  healthPayload,
+  requestId,
+  requestLog,
+} from "./server-observability.mjs";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -53,6 +58,9 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
+  const startedAt = performance.now();
+  const id = requestId(req.headers["x-request-id"]);
+  res.setHeader("X-Request-ID", id);
   // Security headers to protect against clickjacking, MIME sniffing, and enforce HTTPS
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
@@ -89,6 +97,30 @@ const server = http.createServer((req, res) => {
   } catch {
     res.statusCode = 400;
     res.end("Bad request");
+    return;
+  }
+
+  res.once("finish", () => {
+    if (!pathname.startsWith("/assets/")) {
+      console.log(
+        requestLog({
+          id,
+          method: req.method || "GET",
+          pathname,
+          status: res.statusCode,
+          durationMs: performance.now() - startedAt,
+        }),
+      );
+    }
+  });
+
+  if (pathname === "/healthz") {
+    const payload = JSON.stringify(healthPayload());
+    res.statusCode = 200;
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Length", Buffer.byteLength(payload));
+    res.end(payload);
     return;
   }
 
