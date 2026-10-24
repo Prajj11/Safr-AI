@@ -7,6 +7,18 @@ export interface CuratedPlace extends NearbyPlace {
   seasonNotes?: string[];
 }
 
+const COASTAL_SEASON_NOTES = [
+  "Goa Tourism says sea bathing and swimming during the monsoon (normally 1 June–30 September) is prohibited. Check the current lifeguard flags before entering the water.",
+];
+
+const WATER_SPORTS_SEASON_NOTES = [
+  "Goa's water-sports policy prohibits operations during monsoon, storms, unsafe weather or authority closures. Confirm current conditions and use a registered operator.",
+];
+
+const WATERFALL_SEASON_NOTES = [
+  "Authorities may prohibit entry into waterfalls and other natural water bodies during the monsoon. Check current district orders and follow on-site lifesavers.",
+];
+
 export const CURATED_GOA_PLACES: CuratedPlace[] = [
   // --- History & Heritage ---
   {
@@ -229,6 +241,7 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     bestTime: "sunset",
     highlight:
       "Iconic red laterite headland beach with rocky coves, beach shacks, and mesmerizing sunsets.",
+    seasonNotes: COASTAL_SEASON_NOTES,
   },
   {
     id: "curated/vagator_beach",
@@ -243,6 +256,7 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     bestTime: "sunset",
     highlight:
       "Dramatic cliffs, the carved Shiva Rock, and sunset viewpoints below Chapora Fort.",
+    seasonNotes: COASTAL_SEASON_NOTES,
   },
   {
     id: "curated/baga_beach",
@@ -257,6 +271,7 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     bestTime: "afternoon",
     highlight:
       "Vibrant beach hub with active water sports shacks, parasailing boats, and lively evening cafes.",
+    seasonNotes: COASTAL_SEASON_NOTES,
   },
   {
     id: "curated/candolim_beach",
@@ -271,6 +286,7 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     bestTime: "morning",
     highlight:
       "Long sandy coastline with pristine dunes, calm swimming zones, and parasailing operators.",
+    seasonNotes: COASTAL_SEASON_NOTES,
   },
   {
     id: "curated/palolem_beach",
@@ -285,6 +301,7 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     bestTime: "sunset",
     highlight:
       "Picture-perfect crescent bay lined with palm trees, gentle turquoise waters and dolphin spotting.",
+    seasonNotes: COASTAL_SEASON_NOTES,
   },
   {
     id: "curated/agonda_beach",
@@ -299,6 +316,7 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     bestTime: "sunset",
     highlight:
       "Peaceful, uncrowded 3km shoreline designated as an Olive Ridley sea turtle nesting sanctuary.",
+    seasonNotes: COASTAL_SEASON_NOTES,
   },
   {
     id: "curated/morjim_beach",
@@ -313,6 +331,7 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     bestTime: "morning",
     highlight:
       "Broad white sand beach known as Little Russia with kite surfing schools and turtle nesting sites.",
+    seasonNotes: COASTAL_SEASON_NOTES,
   },
   {
     id: "curated/arambol_beach",
@@ -327,6 +346,7 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     bestTime: "sunset",
     highlight:
       "Bohemian beach featuring sunset drum circles and a hidden freshwater lake nestled against green cliffs.",
+    seasonNotes: COASTAL_SEASON_NOTES,
   },
 
   // --- Nightlife ---
@@ -418,6 +438,7 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     bestTime: "morning",
     highlight:
       "Majestic 310m four-tiered white waterfall cascading through Western Ghats jungle and rail bridges.",
+    seasonNotes: WATERFALL_SEASON_NOTES,
   },
   {
     id: "curated/salim_ali_sanctuary",
@@ -550,6 +571,7 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     bestTime: "morning",
     highlight:
       "High-octane parasailing, jet skiing, bumper rides and banana boat tours over Arabian Sea waves.",
+    seasonNotes: WATER_SPORTS_SEASON_NOTES,
   },
   {
     id: "curated/grand_island_scuba",
@@ -564,6 +586,7 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     bestTime: "morning",
     highlight:
       "Offshore boat expeditions for coral reef snorkeling, scuba diving, and wild dolphin spotting.",
+    seasonNotes: WATER_SPORTS_SEASON_NOTES,
   },
   {
     id: "curated/morjim_surf",
@@ -578,6 +601,7 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     bestTime: "morning",
     highlight:
       "Certified surfing lessons and stand-up paddle boarding across gentle beginner-friendly beach breaks.",
+    seasonNotes: WATER_SPORTS_SEASON_NOTES,
   },
   {
     id: "curated/palolem_kayaking",
@@ -592,5 +616,6 @@ export const CURATED_GOA_PLACES: CuratedPlace[] = [
     bestTime: "morning",
     highlight:
       "Single and tandem sea kayak rentals to explore Monkey Island and peaceful freshwater estuaries.",
+    seasonNotes: WATER_SPORTS_SEASON_NOTES,
   },
 ];

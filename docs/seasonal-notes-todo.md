@@ -1,6 +1,15 @@
-# Seasonal notes awaiting verification
+# Seasonal notes review
 
-No seasonal claims have been added. A human editor must verify monsoon access, sea conditions and official closures where relevant before adding notes for each place below. Record the source and review date.
+Reviewed on 2026-10-25. Verified general notes are now shown for all eight curated beaches, all four water-sports entries and Dudhsagar Waterfalls. They intentionally tell users to check current flags/orders rather than claiming a place is open.
+
+Sources:
+
+- Goa Tourism Development Corporation, [Tips for Tourists](https://www.goa.gov.in/wp-content/uploads/2022/05/GTDCcitizencharter.pdf)
+- Government of Goa, [Water Sports Policy](https://www.goaipb.goa.gov.in/wp-content/uploads/2022/04/watersports_policy_2012_2013.pdf)
+- Government of Goa Department of Information and Publicity, [monsoon water-body advisory](https://www.goa.gov.in/wp-content/uploads/2023/08/PUBLIC-AND-TOURIST-URGED-TO-STAY-AWAY-FROM-WATER-BODIES.pdf)
+- Drishti Lifesaving, [current flag guidance](https://drishtimarine.com/sagar-safar)
+
+The places below still need a place-specific, authoritative source. No unverified note is displayed for them:
 
 - Chapora Fort
 - Fort Aguada & Lighthouse
@@ -16,20 +25,11 @@ No seasonal claims have been added. A human editor must verify monsoon access, s
 - Souza Lobo Calangute
 - Martin's Corner Betalbatim
 - Kokni Kanteen Panjim
-- Anjuna Beach & Flea Market Coast
-- Vagator & Ozran Beach
-- Baga Beach
-- Candolim Beach & Dunes
-- Palolem Crescent Beach
-- Agonda Turtle Beach
-- Morjim Beach & Chapora Estuary
-- Arambol Beach & Sweet Water Lake
 - Curlies Beach Shack & Lounge
 - Tito's Lane Baga
 - HillTop Vagator
 - Cohiba Bar & Kitchen Sinquerim
 - Thalassa Siolim
-- Dudhsagar Waterfalls
 - Dr. Salim Ali Bird Sanctuary
 - Bondla Wildlife Sanctuary
 - Anjuna Flea Market
@@ -38,7 +38,3 @@ No seasonal claims have been added. A human editor must verify monsoon access, s
 - Church of Our Lady of the Immaculate Conception
 - Mangueshi Temple Priol
 - Shanta Durga Temple Kavlem
-- Baga & Calangute Water Sports Hub
-- Grand Island Scuba Diving & Snorkeling Point
-- Morjim Surf & SUP Club
-- Palolem Island Kayaking & Backwaters
