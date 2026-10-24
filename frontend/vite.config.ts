@@ -29,6 +29,36 @@ export default defineConfig(({ mode }) => {
     if (!process.env[key] && env[key]) process.env[key] = env[key];
   }
   return {
+    build: {
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              {
+                name: "react-core",
+                test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+                priority: 30,
+              },
+              {
+                name: "tanstack-core",
+                test: /node_modules[\\/]@tanstack[\\/]/,
+                priority: 20,
+              },
+              {
+                name: "supabase-core",
+                test: /node_modules[\\/]@supabase[\\/]/,
+                priority: 20,
+              },
+              {
+                name: "ui-core",
+                test: /node_modules[\\/](@radix-ui|cmdk|vaul)[\\/]/,
+                priority: 10,
+              },
+            ],
+          },
+        },
+      },
+    },
     plugins: [
       tailwindcss(),
       tanstackStart({

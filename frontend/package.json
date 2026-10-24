@@ -20,7 +20,8 @@
     "check:rls": "node --use-system-ca ../backend/scripts/check-rls.mjs",
     "check:rls-auth": "node --use-system-ca ../backend/scripts/check-rls-authenticated.mjs",
     "check:tracking": "node --use-system-ca ../backend/scripts/check-tracking.mjs",
-    "check:deployment": "node --use-system-ca --import ../misc/scripts/register-typescript.mjs ../backend/scripts/check-deployment.mjs"
+    "check:deployment": "node --use-system-ca --import ../misc/scripts/register-typescript.mjs ../backend/scripts/check-deployment.mjs",
+    "check:browser": "node --use-system-ca ../backend/scripts/check-browser-smoke.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.44",
