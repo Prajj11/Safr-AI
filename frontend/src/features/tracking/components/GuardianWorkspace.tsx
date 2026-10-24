@@ -143,7 +143,12 @@ export function GuardianWorkspace() {
       ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
   return (
-    <AppShell title="Reunite" subtitle="Stay together, with permission" wide>
+    <AppShell
+      title="Reunite"
+      subtitle="Stay together, with permission"
+      back
+      wide
+    >
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold">Your people, one meeting spot</h2>
