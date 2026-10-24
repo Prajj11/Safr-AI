@@ -1,7 +1,11 @@
 import { itineraryDate } from "@/lib/itinerary-dates";
 import { ItinerarySummary } from "@/features/itinerary/components/ItinerarySummary";
+import {
+  SavedItineraries,
+  type SavedItinerary,
+} from "@/features/itinerary/components/SavedItineraries";
 import { resolvedCentre } from "@/lib/resolved-centre";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -12,6 +16,7 @@ import {
   ExternalLink,
   Loader2,
   MapPin,
+  MapPinned,
   Navigation,
   Printer,
   Radio,
@@ -29,6 +34,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { GOA_PLACES, type Itinerary } from "@/lib/goa-schemas";
 import { generateItinerary, getCurrentArea } from "@/lib/goa.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { itineraryMapHandoff, parseSavedItinerary } from "@/lib/itinerary-map";
 
 export const Route = createFileRoute("/_authenticated/itinerary")({
   validateSearch: (
@@ -66,6 +72,7 @@ const getTomorrowDate = () => itineraryDate("tomorrow");
 const getWeekendDate = () => itineraryDate("weekend");
 
 function ItineraryPage() {
+  const queryClient = useQueryClient();
   const searchParams = Route.useSearch();
   const [place, setPlace] = useState<string>(
     searchParams.place || "Anjuna Beach",
@@ -166,6 +173,51 @@ function ItineraryPage() {
   }, [result]);
   const generate = useServerFn(generateItinerary);
 
+  const savedPlans = useQuery({
+    queryKey: ["saved-itineraries"],
+    queryFn: async (): Promise<SavedItinerary[]> => {
+      const { data: userData, error: authError } =
+        await supabase.auth.getUser();
+      if (authError || !userData.user)
+        throw new Error("Sign in to view plans.");
+      const { data, error } = await supabase
+        .from("itineraries")
+        .select("id, created_at, place, hours, pace, interests, plan")
+        .eq("user_id", userData.user.id)
+        .order("created_at", { ascending: false })
+        .limit(12);
+      if (error) throw error;
+      return (data ?? []).flatMap((row) => {
+        const itinerary = parseSavedItinerary(row.plan);
+        return itinerary ? [{ ...row, itinerary }] : [];
+      });
+    },
+    staleTime: 60_000,
+  });
+
+  const deletePlan = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: userData, error: authError } =
+        await supabase.auth.getUser();
+      if (authError || !userData.user)
+        throw new Error("Sign in to delete plans.");
+      const { error } = await supabase
+        .from("itineraries")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", userData.user.id);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["saved-itineraries"] });
+      toast.success("Saved itinerary deleted.");
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error ? error.message : "Could not delete itinerary",
+      ),
+  });
+
   const plan = useMutation({
     mutationFn: async () => {
       const result = (await generate({
@@ -198,6 +250,9 @@ function ItineraryPage() {
         });
         if (error) throw error;
         setSaveStatus("saved");
+        await queryClient.invalidateQueries({
+          queryKey: ["saved-itineraries"],
+        });
       } catch {
         setSaveStatus("failed");
         toast.warning(
@@ -223,6 +278,41 @@ function ItineraryPage() {
     setVisitedStops((prev) => ({ ...prev, [index]: !prev[index] }));
   };
 
+  const applySavedSettings = (saved: SavedItinerary) => {
+    setPlace(saved.place);
+    setHours(saved.hours);
+    if (["relaxed", "balanced", "packed"].includes(saved.pace)) {
+      setPace(saved.pace as "relaxed" | "balanced" | "packed");
+    }
+    setInterests(saved.interests);
+    setOrigin(saved.itinerary.origin);
+    setReturnToStart((saved.itinerary.returnMinutes ?? 0) > 0);
+    if (saved.itinerary.date && saved.itinerary.date >= getTodayDate()) {
+      setDate(saved.itinerary.date);
+    }
+  };
+
+  const resumeSavedPlan = (saved: SavedItinerary) => {
+    applySavedSettings(saved);
+    setResult(saved.itinerary);
+    setVisitedStops({});
+    setSaveStatus("saved");
+    setEditing(false);
+  };
+
+  const reuseSavedSettings = (saved: SavedItinerary) => {
+    applySavedSettings(saved);
+    setEditing(true);
+    requestAnimationFrame(() =>
+      document.getElementById("itinerary-preferences")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      }),
+    );
+  };
+
+  const currentMapHandoff = result ? itineraryMapHandoff(result, place) : null;
+
   return (
     <AppShell
       title="AI Itinerary Planner"
@@ -244,6 +334,16 @@ function ItineraryPage() {
           </Button>
         </div>
       )}
+      <SavedItineraries
+        plans={savedPlans.data ?? []}
+        loading={savedPlans.isLoading}
+        error={savedPlans.isError}
+        deletingId={deletePlan.isPending ? deletePlan.variables : undefined}
+        onRetry={() => void savedPlans.refetch()}
+        onResume={resumeSavedPlan}
+        onReuseSettings={reuseSavedSettings}
+        onDelete={(id) => deletePlan.mutate(id)}
+      />
       {/* Configuration Form Card */}
       <form
         id="itinerary-preferences"
@@ -596,15 +696,32 @@ function ItineraryPage() {
               )}
             </div>
 
-            {/* Export / Print Button */}
-            <Button
-              onClick={handlePrint}
-              variant="outline"
-              size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 shadow-sm hover:border-primary/40 self-start sm:self-auto"
-            >
-              <Printer className="size-3.5" /> Print / Save PDF
-            </Button>
+            <div className="flex flex-wrap gap-2 self-start sm:justify-end">
+              {currentMapHandoff && (
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full font-bold text-xs gap-1.5 shadow-sm hover:border-primary/40"
+                >
+                  <Link to="/map" search={currentMapHandoff.search}>
+                    <MapPinned className="size-3.5" />
+                    {currentMapHandoff.includedStopCount <
+                    currentMapHandoff.mappedStopCount
+                      ? `Map ${currentMapHandoff.includedStopCount} of ${currentMapHandoff.mappedStopCount}`
+                      : "Edit route on map"}
+                  </Link>
+                </Button>
+              )}
+              <Button
+                onClick={handlePrint}
+                variant="outline"
+                size="sm"
+                className="rounded-full font-bold text-xs gap-1.5 shadow-sm hover:border-primary/40"
+              >
+                <Printer className="size-3.5" /> Print / Save PDF
+              </Button>
+            </div>
           </div>
 
           <ItinerarySummary
@@ -618,6 +735,17 @@ function ItineraryPage() {
                 : "Not saved to your account. Use Print / Save PDF to keep this plan."}
             </p>
           )}
+          {currentMapHandoff &&
+            (currentMapHandoff.includedStopCount <
+              currentMapHandoff.mappedStopCount ||
+              currentMapHandoff.mappedStopCount < result.stops.length) && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                The map transfer includes {currentMapHandoff.includedStopCount}{" "}
+                of {result.stops.length} stops. The map accepts five
+                intermediate stops, and stops without verified coordinates stay
+                in this itinerary.
+              </p>
+            )}
           {/* Live Coastal Telemetry Banner */}
           {(result.liveWeather || result.liveSwell) && (
             <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-3 rounded-2xl bg-secondary/50 border border-border/50 p-3 text-xs text-foreground">

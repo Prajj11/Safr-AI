@@ -45,7 +45,7 @@ export function useMapUrlSync({
       searchParams.dest,
       searchParams.lat,
       searchParams.lng,
-      searchParams.stops,
+      waypoints.map(({ lat, lng, name }) => [lat, lng, name]),
     ]);
     if (requestedTarget.current === key) return;
     requestedTarget.current = key;
