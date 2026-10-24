@@ -1,6 +1,15 @@
-const CACHE_NAME = "safr-emergency-cache-v1";
+const CACHE_NAME = "safr-emergency-cache-v2";
 
-const PRECACHE_ASSETS = ["/", "/emergency"];
+const PRECACHE_ASSETS = ["/", "/emergency", "/offline.html"];
+const NETWORK_TIMEOUT_MS = 4000;
+
+function fetchWithTimeout(request) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS);
+  return fetch(request, { signal: controller.signal }).finally(() =>
+    clearTimeout(timer),
+  );
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -66,9 +75,24 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname === "/emergency") {
+  if (event.request.mode === "navigate") {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request)),
+      fetchWithTimeout(event.request)
+        .then((response) => {
+          if (response?.ok) {
+            const copy = response.clone();
+            caches
+              .open(CACHE_NAME)
+              .then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(async () => {
+          return (
+            (await caches.match(event.request)) ||
+            (await caches.match("/offline.html"))
+          );
+        }),
     );
     return;
   }

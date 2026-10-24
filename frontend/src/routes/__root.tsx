@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { Toaster } from "../components/ui/sonner";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 
 function NotFoundComponent() {
   return (
@@ -138,6 +139,12 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
+    if ("serviceWorker" in navigator && import.meta.env.PROD) {
+      navigator.serviceWorker.register("/sw.js").catch((error: unknown) => {
+        console.warn("Offline support could not start", error);
+      });
+    }
+
     // Intercept auth hash errors from Supabase anywhere in the app
     if (typeof window !== "undefined" && window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -176,6 +183,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <NetworkStatusBanner />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster position="top-center" richColors />

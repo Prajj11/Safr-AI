@@ -17,7 +17,7 @@ test("service worker removes only obsolete Safr caches", async () => {
     },
     caches: {
       keys: async () => [
-        "safr-emergency-cache-v1",
+        "safr-emergency-cache-v2",
         "safr-emergency-cache-old",
         "another-app-cache",
       ],
