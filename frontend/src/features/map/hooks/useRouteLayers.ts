@@ -24,7 +24,8 @@ export interface UseRouteLayersOptions {
   routes: Scored[];
   selected: number;
   activeStepIndex: number | null;
-  onFitBounds?: () => void;
+  onFitBounds?: (() => void) | undefined;
+  onDestinationDrag?: (point: { lat: number; lng: number }) => void;
 }
 
 export function useRouteLayers({
@@ -40,6 +41,7 @@ export function useRouteLayers({
   selected,
   activeStepIndex,
   onFitBounds,
+  onDestinationDrag,
 }: UseRouteLayersOptions) {
   const originMarkerRef = useRef<MapLibreMarker | null>(null);
   const destMarkerRef = useRef<MapLibreMarker | null>(null);
@@ -50,6 +52,7 @@ export function useRouteLayers({
   const selectedLatest = useLatest(selected);
   const activeStepIndexLatest = useLatest(activeStepIndex);
   const onFitBoundsLatest = useLatest(onFitBounds);
+  const onDestinationDragLatest = useLatest(onDestinationDrag);
 
   const addRouteDataToMap = useCallback(() => {
     if (!map || !map.isStyleLoaded()) return;
@@ -335,10 +338,16 @@ export function useRouteLayers({
       destMarkerRef.current = new maplibre.Marker({
         element: destEl,
         anchor: "bottom",
+        draggable: true,
       })
         .setLngLat([destination.lng, destination.lat])
         .setPopup(new maplibre.Popup({ offset: 24 }).setDOMContent(destPopup))
         .addTo(map);
+      destMarkerRef.current.on("dragend", () => {
+        const point = destMarkerRef.current?.getLngLat();
+        if (point)
+          onDestinationDragLatest.current?.({ lat: point.lat, lng: point.lng });
+      });
     }
 
     addRouteDataToMap();
@@ -359,6 +368,7 @@ export function useRouteLayers({
     isGpsOrigin,
     addRouteDataToMap,
     onFitBoundsLatest,
+    onDestinationDragLatest,
   ]);
 
   // Cleanup on unmount

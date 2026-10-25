@@ -5,6 +5,28 @@
 
 @custom-variant dark (&:is(.dark *));
 
+[data-map-contrast="high"] {
+  --background: #fff;
+  --card: #fff;
+  --foreground: #000;
+  --card-foreground: #000;
+  --muted-foreground: #242424;
+  --border: #000;
+  --primary: #004d36;
+  --primary-foreground: #fff;
+  --secondary: #eee;
+  --secondary-foreground: #000;
+}
+[data-map-contrast="high"] button,
+[data-map-contrast="high"] input,
+[data-map-contrast="high"] select {
+  min-height: 44px;
+}
+[data-map-contrast="high"] :focus-visible {
+  outline: 3px solid #005fcc;
+  outline-offset: 3px;
+}
+
 /*
  * Coastal Cyber-Luxury Design System Tokens
  * OKLCH Color Space & Glassmorphism Surfaces

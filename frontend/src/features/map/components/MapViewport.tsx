@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { Sparkles, X } from "lucide-react";
 import { RecenterButton } from "./RecenterButton";
 import { PlaceCard } from "./PlaceCard";
@@ -22,6 +22,7 @@ export interface MapViewportProps {
   isLoadingMap: boolean;
   mapLoadError: boolean;
   onRetryMap: () => void;
+  navigation?: ReactNode;
 }
 
 export function MapViewport({
@@ -39,10 +40,12 @@ export function MapViewport({
   isLoadingMap,
   mapLoadError,
   onRetryMap,
+  navigation,
 }: MapViewportProps) {
   return (
     <div className="relative w-full h-full min-h-0 rounded-3xl border border-border/60 bg-secondary/40 shadow-inner overflow-hidden">
       <div ref={mapEl} className="h-full w-full" />
+      {navigation}
 
       <div className="absolute top-[146px] right-2.5 z-10 pointer-events-auto">
         <RecenterButton

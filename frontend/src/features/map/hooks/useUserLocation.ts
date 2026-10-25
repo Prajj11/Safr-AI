@@ -8,6 +8,11 @@ import {
   smoothAngle,
   haversineDistanceMeters,
 } from "../lib/geo-math";
+import {
+  acceptGpsSample,
+  deriveNavigationProgress,
+  type NavigationPoint,
+} from "../lib/navigation-progress";
 
 export type FollowMode = "free" | "follow" | "heading";
 export type GeolocationStatus =
@@ -17,12 +22,14 @@ export interface UserLocationResult {
   status: GeolocationStatus;
   position: { lat: number; lng: number } | null;
   accuracy: number | null;
+  lastUpdated: number | null;
   heading: number | null;
   followMode: FollowMode;
   pannedAway: boolean;
   cycleFollow: () => void;
   recenter: () => void;
   start: () => void;
+  setRoutePath: (path: NavigationPoint[]) => void;
 }
 
 export interface UseUserLocationOptions {
@@ -41,6 +48,7 @@ export function useUserLocation({
     null,
   );
   const [accuracy, setAccuracy] = useState<number | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [heading, setHeading] = useState<number | null>(null);
   const [followMode, setFollowMode] = useState<FollowMode>("free");
   const [pannedAway, setPannedAway] = useState(false);
@@ -70,6 +78,10 @@ export function useUserLocation({
 
   const hasRequestedOrientationPermissionRef = useRef(false);
   const lastBearingUpdateRef = useRef<number>(0);
+  const routePathRef = useRef<NavigationPoint[]>([]);
+  const previousSampleRef = useRef<
+    (NavigationPoint & { timestamp: number; accuracy: number }) | null
+  >(null);
 
   // Check prefers-reduced-motion
   const prefersReducedMotion =
@@ -271,10 +283,25 @@ export function useUserLocation({
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        setStatus("granted");
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         const acc = pos.coords.accuracy;
+        const sample = {
+          lat,
+          lng,
+          accuracy: acc,
+          timestamp: pos.timestamp || Date.now(),
+        };
+        if (
+          !acceptGpsSample({
+            previous: previousSampleRef.current,
+            next: sample,
+          })
+        )
+          return;
+        previousSampleRef.current = sample;
+        setLastUpdated(sample.timestamp);
+        setStatus("granted");
 
         latestPosRef.current = { lat, lng };
         latestAccuracyRef.current = acc;
@@ -289,7 +316,18 @@ export function useUserLocation({
           applyHeading(pos.coords.heading);
         }
 
-        void ensureMarker(lat, lng);
+        const routeProgress = deriveNavigationProgress({
+          position: { lat, lng },
+          accuracyMeters: acc,
+          path: routePathRef.current,
+          steps: [],
+          durationSeconds: 0,
+        });
+        const display =
+          routeProgress && !routeProgress.offRoute && acc <= 50
+            ? routeProgress.snapped
+            : { lat, lng };
+        void ensureMarker(display.lat, display.lng);
 
         // Accuracy check: non-blocking warning once per session if > 100m
         if (acc > 100 && !sessionWarnedRef.current) {
@@ -331,7 +369,7 @@ export function useUserLocation({
             haversineDistanceMeters(lastP.lat, lastP.lng, lat, lng) > 2;
           const accDiff = lastA == null || Math.abs(lastA - acc) > 5;
 
-          if (moved || accDiff) {
+          if (moved || accDiff || timeDiff > 5000) {
             lastEmitTimeRef.current = now;
             lastEmittedPosRef.current = { lat, lng };
             lastEmittedAccRef.current = acc;
@@ -515,15 +553,21 @@ export function useUserLocation({
     });
   }, [mapRef, prefersReducedMotion]);
 
+  const setRoutePath = useCallback((path: NavigationPoint[]) => {
+    routePathRef.current = path;
+  }, []);
+
   return {
     status,
     position,
     accuracy,
+    lastUpdated,
     heading,
     followMode,
     pannedAway,
     cycleFollow,
     recenter,
     start: startWatch,
+    setRoutePath,
   };
 }

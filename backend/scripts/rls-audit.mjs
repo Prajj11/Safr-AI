@@ -14,6 +14,7 @@ export const auditedTables = [
   "location_audit",
   "place_cache",
   "crowd_reports",
+  "road_reports",
   "trip_meeting_points",
   "sos_incidents",
 ];

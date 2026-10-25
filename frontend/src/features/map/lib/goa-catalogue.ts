@@ -24,6 +24,27 @@ export const CATALOGUE_CATEGORIES = [
 ] as const;
 export type CatalogueCategory = (typeof CATALOGUE_CATEGORIES)[number];
 
+export const ESSENTIAL_FILTERS = {
+  Hospitals: ["amenity", "hospital"],
+  Pharmacies: ["amenity", "pharmacy"],
+  Police: ["amenity", "police"],
+  Fuel: ["amenity", "fuel"],
+  Toilets: ["amenity", "toilets"],
+  Parking: ["amenity", "parking"],
+  Ferries: ["amenity", "ferry_terminal"],
+  "Bus stations": ["amenity", "bus_station"],
+  Lifeguards: ["emergency", "lifeguard"],
+} as const;
+export type EssentialFilter = keyof typeof ESSENTIAL_FILTERS;
+export function matchesEssential(
+  place: CataloguePlace,
+  filter: EssentialFilter | "All",
+) {
+  if (filter === "All") return true;
+  const [key, value] = ESSENTIAL_FILTERS[filter];
+  return place.tags[key] === value;
+}
+
 export function catalogueCategory({
   tags: t,
 }: CataloguePlace): CatalogueCategory {

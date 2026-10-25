@@ -22,10 +22,14 @@ export function MapWorkspace({
   onExpand: (value: boolean) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [highContrast, setHighContrast] = useState(false);
+  const [sheetHeight, setSheetHeight] = useState(45);
+  const dragHeight = useRef(45);
   const swiped = useRef(false);
   const start = useRef<number | null>(null);
   return (
     <div
+      data-map-contrast={highContrast ? "high" : "normal"}
       className={`relative isolate h-[calc(100dvh-13rem)] min-h-[380px] lg:min-h-[480px] lg:grid gap-4 ${collapsed ? "lg:grid-cols-1" : "lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[390px_minmax(0,1fr)]"}`}
     >
       <aside
@@ -33,6 +37,15 @@ export function MapWorkspace({
         aria-label="Trip planner"
       >
         <div className="flex items-center gap-2 p-3 lg:p-4 border-b">
+          <Button
+            variant="outline"
+            className="min-h-11 shrink-0"
+            aria-pressed={highContrast}
+            aria-label="High contrast planner controls"
+            onClick={() => setHighContrast((value) => !value)}
+          >
+            Aa
+          </Button>
           <button
             type="button"
             className="flex-1 text-left min-w-0 touch-none lg:hidden"
@@ -41,15 +54,44 @@ export function MapWorkspace({
             onPointerDown={(e) => {
               swiped.current = false;
               start.current = e.clientY;
+              dragHeight.current = expanded ? sheetHeight : 0;
               e.currentTarget.setPointerCapture(e.pointerId);
+            }}
+            onPointerMove={(e) => {
+              if (start.current === null) return;
+              const delta = start.current - e.clientY;
+              if (Math.abs(delta) > 10) {
+                swiped.current = true;
+                onExpand(true);
+                setSheetHeight(
+                  Math.max(
+                    12,
+                    Math.min(
+                      65,
+                      dragHeight.current + (delta / window.innerHeight) * 100,
+                    ),
+                  ),
+                );
+              }
             }}
             onPointerUp={(e) => {
               const delta = e.clientY - (start.current ?? e.clientY);
               start.current = null;
-              if (Math.abs(delta) > 25) {
+              if (swiped.current || Math.abs(delta) > 25) {
                 swiped.current = true;
-                onExpand(delta < 0);
+                const height =
+                  dragHeight.current - (delta / window.innerHeight) * 100;
+                onExpand(height >= 18);
+                setSheetHeight(height > 50 ? 65 : 35);
               }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                e.preventDefault();
+                onExpand(e.key === "ArrowUp");
+                setSheetHeight(45);
+              }
+              if (e.key === "Escape") onExpand(false);
             }}
             onPointerCancel={() => {
               start.current = null;
@@ -110,7 +152,10 @@ export function MapWorkspace({
         </div>
         <div
           id="map-planner-content"
-          className={`${expanded ? "flex" : "hidden"} lg:flex flex-col gap-3 p-3 overflow-y-auto overscroll-contain max-h-[60dvh] lg:max-h-none lg:flex-1 min-h-0`}
+          style={
+            { "--sheet-height": `${sheetHeight}dvh` } as React.CSSProperties
+          }
+          className={`${expanded ? "flex" : "hidden"} lg:flex flex-col gap-3 p-3 overflow-y-auto overscroll-contain h-[var(--sheet-height)] lg:h-auto lg:max-h-none lg:flex-1 min-h-0`}
         >
           {planner}
         </div>

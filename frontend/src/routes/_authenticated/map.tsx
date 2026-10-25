@@ -2,7 +2,7 @@ import { MapWorkspace } from "@/features/map/components/MapWorkspace";
 import { Button } from "@/components/ui/button";
 import { ArrowDownUp } from "lucide-react";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -31,6 +31,13 @@ import { SavedRoutesPanel } from "@/features/map/components/SavedRoutesPanel";
 import { SavedPlacesPicker } from "@/features/map/components/SavedPlacesPicker";
 import { MapViewport } from "@/features/map/components/MapViewport";
 import { GoaDiscovery } from "@/features/map/components/GoaDiscovery";
+import { NavigationBanner } from "@/features/map/components/NavigationBanner";
+import { RoadReports } from "@/features/map/components/RoadReports";
+import { DestinationPrecision } from "@/features/map/components/DestinationPrecision";
+import {
+  deriveNavigationProgress,
+  parseRoutePolyline,
+} from "@/features/map/lib/navigation-progress";
 
 import { resolvedCentre } from "@/lib/resolved-centre";
 import { isGoaNight } from "@/features/map/lib/goa-time";
@@ -122,6 +129,12 @@ function MapPage() {
   const [activeStyleId, setActiveStyleId] = useState(getDefaultStyleId);
   const [is3d, setIs3d] = useState(false);
   const [recentDestinations, setRecentDestinations] = useState<Hit[]>([]);
+  const [navigationActive, setNavigationActive] = useState(false);
+  const offRouteSamples = useRef(0);
+  const lastNavigationPosition = useRef<unknown>(null);
+  const lastRerouteAt = useRef(0);
+  const arrivalAnnounced = useRef(false);
+  const navigationNeedsOrigin = useRef(false);
 
   useEffect(() => {
     setRecentDestinations(getRecentSearches());
@@ -171,6 +184,7 @@ function MapPage() {
   };
 
   const userLocation = useUserLocation({ mapRef, ready, maplibreRef });
+  const setUserRoutePath = userLocation.setRoutePath;
   const isNightTime =
     departureMode === "now" ? isGoaNight() : isGoaNight(customTime);
 
@@ -316,9 +330,160 @@ function MapPage() {
     searchPlacesFn: search,
     refetchSavedRoutes,
     updateStepMarker: (step, idx) => updateStepMarker(step, idx),
+    onRerouted: (point) => {
+      setOrigin({ ...point, name: "Current location" });
+      setOriginLabel("Current location");
+      setIsGpsOrigin(true);
+    },
     onClearHits: () => setHits([]),
-    onOpenSheet: () => setSheetExpanded(true),
+    onOpenSheet: () => {
+      if (!navigationActive) setSheetExpanded(true);
+    },
   });
+
+  const routePath = useMemo(
+    () => parseRoutePolyline(currentRoute?.polyline),
+    [currentRoute?.polyline],
+  );
+  useEffect(() => {
+    if (
+      !navigationActive ||
+      !navigationNeedsOrigin.current ||
+      !userLocation.position ||
+      !destination ||
+      userLocation.accuracy === null ||
+      userLocation.accuracy > 50 ||
+      userLocation.lastUpdated === null ||
+      Date.now() - userLocation.lastUpdated > 15_000
+    )
+      return;
+    navigationNeedsOrigin.current = false;
+    const start = { ...userLocation.position, name: "Current location" };
+    calculateCurrentRoute(start, destination, waypoints, travelMode, true);
+    userLocation.recenter();
+  }, [
+    navigationActive,
+    userLocation,
+    destination,
+    waypoints,
+    travelMode,
+    calculateCurrentRoute,
+    setOrigin,
+    setOriginLabel,
+    setIsGpsOrigin,
+  ]);
+
+  const navigationTarget = `${destination?.lat},${destination?.lng},${travelMode}`;
+  const previousNavigationTarget = useRef(navigationTarget);
+  useEffect(() => {
+    if (previousNavigationTarget.current !== navigationTarget) {
+      setNavigationActive(false);
+      arrivalAnnounced.current = false;
+      offRouteSamples.current = 0;
+    }
+    previousNavigationTarget.current = navigationTarget;
+  }, [navigationTarget]);
+  const navigationProgress = useMemo(() => {
+    if (!navigationActive || !currentRoute || !userLocation.position)
+      return null;
+    return deriveNavigationProgress({
+      position: userLocation.position,
+      accuracyMeters: userLocation.accuracy,
+      path: routePath,
+      steps: currentRoute.steps,
+      durationSeconds: currentRoute.durationSeconds,
+    });
+  }, [
+    currentRoute,
+    navigationActive,
+    routePath,
+    userLocation.accuracy,
+    userLocation.position,
+  ]);
+
+  useEffect(() => {
+    setUserRoutePath(navigationActive ? routePath : []);
+  }, [navigationActive, routePath, setUserRoutePath]);
+
+  useEffect(() => {
+    if (!navigationActive || !navigationProgress) return;
+    setActiveStepIndex(navigationProgress.stepIndex);
+    if (navigationProgress.arrived && !arrivalAnnounced.current) {
+      arrivalAnnounced.current = true;
+      toast.success(
+        `You have arrived at ${destination?.name ?? "your destination"}.`,
+      );
+    }
+  }, [
+    destination?.name,
+    navigationActive,
+    navigationProgress,
+    setActiveStepIndex,
+  ]);
+
+  useEffect(() => {
+    if (
+      !navigationActive ||
+      !navigationProgress ||
+      !userLocation.position ||
+      !destination ||
+      navigationProgress.arrived
+    ) {
+      offRouteSamples.current = 0;
+      return;
+    }
+    if (lastNavigationPosition.current === userLocation.position) return;
+    lastNavigationPosition.current = userLocation.position;
+    if (
+      userLocation.accuracy === null ||
+      userLocation.accuracy > 50 ||
+      userLocation.lastUpdated === null ||
+      Date.now() - userLocation.lastUpdated > 15_000
+    ) {
+      offRouteSamples.current = 0;
+      return;
+    }
+    offRouteSamples.current = navigationProgress.offRoute
+      ? offRouteSamples.current + 1
+      : 0;
+    if (
+      offRouteSamples.current < 3 ||
+      routeMutation.isPending ||
+      Date.now() - lastRerouteAt.current < 15_000
+    )
+      return;
+    lastRerouteAt.current = Date.now();
+    offRouteSamples.current = 0;
+    const completedLegs = navigationProgress.nextStep?.legIndex ?? 0;
+    const remainingWaypoints = waypoints.slice(completedLegs);
+    const newOrigin = {
+      ...userLocation.position,
+      name: "Current location",
+    };
+    toast.info("You left the planned route. Finding a new route…");
+    calculateCurrentRoute(
+      newOrigin,
+      destination,
+      remainingWaypoints,
+      travelMode,
+      true,
+    );
+  }, [
+    calculateCurrentRoute,
+    destination,
+    navigationActive,
+    navigationProgress,
+    routeMutation.isPending,
+    setIsGpsOrigin,
+    setOrigin,
+    setOriginLabel,
+    setWaypoints,
+    travelMode,
+    userLocation.position,
+    userLocation.accuracy,
+    userLocation.lastUpdated,
+    waypoints,
+  ]);
 
   const previousPreferences = useRef({ travelMode, isNightTime });
   useEffect(() => {
@@ -346,7 +511,20 @@ function MapPage() {
     routes,
     selected,
     activeStepIndex,
-    onFitBounds: fitMapToRoute,
+    onFitBounds: navigationActive ? undefined : fitMapToRoute,
+    onDestinationDrag: (point) => {
+      if (!destination) return;
+      const updated = {
+        ...destination,
+        ...point,
+        name: "Adjusted destination",
+        address: "User-selected pin; confirm road access locally",
+      };
+      setNavigationActive(false);
+      setDestination(updated);
+      setQuery(updated.name);
+      calculateCurrentRoute(origin, updated, waypoints, travelMode);
+    },
   });
 
   routeDataFnRef.current = () => {
@@ -487,6 +665,17 @@ function MapPage() {
                 />
               </>
             )}
+            <RoadReports
+              map={ready ? mapRef.current : null}
+              point={destination}
+              onLocate={(point) => {
+                mapRef.current?.flyTo({
+                  center: [point.lng, point.lat],
+                  zoom: 16,
+                });
+                setSheetExpanded(false);
+              }}
+            />
             {workspaceView === "plan" && (
               <>
                 <OriginPicker
@@ -512,6 +701,30 @@ function MapPage() {
                   hits={hits}
                   onSelectDestination={handleSelectDestination}
                 />
+                {destination && (
+                  <DestinationPrecision
+                    key={`${destination.lat},${destination.lng}`}
+                    lat={destination.lat}
+                    lng={destination.lng}
+                    onChange={(point) => {
+                      const updated = {
+                        ...destination,
+                        ...point,
+                        name: "Adjusted destination",
+                        address: "User-selected coordinates",
+                      };
+                      setNavigationActive(false);
+                      setDestination(updated);
+                      setQuery(updated.name);
+                      calculateCurrentRoute(
+                        origin,
+                        updated,
+                        waypoints,
+                        travelMode,
+                      );
+                    }}
+                  />
+                )}
                 <Button
                   variant="outline"
                   className="self-end rounded-full"
@@ -650,6 +863,29 @@ function MapPage() {
           isLoadingMap={isLoadingMap}
           mapLoadError={mapLoadError}
           onRetryMap={handleRetryMap}
+          navigation={
+            <NavigationBanner
+              active={navigationActive}
+              progress={navigationProgress}
+              destination={currentRoute ? (destination?.name ?? null) : null}
+              gpsReady={userLocation.position !== null}
+              accuracy={userLocation.accuracy}
+              lastUpdated={userLocation.lastUpdated}
+              rerouting={routeMutation.isPending && navigationActive}
+              onStart={() => {
+                arrivalAnnounced.current = false;
+                navigationNeedsOrigin.current = true;
+                setNavigationActive(true);
+                setSheetExpanded(false);
+                userLocation.start();
+                if (userLocation.position) userLocation.recenter();
+              }}
+              onStop={() => {
+                setNavigationActive(false);
+                setActiveStepIndex(null);
+              }}
+            />
+          }
         />
       </MapWorkspace>
 

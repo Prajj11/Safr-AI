@@ -14,6 +14,14 @@ export type Database = {
   };
   public: {
     Tables: {
+      road_reports: {
+        Row: import("../../lib/road-reports").RoadReport;
+        Insert: import("../../lib/road-reports").RoadReportInput & {
+          user_id: string;
+        };
+        Update: Partial<import("../../lib/road-reports").RoadReport>;
+        Relationships: [];
+      };
       location_links: {
         Row: import("../../lib/companion-tracking").TrackingLink;
         Insert: Partial<import("../../lib/companion-tracking").TrackingLink> & {

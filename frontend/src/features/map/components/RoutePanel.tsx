@@ -19,6 +19,7 @@ import type { RouteStep, ScoredRoute } from "@/lib/maps.server";
 import type { TravelMode } from "../lib/types";
 import type { ComparisonCard } from "../hooks/useRoutePlanner";
 import { RouteManeuversList } from "./RouteManeuversList";
+import { RouteEvidence } from "./RouteEvidence";
 
 export interface RoutePanelProps {
   travelMode: TravelMode;
@@ -236,6 +237,7 @@ export function RoutePanel({
 
       {routes.length > 0 && currentRoute && (
         <div className="space-y-4">
+          <RouteEvidence route={currentRoute} />
           <p className="text-xs text-muted-foreground px-1">
             {travelMode === "walking"
               ? "Walking"

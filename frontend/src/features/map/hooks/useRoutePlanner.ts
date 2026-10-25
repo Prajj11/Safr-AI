@@ -40,6 +40,7 @@ export interface UseRoutePlannerOptions {
   updateStepMarker?: (step: RouteStep, idx: number) => void;
   onClearHits?: () => void;
   onOpenSheet?: () => void;
+  onRerouted?: (origin: { lat: number; lng: number; name?: string }) => void;
 }
 
 export function useRoutePlanner({
@@ -58,6 +59,7 @@ export function useRoutePlanner({
   updateStepMarker,
   onClearHits,
   onOpenSheet,
+  onRerouted,
 }: UseRoutePlannerOptions) {
   const [routes, setRoutes] = useState<ScoredRoute[]>([]);
   const [selected, setSelected] = useState(0);
@@ -123,6 +125,7 @@ export function useRoutePlanner({
       mode: TravelMode;
       requestId: number;
       isNight: boolean;
+      preserveRoute?: boolean;
     }) => {
       const wpPayload: Waypoint[] = params.waypoints.map((w) => ({
         lat: w.lat,
@@ -145,6 +148,16 @@ export function useRoutePlanner({
     },
     onSuccess: (data, variables) => {
       if (variables.requestId !== latestRequest.current) return;
+      if (variables.preserveRoute && data.length === 0) {
+        toast.error(
+          "No new route found. Previous route retained; check directions before continuing.",
+        );
+        return;
+      }
+      if (variables.preserveRoute) {
+        setWaypoints(variables.waypoints);
+        onRerouted?.(variables.origin);
+      }
       setRoutes(data);
       setSelected(0);
       setDestination(variables.destination);
@@ -166,9 +179,15 @@ export function useRoutePlanner({
   });
 
   const calculateCurrentRoute = useCallback(
-    (orig = origin, dest = destination, wps = waypoints, m = travelMode) => {
+    (
+      orig = origin,
+      dest = destination,
+      wps = waypoints,
+      m = travelMode,
+      preserveRoute = false,
+    ) => {
       if (!dest) return;
-      setRoutes([]);
+      if (!preserveRoute) setRoutes([]);
       setActiveStepIndex(null);
       routeMutation.mutate({
         origin: { ...orig, name: orig.name || originLabel },
@@ -177,6 +196,7 @@ export function useRoutePlanner({
         mode: m,
         requestId: ++latestRequest.current,
         isNight: isNightTime,
+        preserveRoute,
       });
     },
     [

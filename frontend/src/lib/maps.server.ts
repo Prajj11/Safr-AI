@@ -333,12 +333,20 @@ export async function computeSafeRoutes(
     try {
       raw = await fetchValhallaRoutes(origin, destination, waypoints, mode);
       if (raw.length === 0) {
+        if (mode !== "car")
+          throw new Error(
+            `${mode} routing is temporarily unavailable. Try again later or choose driving explicitly.`,
+          );
         console.warn(
           "[routing] Valhalla returned 0 routes, falling back to OSRM",
         );
         raw = await fetchOSRMRoutes(origin, destination, waypoints);
       }
     } catch (err: unknown) {
+      if (mode !== "car")
+        throw new Error(
+          `${mode} routing is temporarily unavailable. Try again later or choose driving explicitly.`,
+        );
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("more than 1 km from a routable road")) {
         throw err;

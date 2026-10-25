@@ -9,6 +9,9 @@ import { Search, MapPin, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   CATALOGUE_CATEGORIES,
+  ESSENTIAL_FILTERS,
+  matchesEssential,
+  type EssentialFilter,
   catalogueCategory,
   cataloguePickedPlace,
   filterCatalogue,
@@ -30,6 +33,7 @@ export function GoaDiscovery({
   onPick: (place: PickedPlace) => void;
 }) {
   const [category, setCategory] = useState<CatalogueCategory>("All");
+  const [essential, setEssential] = useState<EssentialFilter | "All">("All");
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(20);
   const pickRef = useRef(onPick);
@@ -49,12 +53,14 @@ export function GoaDiscovery({
   });
   const filtered = useMemo(
     () =>
-      filterCatalogue(data?.places || [], category, query).sort((a, b) =>
-        (a.tags["name:en"] || a.tags["name"] || "").localeCompare(
-          b.tags["name:en"] || b.tags["name"] || "",
+      filterCatalogue(data?.places || [], category, query)
+        .filter((place) => matchesEssential(place, essential))
+        .sort((a, b) =>
+          (a.tags["name:en"] || a.tags["name"] || "").localeCompare(
+            b.tags["name:en"] || b.tags["name"] || "",
+          ),
         ),
-      ),
-    [data, category, query],
+    [data, category, query, essential],
   );
   const features = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
     () => ({
@@ -255,6 +261,7 @@ export function GoaDiscovery({
             aria-pressed={category === value}
             onClick={() => {
               setCategory(value);
+              setEssential("All");
               setLimit(20);
             }}
             className={`rounded-full border px-2.5 py-1.5 text-xs transition-colors ${category === value ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"}`}
@@ -264,6 +271,30 @@ export function GoaDiscovery({
         ))}
       </div>
       <div aria-live="polite" className="text-xs text-muted-foreground">
+        <label className="block mb-3">
+          Transport & essentials
+          <select
+            className="mt-1 block min-h-11 w-full rounded-lg border bg-background px-2 text-foreground"
+            value={essential}
+            onChange={(event) => {
+              setEssential(event.target.value as EssentialFilter | "All");
+              setCategory("All");
+              setLimit(20);
+            }}
+          >
+            <option value="All">All places</option>
+            {Object.keys(ESSENTIAL_FILTERS).map((value) => (
+              <option key={value}>{value}</option>
+            ))}
+          </select>
+        </label>
+        {essential !== "All" && (
+          <p className="mb-2">
+            Mapped locations only. Opening hours, ferry service and availability
+            are not live; confirm locally. Missing results do not mean no
+            service exists.
+          </p>
+        )}
         {isPending
           ? "Loading Goa places…"
           : isError

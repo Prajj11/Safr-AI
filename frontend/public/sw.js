@@ -1,6 +1,6 @@
-const CACHE_NAME = "safr-emergency-cache-v2";
+const CACHE_NAME = "safr-emergency-cache-v3";
 
-const PRECACHE_ASSETS = ["/", "/emergency", "/offline.html"];
+const PRECACHE_ASSETS = ["/offline.html"];
 const NETWORK_TIMEOUT_MS = 4000;
 
 function fetchWithTimeout(request) {
@@ -77,22 +77,9 @@ self.addEventListener("fetch", (event) => {
 
   if (event.request.mode === "navigate") {
     event.respondWith(
-      fetchWithTimeout(event.request)
-        .then((response) => {
-          if (response?.ok) {
-            const copy = response.clone();
-            caches
-              .open(CACHE_NAME)
-              .then((cache) => cache.put(event.request, copy));
-          }
-          return response;
-        })
-        .catch(async () => {
-          return (
-            (await caches.match(event.request)) ||
-            (await caches.match("/offline.html"))
-          );
-        }),
+      fetchWithTimeout(event.request).catch(async () => {
+        return await caches.match("/offline.html");
+      }),
     );
     return;
   }

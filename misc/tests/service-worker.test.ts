@@ -18,6 +18,7 @@ test("service worker removes only obsolete Safr caches", async () => {
     caches: {
       keys: async () => [
         "safr-emergency-cache-v2",
+        "safr-emergency-cache-v3",
         "safr-emergency-cache-old",
         "another-app-cache",
       ],
@@ -33,7 +34,56 @@ test("service worker removes only obsolete Safr caches", async () => {
     },
   });
   await completion;
-  assert.deepEqual(deleted, ["safr-emergency-cache-old"]);
+  assert.deepEqual(deleted, ["safr-emergency-cache-v2", "safr-emergency-cache-old"]);
+});
+
+test("private navigations never enter the cache and offline uses only generic fallback", async () => {
+  let handle: (event: {
+    request: { url: string; method: string; mode: string };
+    respondWith: (promise: Promise<unknown>) => void;
+  }) => void;
+  let offline = false;
+  const matched: string[] = [];
+  const response = { ok: true };
+  runInNewContext(source, {
+    URL,
+    AbortController,
+    setTimeout,
+    clearTimeout,
+    fetch: async () => {
+      if (offline) throw new Error("offline");
+      return response;
+    },
+    self: {
+      location: { origin: "https://safr.test" },
+      addEventListener: (name: string, listener: typeof handle) => {
+        if (name === "fetch") handle = listener;
+      },
+    },
+    caches: {
+      open: () => assert.fail("Private navigation must not be cached"),
+      match: async (key: string) => {
+        matched.push(key);
+        return "offline page";
+      },
+    },
+  });
+  for (const path of ["/map", "/share/private-token", "/itinerary"]) {
+    let result: Promise<unknown> | undefined;
+    const event = {
+      request: { url: `https://safr.test${path}`, method: "GET", mode: "navigate" },
+      respondWith: (promise: Promise<unknown>) => {
+        result = promise;
+      },
+    };
+    offline = false;
+    handle!(event);
+    assert.equal(await result, response);
+    offline = true;
+    handle!(event);
+    assert.equal(await result, "offline page");
+  }
+  assert.deepEqual(matched, ["/offline.html", "/offline.html", "/offline.html"]);
 });
 
 test("service worker leaves external, POST and server requests alone", () => {
