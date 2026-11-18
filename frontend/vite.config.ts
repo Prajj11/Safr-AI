@@ -4,8 +4,19 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
+  if (command === "build" && process.env["VERCEL_ENV"] === "production") {
+    const missing = [
+      "VITE_SUPABASE_URL",
+      "VITE_SUPABASE_PUBLISHABLE_KEY",
+    ].filter((key) => !env[key]?.trim());
+    if (missing.length) {
+      throw new Error(
+        `Set these Vercel Production variables before building: ${missing.join(", ")}`,
+      );
+    }
+  }
   // These values belong only to server functions, never to browser defines.
   for (const key of [
     "SUPABASE_URL",
