@@ -18,9 +18,14 @@ import { SafrLogo } from "@/components/SafrLogo";
 export const Route = createFileRoute("/auth")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { mode?: "signin" | "signup"; verified?: boolean } => {
+  ): { mode?: "signin" | "signup" | "reset"; verified?: boolean } => {
     return {
-      mode: search["mode"] === "signup" ? "signup" : "signin",
+      mode:
+        search["mode"] === "reset"
+          ? "reset"
+          : search["mode"] === "signup"
+            ? "signup"
+            : "signin",
       verified: search["verified"] === true || search["verified"] === "true",
     };
   },
@@ -40,8 +45,9 @@ function AuthPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">(
-    search.mode || "signin",
+    search.mode === "signup" ? "signup" : "signin",
   );
+  const [forgot, setForgot] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -49,6 +55,7 @@ function AuthPage() {
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
+    if (search.mode === "reset") return;
     // 1. Intercept hash errors returned by Supabase (e.g., expired verification links)
     if (typeof window !== "undefined" && window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -87,7 +94,7 @@ function AuthPage() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, search.verified]);
+  }, [navigate, search.mode, search.verified]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -130,6 +137,24 @@ function AuthPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (forgot || search.mode === "reset") {
+    return (
+      <PasswordReset
+        key={search.mode}
+        callback={search.mode === "reset"}
+        initialEmail={email}
+        onBack={() => {
+          setForgot(false);
+          void navigate({
+            to: "/auth",
+            search: { mode: "signin" },
+            replace: true,
+          });
+        }}
+      />
+    );
   }
 
   if (sent) {
@@ -255,6 +280,15 @@ function AuthPage() {
                 placeholder="At least 6 characters"
                 className="rounded-xl bg-secondary/40 border-border/60"
               />
+              {mode === "signin" && (
+                <button
+                  type="button"
+                  className="min-h-11 text-sm font-semibold text-primary underline underline-offset-4"
+                  onClick={() => setForgot(true)}
+                >
+                  Forgot password?
+                </button>
+              )}
             </div>
 
             <Button
@@ -283,6 +317,161 @@ function AuthPage() {
           </button>
         </div>
       </div>
+    </main>
+  );
+}
+
+function PasswordReset({
+  callback,
+  initialEmail,
+  onBack,
+}: {
+  callback: boolean;
+  initialEmail: string;
+  onBack: () => void;
+}) {
+  const [email, setEmail] = useState(initialEmail);
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [ready, setReady] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    if (!callback) return;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" && session?.user) setReady(true);
+      if (event === "SIGNED_OUT") setReady(false);
+    });
+    return () => subscription.unsubscribe();
+  }, [callback]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (busy || sent || (callback && !ready)) return;
+    setErrorMessage("");
+    if (callback && password !== confirm) {
+      setErrorMessage("The passwords don’t match.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error } = callback
+        ? await supabase.auth.updateUser({ password })
+        : await supabase.auth.resetPasswordForEmail(email.trim(), {
+            redirectTo: new URL("/auth?mode=reset", window.location.origin)
+              .href,
+          });
+      if (error) throw error;
+      if (callback) {
+        toast.success("Your password was updated.");
+        onBack();
+      } else {
+        setSent(true);
+      }
+    } catch (error) {
+      setErrorMessage(
+        callback && error instanceof Error
+          ? error.message
+          : "Couldn’t send the reset link. Please try again shortly.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background px-5 py-12 text-foreground">
+      <section
+        className="w-full max-w-sm rounded-3xl border bg-card p-8 shadow-xl"
+        aria-labelledby="reset-heading"
+      >
+        <SafrLogo size={42} />
+        <h1 id="reset-heading" className="mt-5 font-display text-3xl font-bold">
+          {sent
+            ? "Check your email"
+            : callback
+              ? "Choose a new password"
+              : "Reset your password"}
+        </h1>
+        {sent ? (
+          <p role="status" className="mt-3 text-sm text-muted-foreground">
+            If an account exists for that address, you’ll receive a password
+            reset link. Check your spam folder if it doesn’t arrive.
+          </p>
+        ) : callback && !ready ? (
+          <p role="status" className="mt-3 text-sm text-muted-foreground">
+            Open the latest reset link from your email. If it has expired or was
+            already used, go back to sign-in and request a new one.
+          </p>
+        ) : (
+          <form className="mt-5 space-y-4" onSubmit={submit}>
+            {callback ? (
+              <>
+                <Label htmlFor="new-password">New password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                  maxLength={72}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+                <Label htmlFor="confirm-password">Confirm new password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                  maxLength={72}
+                  value={confirm}
+                  onChange={(event) => setConfirm(event.target.value)}
+                />
+              </>
+            ) : (
+              <>
+                <Label htmlFor="reset-email">Email address</Label>
+                <Input
+                  id="reset-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  maxLength={255}
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </>
+            )}
+            {errorMessage && (
+              <p role="alert" className="text-sm text-destructive">
+                {errorMessage}
+              </p>
+            )}
+            <Button type="submit" className="w-full" disabled={busy}>
+              {busy
+                ? "Please wait…"
+                : callback
+                  ? "Update password"
+                  : "Send reset link"}
+            </Button>
+          </form>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          className="mt-4 w-full"
+          onClick={onBack}
+          disabled={busy}
+        >
+          Back to sign in
+        </Button>
+      </section>
     </main>
   );
 }
