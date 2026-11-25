@@ -15,7 +15,7 @@ import {
   type LocationSample,
   type Incident,
 } from "./companion-tracking";
-import { sendEmergencyMessage, normalizeE164 } from "./notifications.server";
+import { sendEmergencyMessage, normalizeE164, maskPhone } from "./notifications.server";
 import type { GuardianAction, CompanionAction } from "./tracking-actions";
 import {
   trackingDatabaseError,
@@ -475,10 +475,24 @@ async function recordSos(
           .filter((phone): phone is string => !!phone);
       }
     }
-    recipients = [...new Set(recipients.map(normalizeE164))];
+    const validRecipients: string[] = [];
+    let hasInvalidRecipient = false;
+    for (const rawPhone of recipients) {
+      const normalized = normalizeE164(rawPhone);
+      if (normalized) {
+        if (!validRecipients.includes(normalized)) {
+          validRecipients.push(normalized);
+        }
+      } else {
+        hasInvalidRecipient = true;
+        console.error(
+          `[SOS Alert] Invalid phone number for trip contact (${maskPhone(rawPhone)}). Normalization failed; skipping contact.`,
+        );
+      }
+    }
     const message = `Safr SOS: ${actor.name.slice(0, 100)} requested help. ${point ? `Location: https://www.google.com/maps?q=${point.lat},${point.lng}` : "GPS location unavailable."} Open Safr or your trip sharing page and contact them. This is not an emergency-services dispatch.`;
     const deliveries = await Promise.allSettled(
-      recipients.map((phone) => sendEmergencyMessage(phone, message)),
+      validRecipients.map((phone) => sendEmergencyMessage(phone, message)),
     );
     const accepted = deliveries.filter(
       (result) =>
@@ -487,11 +501,13 @@ async function recordSos(
           (channel) => channel.status === "sent",
         ),
     ).length;
-    notification = recipients.length
+    notification = validRecipients.length
       ? accepted
-        ? `Messaging service accepted alerts for ${accepted} of ${recipients.length} contacts; delivery is not confirmed.`
+        ? `Messaging service accepted alerts for ${accepted} of ${validRecipients.length} contacts; delivery is not confirmed.${hasInvalidRecipient ? " Some contacts had invalid phone numbers." : ""}`
         : "Contact messaging was not sent. Use the call buttons for immediate help."
-      : "No active trip contacts have a phone number. Trip alert only; call emergency services directly.";
+      : hasInvalidRecipient
+        ? "Trip contacts have invalid phone numbers. Trip alert only; call emergency services directly."
+        : "No active trip contacts have a phone number. Trip alert only; call emergency services directly.";
   } catch {
     notification =
       "Contact messaging could not be confirmed. Use the call buttons for immediate help.";

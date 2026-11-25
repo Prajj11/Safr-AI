@@ -844,12 +844,12 @@ Stored in [`goa.functions.ts`](file:///c:/Users/prajw/OneDrive/Documents/PCCE%20
 ### 10.2 Environment Variable Configuration (`.env`)
 The `.env` file is maintained locally in `goa-guide-buddy-main/` (ignored from Git tracking):
 ```env
-SUPABASE_PROJECT_ID="bfxtulimqxggjageyxrm"
-SUPABASE_PUBLISHABLE_KEY="sb_publishable_5cr0Y9aDxppRRlFqRuJCZg_f842cMe1"
-SUPABASE_URL="https://bfxtulimqxggjageyxrm.supabase.co"
-VITE_SUPABASE_PROJECT_ID="bfxtulimqxggjageyxrm"
-VITE_SUPABASE_PUBLISHABLE_KEY="sb_publishable_5cr0Y9aDxppRRlFqRuJCZg_f842cMe1"
-VITE_SUPABASE_URL="https://bfxtulimqxggjageyxrm.supabase.co"
+SUPABASE_PROJECT_ID="<your-project-id>"
+SUPABASE_PUBLISHABLE_KEY="<your-publishable-key>"
+SUPABASE_URL="<your-supabase-url>"
+VITE_SUPABASE_PROJECT_ID="<your-project-id>"
+VITE_SUPABASE_PUBLISHABLE_KEY="<your-publishable-key>"
+VITE_SUPABASE_URL="<your-supabase-url>"
 GEMINI_API_KEY="your-gemini-api-key"
 ```
 

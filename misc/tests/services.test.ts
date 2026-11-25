@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildItinerary } from "../../frontend/src/lib/travel.server.ts";
-import { locatePlace, nearbyPlaces, drivingMatrix } from "../../frontend/src/lib/places.server.ts";
+import { locatePlace, nearbyPlaces, drivingMatrix, isSanePlaceName } from "../../frontend/src/lib/places.server.ts";
 
 const input = {
   place: "Panjim",
@@ -122,6 +122,50 @@ test("OSRM no-route response fails explicitly", async (t) => {
 test("empty nearby results stay empty rather than creating generic businesses", async (t) => {
   t.mock.method(globalThis, "fetch", async () => Response.json({ elements: [] }));
   assert.deepEqual(await nearbyPlaces({ lat: 17, lng: 75 }, 2), []);
+});
+
+test("isSanePlaceName filters junk and placeholder place names", () => {
+  assert.equal(isSanePlaceName(""), false);
+  assert.equal(isSanePlaceName("   "), false);
+  assert.equal(isSanePlaceName("A"), false);
+  assert.equal(isSanePlaceName("123456"), false);
+  assert.equal(isSanePlaceName("---"), false);
+  assert.equal(isSanePlaceName("unnamed"), false);
+  assert.equal(isSanePlaceName("UNNAMED"), false);
+  assert.equal(isSanePlaceName("n/a"), false);
+  assert.equal(isSanePlaceName("N/A"), false);
+  assert.equal(isSanePlaceName("test"), false);
+  assert.equal(isSanePlaceName("tbd"), false);
+  assert.equal(isSanePlaceName("none"), false);
+  assert.equal(isSanePlaceName("null"), false);
+  assert.equal(isSanePlaceName("undefined"), false);
+  assert.equal(isSanePlaceName("unknown"), false);
+  assert.equal(isSanePlaceName("https://example.com"), false);
+  assert.equal(isSanePlaceName("http://foo.bar"), false);
+  assert.equal(isSanePlaceName("www.testcafe.com"), false);
+  assert.equal(isSanePlaceName("contact@restaurant.com"), false);
+  assert.equal(isSanePlaceName("+91 98765 43210"), false);
+  assert.equal(isSanePlaceName("0832-222333"), false);
+  assert.equal(isSanePlaceName("A".repeat(61)), false);
+
+  assert.equal(isSanePlaceName("Taj Exotica"), true);
+  assert.equal(isSanePlaceName("Café Chocolatti"), true);
+  assert.equal(isSanePlaceName("St. Alex Church"), true);
+});
+
+test("nearbyPlaces ignores elements with junk names", async (t) => {
+  t.mock.method(globalThis, "fetch", async () =>
+    Response.json({
+      elements: [
+        { type: "node", id: 201, lat: 18.101, lon: 74.101, tags: { name: "test", amenity: "cafe" } },
+        { type: "node", id: 202, lat: 18.102, lon: 74.102, tags: { name: "https://junk.com", amenity: "restaurant" } },
+        { type: "node", id: 203, lat: 18.103, lon: 74.103, tags: { name: "Valid Bistro", amenity: "cafe" } },
+      ],
+    }),
+  );
+  const places = await nearbyPlaces({ lat: 18.1, lng: 74.1 }, 2);
+  assert.equal(places.length, 1);
+  assert.equal(places[0]?.name, "Valid Bistro");
 });
 
 test("partial AI ranking retains reachable alternatives when its first choice cannot fit", async (t) => {

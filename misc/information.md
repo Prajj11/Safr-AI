@@ -25,7 +25,7 @@
 - **Core Tagline**: *"Travel safer. Skip the trouble."*
 - **Primary Domain**: Smart Tourism / Travel Tech / AI Safety Companion / Geospatial Navigation
 - **Target Audience**: Solo travelers, families with children or senior citizens, backpackers, and international tourists exploring Goa.
-- **Current Status**: Active & Live; Supabase database initialized (`bfxtulimqxggjageyxrm`), Gemini AI connected, OSRM/Overpass/Photon routing integrated, 14/14 automated test suites passing.
+- **Current Status**: Active & Live; Supabase database initialized (`<your-project-id>`), Gemini AI connected, OSRM/Overpass/Photon routing integrated, 14/14 automated test suites passing.
 
 ---
 
@@ -48,7 +48,7 @@
 - **AI Intelligence**: Google Gemini 2.5 Flash via `@ai-sdk/google` (`ai` v7 / Vercel AI SDK) with structured JSON output and schema validation, grounded strictly on real OpenStreetMap place IDs with an automated map-based fallback.
 
 ### Database & Security Tier
-- **Database Engine**: [Supabase PostgreSQL](https://supabase.com/) (Active Project: `bfxtulimqxggjageyxrm`) with Row Level Security (RLS) on every table.
+- **Database Engine**: [Supabase PostgreSQL](https://supabase.com/) (Active Project: `<your-project-id>`) with Row Level Security (RLS) on every table.
 - **Authentication**: Supabase Auth (Email + Password, Magic Link, Session JWTs, and client-side token persistence).
 - **Stored Procedures (RPC)**: PL/pgSQL stored procedures (`check_safety_tag`, `notify_safety_tag`) for Zero-Knowledge SafeTag verification and alert dispatch.
 - **Data Integrity Constraints**: `CHECK` constraints enforcing valid age bounds (kid 0–17, adult 18–59, senior 60–120) across `safety_tags` and `travellers`.
@@ -196,7 +196,7 @@ ALTER TABLE public.safety_tags ADD CONSTRAINT safety_tags_age_category_check CHE
 
 | Service / API | Endpoint / Library | Key Required? | Purpose in Safr |
 |---|---|---|---|
-| **Supabase Database & Auth** | `https://bfxtulimqxggjageyxrm.supabase.co` | Publishable Key (`sb_publishable_...`) | User authentication, RLS tables, session management, SafeTag RPCs. |
+| **Supabase Database & Auth** | `<your-supabase-url>` | Publishable Key (`sb_publishable_...`) | User authentication, RLS tables, session management, SafeTag RPCs. |
 | **Google Gemini AI** | `@ai-sdk/google` (`gemini-2.5-flash`) | Yes (`GEMINI_API_KEY`, server-only) | Structured itinerary ranking and contextual Goan insights. Automatic map fallback on throttling. |
 | **Open Source Routing Machine (OSRM)** | `https://router.project-osrm.org` | No (Public) | Multi-alternative routing, driving-time duration matrix, and maneuver step extraction. |
 | **Photon Geocoding** | `https://photon.komoot.io/api/` | No (Public) | Forward search of Goan towns, beaches, and landmarks with state-level boundary checks. |
@@ -418,12 +418,12 @@ goa-guide-buddy-main/
 ### Environment Variables (`.env`)
 Configured in `goa-guide-buddy-main/.env` (untracked, preserved locally):
 ```env
-SUPABASE_PROJECT_ID="bfxtulimqxggjageyxrm"
-SUPABASE_PUBLISHABLE_KEY="sb_publishable_5cr0Y9aDxppRRlFqRuJCZg_f842cMe1"
-SUPABASE_URL="https://bfxtulimqxggjageyxrm.supabase.co"
-VITE_SUPABASE_PROJECT_ID="bfxtulimqxggjageyxrm"
-VITE_SUPABASE_PUBLISHABLE_KEY="sb_publishable_5cr0Y9aDxppRRlFqRuJCZg_f842cMe1"
-VITE_SUPABASE_URL="https://bfxtulimqxggjageyxrm.supabase.co"
+SUPABASE_PROJECT_ID="<your-project-id>"
+SUPABASE_PUBLISHABLE_KEY="<your-publishable-key>"
+SUPABASE_URL="<your-supabase-url>"
+VITE_SUPABASE_PROJECT_ID="<your-project-id>"
+VITE_SUPABASE_PUBLISHABLE_KEY="<your-publishable-key>"
+VITE_SUPABASE_URL="<your-supabase-url>"
 GEMINI_API_KEY="your-gemini-api-key"
 ```
 

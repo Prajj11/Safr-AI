@@ -135,7 +135,7 @@ export function SosPanicControl({
       <Button
         type="button"
         variant="destructive"
-        className="relative overflow-hidden rounded-2xl shrink-0"
+        className="relative overflow-hidden rounded-2xl shrink-0 px-2.5 sm:px-4"
         aria-label="Hold for two seconds to activate SOS"
         onPointerDown={(event) => {
           if (event.button !== 0) return;
@@ -197,8 +197,10 @@ export function SosPanicControl({
           </svg>
         ) : (
           <AlertTriangle className="size-4" />
-        )}{" "}
-        {holding ? "Keep holding…" : "SOS"}
+        )}
+        <span className="hidden sm:inline">
+          {holding ? "Keep holding…" : "SOS"}
+        </span>
       </Button>
       <style>{`@keyframes sos-ring {from {stroke-dashoffset:100} to {stroke-dashoffset:0}} @keyframes sos-hold {from {transform:scaleX(0)} to {transform:scaleX(1)}}`}</style>
       <Dialog
