@@ -25,7 +25,7 @@ test("road times handle unreachable snaps and null cells, and fail soft", async 
   t.mock.method(globalThis, "fetch", async () => new Response("error", { status: 503 }));
   assert.deepEqual(await loadTravelTimes({ lat: 15, lng: 74 }, [{ lat: 15.01, lng: 74 }]), [null]);
 });
-test("essentials selects nearest named item of each type and handles way centres", async t => {
+test("essentials selects up to 3 nearest named items of each type and handles way centres", async t => {
   t.mock.method(globalThis, "fetch", async () => Response.json({ elements: [
     { type: "node", id: 1, lat: 15.201, lon: 73.901, tags: { name: "Near pharmacy", amenity: "pharmacy", opening_hours: "24/7" } },
     { type: "node", id: 2, lat: 15.22, lon: 73.92, tags: { name: "Far pharmacy", amenity: "pharmacy" } },
@@ -33,7 +33,20 @@ test("essentials selects nearest named item of each type and handles way centres
     { type: "node", id: 4, lat: 15.2, lon: 73.9, tags: { amenity: "police" } },
   ] }));
   const result = await nearbyEssentials({ lat: 15.2, lng: 73.9 });
-  assert.equal(result?.length, 2);
-  assert.equal(result?.find(item => item.kind === "pharmacy")?.name, "Near pharmacy");
+  assert.equal(result?.length, 3);
+  const pharmacies = result?.filter(item => item.kind === "pharmacy");
+  assert.equal(pharmacies?.length, 2);
+  assert.equal(pharmacies?.[0]?.name, "Near pharmacy");
+  assert.equal(pharmacies?.[1]?.name, "Far pharmacy");
   assert.equal(result?.find(item => item.kind === "hospital")?.lat, 15.202);
+});
+test("essentials ignores items with junk names", async t => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({ elements: [
+    { type: "node", id: 10, lat: 15.401, lon: 73.801, tags: { name: "unknown", amenity: "hospital" } },
+    { type: "node", id: 11, lat: 15.402, lon: 73.802, tags: { name: "https://junk-pharmacy.com", amenity: "pharmacy" } },
+    { type: "node", id: 12, lat: 15.403, lon: 73.803, tags: { name: "City Hospital", amenity: "hospital" } },
+  ] }));
+  const result = await nearbyEssentials({ lat: 15.4, lng: 73.8 });
+  assert.equal(result?.length, 1);
+  assert.equal(result?.[0]?.name, "City Hospital");
 });

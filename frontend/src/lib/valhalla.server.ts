@@ -8,26 +8,26 @@ export type InternalRoute = {
   legs: Array<{
     summary?: string | undefined;
     steps?:
-      | Array<{
-          name: string;
-          distance: number;
-          duration: number;
-          maneuver: {
-            type: string;
-            modifier?: string | undefined;
-            location?: [number, number] | undefined;
-            exit?: number | undefined;
-          };
-        }>
-      | undefined;
+    | Array<{
+      name: string;
+      distance: number;
+      duration: number;
+      maneuver: {
+        type: string;
+        modifier?: string | undefined;
+        location?: [number, number] | undefined;
+        exit?: number | undefined;
+      };
+    }>
+    | undefined;
     routeSteps?: RouteStep[] | undefined;
     annotation?:
-      | {
-          nodes?: number[] | undefined;
-          wayIds?: number[] | undefined;
-          distance: number[];
-        }
-      | undefined;
+    | {
+      nodes?: number[] | undefined;
+      wayIds?: number[] | undefined;
+      distance: number[];
+    }
+    | undefined;
   }>;
 };
 
@@ -111,6 +111,43 @@ export function mapValhallaManeuverType(type?: number): string {
     case 24:
     default:
       return "continue";
+  }
+}
+
+export function mapValhallaManeuverModifier(
+  type?: number,
+): string | undefined {
+  switch (type) {
+    case 9:
+      return "slight-right";
+    case 10:
+      return "right";
+    case 11:
+    case 12:
+      return "sharp-right";
+    case 13:
+    case 14:
+      return "sharp-left";
+    case 15:
+      return "left";
+    case 16:
+      return "slight-left";
+    case 2:
+    case 5:
+    case 18:
+    case 20:
+    case 23:
+    case 37:
+      return "right";
+    case 3:
+    case 6:
+    case 19:
+    case 21:
+    case 24:
+    case 38:
+      return "left";
+    default:
+      return undefined;
   }
 }
 
@@ -443,8 +480,8 @@ export async function fetchValhallaRoutes(
           const routeSteps: RouteStep[] = (leg.maneuvers || []).map((m) => {
             const beginIdx =
               typeof m.begin_shape_index === "number" &&
-              m.begin_shape_index >= 0 &&
-              m.begin_shape_index < legCoords.length
+                m.begin_shape_index >= 0 &&
+                m.begin_shape_index < legCoords.length
                 ? m.begin_shape_index
                 : 0;
             const pt = legCoords[beginIdx];
@@ -458,7 +495,7 @@ export async function fetchValhallaRoutes(
               distanceMeters: Math.round((m.length ?? 0) * 1000),
               durationSeconds: Math.round(m.time ?? 0),
               maneuverType: mapValhallaManeuverType(m.type),
-              maneuverModifier: undefined,
+              maneuverModifier: mapValhallaManeuverModifier(m.type),
               name,
               location,
               legIndex: legIdx,

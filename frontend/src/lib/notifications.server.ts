@@ -51,43 +51,64 @@ export function maskPhone(phone: string): string {
 
 export const maskPhoneNumber = maskPhone;
 
-export function normalizeE164(phone: string): string {
+export function normalizeE164(phone: string): string | null {
+  if (!phone) return null;
   // Strip spaces, dashes, brackets, and non-digit/non-plus chars
   let cleaned = phone.replace(/[\s\-()]/g, "").replace(/[^\d+]/g, "");
-  if (!cleaned) return "";
+  if (!cleaned) return null;
+
+  let candidate: string;
 
   // 1. Keep numbers starting with "+"
   if (cleaned.startsWith("+")) {
-    return cleaned;
+    candidate = cleaned;
   }
-
   // 2. Convert a "00" prefix to "+"
-  if (cleaned.startsWith("00")) {
-    return "+" + cleaned.slice(2);
+  else if (cleaned.startsWith("00")) {
+    candidate = "+" + cleaned.slice(2);
   }
-
   // 3. Drop one leading "0"
-  if (cleaned.startsWith("0")) {
+  else if (cleaned.startsWith("0")) {
     cleaned = cleaned.slice(1);
+    if (cleaned.length === 10) {
+      candidate = `+91${cleaned}`;
+    } else if (cleaned.length > 10) {
+      candidate = `+${cleaned}`;
+    } else {
+      return null;
+    }
   }
-
   // 4. 10 digits becomes "+91" + digits
-  if (cleaned.length === 10) {
-    return `+91${cleaned}`;
+  else if (cleaned.length === 10) {
+    candidate = `+91${cleaned}`;
   }
-
   // 5. 12 digits starting with 91 becomes "+" + digits
-  if (cleaned.length === 12 && cleaned.startsWith("91")) {
-    return `+${cleaned}`;
+  else if (cleaned.length === 12 && cleaned.startsWith("91")) {
+    candidate = `+${cleaned}`;
   }
-
   // 6. Anything longer than 10 digits becomes "+" + digits
-  if (cleaned.length > 10) {
-    return `+${cleaned}`;
+  else if (cleaned.length > 10) {
+    candidate = `+${cleaned}`;
+  }
+  // 7. Less than 10 digits
+  else {
+    return null;
   }
 
-  // 7. Otherwise "+91" + digits
-  return `+91${cleaned}`;
+  // Indian mobile validation: must be +91 followed by 10 digits starting with 6-9
+  if (candidate.startsWith("+91")) {
+    if (!/^\+91[6-9]\d{9}$/.test(candidate)) {
+      return null;
+    }
+    return candidate;
+  }
+
+  // General E.164 format: + followed by 7-15 digits
+  if (!/^\+[1-9]\d{6,14}$/.test(candidate)) {
+    return null;
+  }
+
+  return candidate;
 }
 
 function removeLinksAndCollapseWhitespace(
@@ -204,13 +225,29 @@ export async function sendEmergencyMessage(
   const smsFrom =
     process.env["TWILIO_SMS_FROM"] || process.env["TWILIO_PHONE_NUMBER"];
 
-  const toE164 = normalizeE164(phone);
-  const masked = maskPhone(toE164);
-
   const results: NotificationResult = {
     whatsapp: { status: "skipped", timestamp: new Date().toISOString() },
     sms: { status: "skipped", timestamp: new Date().toISOString() },
   };
+
+  const toE164 = normalizeE164(phone);
+  if (!toE164) {
+    const masked = maskPhone(phone || "");
+    console.error(
+      `[notifications] Invalid phone number provided: "${masked}". Normalization failed; skipping notification.`,
+    );
+    for (const channel of ["whatsapp", "sms"] as const) {
+      if (activeChannels.includes(channel)) {
+        results[channel] = {
+          status: "failed",
+          error: "Invalid phone number",
+          timestamp: new Date().toISOString(),
+        };
+      }
+    }
+    return results;
+  }
+  const masked = maskPhone(toE164);
 
   if (
     !["mock", "live"].includes(mode) ||

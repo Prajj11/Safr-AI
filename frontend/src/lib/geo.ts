@@ -11,6 +11,11 @@ export type NearbyPlace = Coordinate & {
   sourceUrl: string;
   highlight?: string | undefined;
   interests?: string[] | undefined;
+  bestTime?: "morning" | "afternoon" | "sunset" | "evening" | "any" | undefined;
+  hasWikipedia?: boolean | undefined;
+  hasWikidata?: boolean | undefined;
+  hasWebsite?: boolean | undefined;
+  source?: "catalogue" | "overpass" | "curated" | undefined;
 };
 
 export function distanceKm(a: Coordinate, b: Coordinate): number {

@@ -1,4 +1,5 @@
 import { validateAge } from "@/lib/age-validation";
+import { normalizePhone, validatePhone } from "@/lib/phone-validation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import QRCode from "qrcode";
@@ -66,11 +67,27 @@ function TagCard({
       .catch(() => setQr(""));
   }, [url]);
 
+  const handlePrint = () => {
+    const card = document.getElementById(`tag-card-${tag.id}`);
+    document.body.classList.add("printing-single-tag");
+    card?.classList.add("print-active-tag");
+    const cleanup = () => {
+      document.body.classList.remove("printing-single-tag");
+      card?.classList.remove("print-active-tag");
+      window.removeEventListener("afterprint", cleanup);
+    };
+    window.addEventListener("afterprint", cleanup);
+    window.print();
+  };
+
   return (
-    <div className="tag-card group relative overflow-hidden rounded-3xl border border-border/60 bg-card/80 backdrop-blur-2xl p-6 shadow-sm transition-all hover:shadow-xl hover:border-emerald/40">
+    <div
+      id={`tag-card-${tag.id}`}
+      className="tag-card group relative overflow-hidden rounded-3xl border border-border/60 bg-card/80 backdrop-blur-2xl p-6 shadow-sm transition-all hover:shadow-xl hover:border-emerald/40"
+    >
       <div className="flex flex-col sm:flex-row items-start gap-5">
         {/* QR Code & Token Box */}
-        <div className="flex flex-col items-center gap-2.5 shrink-0 mx-auto sm:mx-0">
+        <div className="print-qr-area flex flex-col items-center gap-2.5 shrink-0 mx-auto sm:mx-0">
           {qr ? (
             <div className="p-2 rounded-2xl bg-white shadow-md border border-border/40">
               <img
@@ -89,7 +106,7 @@ function TagCard({
         </div>
 
         {/* Member Details */}
-        <div className="min-w-0 flex-1 w-full">
+        <div className="no-print min-w-0 flex-1 w-full">
           <div className="flex items-center justify-between gap-2">
             <span className="rounded-full bg-emerald/10 text-emerald border border-emerald/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider">
               {tag.category === "kid"
@@ -151,10 +168,10 @@ function TagCard({
         <Button
           size="sm"
           variant="outline"
-          onClick={() => window.print()}
+          onClick={handlePrint}
           className="rounded-full font-bold text-xs gap-1.5 shadow-sm hover:border-primary/40"
         >
-          <Printer className="size-3.5" /> Print Wristband
+          <Printer className="size-3.5" /> Print QR
         </Button>
         <Button
           size="sm"
@@ -172,6 +189,14 @@ function TagCard({
 function SafetyTags() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [phoneTouched, setPhoneTouched] = useState(false);
+
+  const openForm = () => {
+    setPhoneError(null);
+    setPhoneTouched(false);
+    setShowForm(true);
+  };
   const [form, setForm] = useState({
     person_name: "",
     person_age: "",
@@ -200,6 +225,8 @@ function SafetyTags() {
     mutationFn: async () => {
       const ageError = validateAge(form.person_age, form.category);
       if (ageError) throw new Error(ageError);
+      const phoneErr = validatePhone(normalizePhone(form.guardian_phone));
+      if (phoneErr) throw new Error(phoneErr);
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("Not signed in");
 
@@ -216,7 +243,7 @@ function SafetyTags() {
         person_age: form.person_age ? parseInt(form.person_age, 10) : null,
         category: form.category,
         guardian_name: form.guardian_name.trim(),
-        guardian_phone: form.guardian_phone.trim(),
+        guardian_phone: normalizePhone(form.guardian_phone),
         alt_phone: form.alt_phone.trim() || null,
         staying_at: form.staying_at.trim() || null,
         medical_notes: form.medical_notes.trim() || null,
@@ -229,6 +256,8 @@ function SafetyTags() {
     onSuccess: () => {
       toast.success("SafeTag wristband created successfully!");
       setShowForm(false);
+      setPhoneError(null);
+      setPhoneTouched(false);
       setForm({
         person_name: "",
         person_age: "",
@@ -242,8 +271,13 @@ function SafetyTags() {
       });
       queryClient.invalidateQueries({ queryKey: ["safety-tags"] });
     },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Failed to create tag"),
+    onError: (e) => {
+      let msg = e instanceof Error ? e.message : "Failed to create tag";
+      if (msg.includes("safety_tags_guardian_phone_format_check")) {
+        msg = "Invalid guardian phone number format";
+      }
+      toast.error(msg);
+    },
   });
 
   const deleteTag = useMutation({
@@ -268,9 +302,11 @@ function SafetyTags() {
       subtitle="Printable QR wristbands with Zero-Knowledge privacy"
       back
     >
-      <SafeTagAlertBanner />
+      <div className="no-print">
+        <SafeTagAlertBanner />
+      </div>
       {/* Privacy Guarantee Header Card */}
-      <div className="rounded-3xl border border-border/60 bg-card/75 backdrop-blur-2xl p-6 sm:p-8 shadow-sm">
+      <div className="no-print rounded-3xl border border-border/60 bg-card/75 backdrop-blur-2xl p-6 sm:p-8 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald/10 px-3 py-0.5 text-xs font-bold text-emerald">
@@ -298,7 +334,7 @@ function SafetyTags() {
           </div>
 
           <Button
-            onClick={() => setShowForm(true)}
+            onClick={openForm}
             className="rounded-full font-bold px-6 bg-primary text-primary-foreground shadow-md transition-all hover:scale-105 active:scale-95 shrink-0"
           >
             <Plus className="size-4 mr-1.5" /> Create New Tag
@@ -315,7 +351,11 @@ function SafetyTags() {
                 New Family SafeTag
               </h3>
               <button
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  setShowForm(false);
+                  setPhoneError(null);
+                  setPhoneTouched(false);
+                }}
                 className="rounded-full p-2 text-muted-foreground hover:bg-secondary transition-colors"
               >
                 <X className="size-5" />
@@ -326,6 +366,12 @@ function SafetyTags() {
               className="mt-5 space-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
+                const pError = validatePhone(normalizePhone(form.guardian_phone));
+                if (pError) {
+                  setPhoneTouched(true);
+                  setPhoneError(pError);
+                  return;
+                }
                 createTag.mutate();
               }}
             >
@@ -447,13 +493,37 @@ function SafetyTags() {
                     id="guardian_phone"
                     type="tel"
                     required
-                    value={form.guardian_phone}
-                    onChange={(e) =>
-                      setForm({ ...form, guardian_phone: e.target.value })
+                    aria-invalid={Boolean(phoneTouched && phoneError)}
+                    aria-describedby={
+                      phoneTouched && phoneError ? "guardian-phone-error" : undefined
                     }
+                    value={form.guardian_phone}
+                    onChange={(e) => {
+                      setForm({ ...form, guardian_phone: e.target.value });
+                      if (phoneTouched) {
+                        setPhoneError(
+                          validatePhone(normalizePhone(e.target.value)),
+                        );
+                      }
+                    }}
+                    onBlur={() => {
+                      setPhoneTouched(true);
+                      setPhoneError(
+                        validatePhone(normalizePhone(form.guardian_phone)),
+                      );
+                    }}
                     placeholder="+91 98765 43210"
                     className="rounded-xl bg-secondary/40 border-border/60 font-mono"
                   />
+                  {phoneTouched && phoneError && (
+                    <p
+                      id="guardian-phone-error"
+                      role="alert"
+                      className="text-xs text-destructive"
+                    >
+                      {phoneError}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -525,7 +595,7 @@ function SafetyTags() {
               heading to busy Goa beaches.
             </p>
             <Button
-              onClick={() => setShowForm(true)}
+              onClick={openForm}
               className="mt-5 rounded-full font-bold text-xs px-6"
             >
               Create first SafeTag

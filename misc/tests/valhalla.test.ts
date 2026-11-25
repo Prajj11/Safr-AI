@@ -4,6 +4,7 @@ import {
   areRoutesDuplicate,
   decodePolyline6,
   mapValhallaManeuverType,
+  mapValhallaManeuverModifier,
 } from "../../frontend/src/lib/valhalla.server.ts";
 import { assessRoadConditions } from "../../frontend/src/lib/route-comparison.ts";
 import { computeSafeRoutes } from "../../frontend/src/lib/maps.server.ts";
@@ -33,6 +34,16 @@ test("mapValhallaManeuverType correctly maps maneuver types", () => {
   assert.equal(mapValhallaManeuverType(26), "roundabout");
   assert.equal(mapValhallaManeuverType(8), "continue");
   assert.equal(mapValhallaManeuverType(999), "continue");
+});
+
+test("mapValhallaManeuverModifier correctly maps directional modifiers", () => {
+  assert.equal(mapValhallaManeuverModifier(9), "slight-right");
+  assert.equal(mapValhallaManeuverModifier(10), "right");
+  assert.equal(mapValhallaManeuverModifier(11), "sharp-right");
+  assert.equal(mapValhallaManeuverModifier(14), "sharp-left");
+  assert.equal(mapValhallaManeuverModifier(15), "left");
+  assert.equal(mapValhallaManeuverModifier(16), "slight-left");
+  assert.equal(mapValhallaManeuverModifier(8), undefined);
 });
 
 test("assessRoadConditions handles Valhalla wayIds matching Overpass ways", () => {

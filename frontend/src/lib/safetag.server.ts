@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "../integrations/supabase/client.server";
-import { sendSafeTagAlert } from "./notifications.server";
+import { sendSafeTagAlert, normalizeE164, maskPhone } from "./notifications.server";
 import { resolvedCentre } from "./resolved-centre";
 import {
   checkRateLimit,
@@ -110,6 +110,18 @@ export async function handleTagAlertRequest(
         hour12: true,
       }) + " IST";
 
+    // Validate guardian phone number before attempting alert
+    const normalizedGuardian = normalizeE164(tag.guardian_phone);
+    if (!normalizedGuardian) {
+      console.error(
+        `[SafeTag Alert] Invalid guardian phone number on tag ${tag.token} (${maskPhone(tag.guardian_phone)}). Alert aborted.`,
+      );
+      return Response.json(
+        { error: "Invalid guardian phone number on this SafeTag. Alert could not be sent." },
+        { status: 400 },
+      );
+    }
+
     // Send notifications (WhatsApp then SMS)
     const deliveryStatus = await sendSafeTagAlert({
       childName: tag.person_name,
@@ -123,7 +135,7 @@ export async function handleTagAlertRequest(
     });
 
     const notified = Object.values(deliveryStatus).some(
-      (ch) => ch?.status === "sent",
+      (ch) => ch?.status === "sent" || ch?.status === "mocked",
     );
 
     if (!notified) {

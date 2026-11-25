@@ -7,6 +7,19 @@ import {
   type NearbyPlace,
 } from "./geo";
 
+export function isSanePlaceName(name: string): boolean {
+  const trimmed = name.trim();
+  if (trimmed.length < 2 || trimmed.length > 60) return false;
+  // Must contain at least one real letter (rejects pure numbers/symbols)
+  if (!/\p{L}/u.test(trimmed)) return false;
+  // Reject obvious placeholder/junk values
+  if (/^(unnamed|n\/?a|test|tbd|none|null|undefined|unknown)$/i.test(trimmed))
+    return false;
+  // Reject values that look like a URL, phone number, or email rather than a name
+  if (/https?:\/\/|www\.|@|^\+?\d[\d\s-]{6,}$/.test(trimmed)) return false;
+  return true;
+}
+
 export async function fetchJson(
   url: string,
   init: RequestInit = {},
@@ -21,7 +34,7 @@ export async function fetchJson(
   const response = await fetch(url, {
     ...init,
     headers,
-    signal: AbortSignal.timeout(Math.min(timeout, 6000)),
+    signal: AbortSignal.timeout(Math.min(timeout, 20000)),
   });
   if (!response.ok)
     throw new Error(
@@ -137,8 +150,12 @@ const overpassSchema = z.object({
 });
 
 import { CURATED_GOA_PLACES } from "./goa-places-data";
+import {
+  cataloguePlacesInBox,
+  type OverpassElementLike,
+} from "./goa-catalogue.server";
 
-/** At most two attempts within six seconds; configured private instances stay private. */
+/** At most two attempts within nine seconds; configured private instances stay private. */
 export async function fetchOverpass(query: string): Promise<unknown> {
   const primary =
     process.env["OVERPASS_URL"] || "https://overpass-api.de/api/interpreter";
@@ -148,7 +165,7 @@ export async function fetchOverpass(query: string): Promise<unknown> {
       ? "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
       : "");
   const endpoints = [...new Set([primary, fallback].filter(Boolean))];
-  const deadline = Date.now() + 6000;
+  const deadline = Date.now() + 9000;
   for (const [index, endpoint] of endpoints.entries()) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) break;
@@ -161,23 +178,32 @@ export async function fetchOverpass(query: string): Promise<unknown> {
           {},
           index === endpoints.length - 1
             ? remaining
-            : Math.min(3000, remaining),
+            : Math.min(5000, remaining),
         ),
       );
       if (value.remark && !value.elements.length) continue;
       return value;
-    } catch {
+    } catch (error) {
+      // Category only: never log query text, response bodies or credentials.
+      console.warn(
+        "Overpass attempt failed:",
+        new URL(endpoint).hostname,
+        error instanceof Error ? error.name : "Unknown",
+      );
       /* Try the configured mirror before the caller's curated fallback. */
     }
   }
+  console.error(
+    `[places] All Overpass endpoints failed for query (first 100 chars): ${query.slice(0, 100)}`,
+  );
   throw new Error("Nearby-place providers are temporarily unavailable.");
 }
 
-export async function nearbyPlaces(
+export async function nearbyPlacesWithMeta(
   center: Coordinate,
   radiusKm = 5,
   path: Coordinate[] = [],
-): Promise<NearbyPlace[]> {
+): Promise<{ places: NearbyPlace[]; degraded: boolean }> {
   const key = JSON.stringify([
     center.lat.toFixed(3),
     center.lng.toFixed(3),
@@ -185,7 +211,8 @@ export async function nearbyPlaces(
     path,
   ]);
   const cached = await getCached(`nearby:${key}`);
-  if (Array.isArray(cached)) return cached as NearbyPlace[];
+  if (Array.isArray(cached))
+    return { places: cached as NearbyPlace[], degraded: false };
 
   // Gather curated places within search range
   const searchLimit = Math.max(radiusKm * 1.5, 15);
@@ -207,34 +234,94 @@ export async function nearbyPlaces(
   // around query. Filter the results against the actual road geometry below.
   const latPad = 1.5 / 111.195;
   const lngPad = latPad / Math.max(0.1, Math.cos((center.lat * Math.PI) / 180));
-  const around =
-    path.length > 1
-      ? `${Math.min(...path.map((p) => p.lat)) - latPad},${Math.min(...path.map((p) => p.lng)) - lngPad},${Math.max(...path.map((p) => p.lat)) + latPad},${Math.max(...path.map((p) => p.lng)) + lngPad}`
-      : `around:${radiusKm * 1000},${center.lat},${center.lng}`;
-  const query = `[out:json][timeout:20];nwr(${around})["name"]->.nearby;(nwr.nearby["amenity"~"^(restaurant|cafe|fast_food|food_court|bar|pub|nightclub|marketplace|place_of_worship)$"];nwr.nearby["tourism"~"^(hotel|guest_house|hostel|motel|attraction|museum|viewpoint|gallery|zoo|theme_park)$"];nwr.nearby["historic"~"^(castle|fort|monument|ruins|archaeological_site)$"];nwr.nearby["natural"~"^(beach|waterfall)$"];nwr.nearby["leisure"~"^(water_park|sports_centre|park|nature_reserve)$"];);out center tags 500;`;
-  let rawResult: unknown;
-  try {
-    rawResult = await fetchOverpass(query);
-  } catch (err) {
-    if (curatedMatches.length > 0) {
-      console.warn(
-        "Overpass unavailable; using curated destination landmarks.",
-      );
-      rawResult = { elements: [] };
-    } else {
-      throw err;
-    }
-  }
+  const minLat =
+    (path.length > 1
+      ? Math.min(...path.map((p) => p.lat))
+      : center.lat - radiusKm / 111.195) - latPad;
+  const maxLat =
+    (path.length > 1
+      ? Math.max(...path.map((p) => p.lat))
+      : center.lat + radiusKm / 111.195) + latPad;
+  const radLng =
+    radiusKm / 111.195 / Math.max(0.1, Math.cos((center.lat * Math.PI) / 180));
+  const minLng =
+    (path.length > 1
+      ? Math.min(...path.map((p) => p.lng))
+      : center.lng - radLng) - lngPad;
+  const maxLng =
+    (path.length > 1
+      ? Math.max(...path.map((p) => p.lng))
+      : center.lng + radLng) + lngPad;
 
-  const result = overpassSchema.parse(rawResult);
-  if (result.remark && curatedMatches.length === 0) {
-    throw new Error("Nearby-place lookup is busy. Please try again shortly.");
+  // 1. Primary candidate source: local Goa catalogue (in-memory)
+  const catalogueElements = cataloguePlacesInBox({
+    minLat,
+    minLng,
+    maxLat,
+    maxLng,
+  });
+
+  let elements: OverpassElementLike[] = [];
+  let degraded = false;
+  let elementSource: "catalogue" | "overpass" = "catalogue";
+
+  if (catalogueElements.length >= 15) {
+    elements = catalogueElements;
+    degraded = false;
+    elementSource = "catalogue";
+  } else {
+    // 2. Secondary fallback: live Overpass only if catalogue has < 15 elements or failed
+    const around =
+      path.length > 1
+        ? `${Math.min(...path.map((p) => p.lat)) - latPad},${Math.min(...path.map((p) => p.lng)) - lngPad},${Math.max(...path.map((p) => p.lat)) + latPad},${Math.max(...path.map((p) => p.lng)) + lngPad}`
+        : `around:${radiusKm * 1000},${center.lat},${center.lng}`;
+    const placeFilters: [string, string][] = [
+      [
+        "amenity",
+        "restaurant|cafe|fast_food|food_court|bar|pub|nightclub|marketplace|place_of_worship",
+      ],
+      [
+        "tourism",
+        "hotel|guest_house|hostel|motel|attraction|museum|viewpoint|gallery|zoo|theme_park",
+      ],
+      ["historic", "castle|fort|monument|ruins|archaeological_site"],
+      ["natural", "beach|waterfall"],
+      ["leisure", "water_park|sports_centre|park|nature_reserve"],
+    ];
+    const query = `[out:json][timeout:9];(${placeFilters
+      .map(
+        ([key, values]) => `nwr["${key}"~"^(${values})$"]["name"](${around});`,
+      )
+      .join("")});out center tags 500;`;
+
+    let rawResult: unknown;
+    try {
+      rawResult = await fetchOverpass(query);
+      const result = overpassSchema.parse(rawResult);
+      if (result.remark && curatedMatches.length === 0) {
+        throw new Error(
+          "Nearby-place lookup is busy. Please try again shortly.",
+        );
+      }
+      if (result.remark) degraded = true;
+      elements = (result.elements || []) as OverpassElementLike[];
+      elementSource = "overpass";
+    } catch (err) {
+      if (curatedMatches.length > 0) {
+        degraded = true;
+        console.warn(
+          "Overpass unavailable; using curated destination landmarks.",
+        );
+        elements = [];
+      } else {
+        throw err;
+      }
+    }
   }
 
   const seen = new Map<string, Coordinate[]>();
   const places: NearbyPlace[] = [];
 
-  const elements = result.elements || [];
   if (elements.length > 0) {
     for (const item of elements) {
       const tags = item.tags || {};
@@ -243,6 +330,7 @@ export async function nearbyPlaces(
       const name = tags["name"];
       if (
         !name ||
+        !isSanePlaceName(name) ||
         lat == null ||
         lng == null ||
         tags["access"] === "private" ||
@@ -275,6 +363,19 @@ export async function nearbyPlaces(
             tags["leisure"] ||
             tags["amenity"] ||
             "place";
+
+      const NON_SCHEDULABLE_KINDS =
+        /^(hotel|guest_house|hostel|apartment|motel|bank|school|clinic|fuel|parking)$/i;
+      if (
+        NON_SCHEDULABLE_KINDS.test(tags["tourism"] || "") ||
+        NON_SCHEDULABLE_KINDS.test(tags["amenity"] || "") ||
+        NON_SCHEDULABLE_KINDS.test(tags["building"] || "") ||
+        NON_SCHEDULABLE_KINDS.test(kind) ||
+        category === "hotel"
+      ) {
+        continue;
+      }
+
       places.push({
         ...point,
         id: `${item.type}/${item.id}`,
@@ -286,16 +387,44 @@ export async function nearbyPlaces(
         distanceKm: distance,
         routeDistanceKm: fromRoute,
         sourceUrl: `https://www.openstreetmap.org/${item.type}/${item.id}`,
+        hasWikipedia: Boolean(tags["wikipedia"]),
+        hasWikidata: Boolean(tags["wikidata"]),
+        hasWebsite: Boolean(tags["website"] || tags["contact:website"]),
+        source: elementSource,
       });
+      const maxCap = elementSource === "catalogue" ? 5000 : 500;
+      if (places.length >= maxCap) break;
     }
   } else if (curatedMatches.length > 0) {
     // When Overpass returns 0 elements or failed, use curated landmark database
     for (const c of curatedMatches) {
-      places.push(c);
+      places.push({
+        ...c,
+        source: "curated",
+      });
     }
   }
+  const parsedOsm = places.filter((p) => p.source === "overpass");
+  const parsedCatalogue = places.filter((p) => p.source === "catalogue");
+  const parsedCurated = places.filter(
+    (p) => p.source === "curated" || p.id.startsWith("curated/"),
+  );
+  if (process.env["ITINERARY_DEBUG"] === "1") {
+    console.log(
+      `[nearbyPlacesWithMeta] Candidates parsed: total=${places.length} (catalogue: ${parsedCatalogue.length}, Overpass: ${parsedOsm.length}, curated: ${parsedCurated.length})`,
+    );
+  }
   places.sort((a, b) => a.distanceKm - b.distanceKm);
-  await setCached(`nearby:${key}`, places, 86400);
+  if (!degraded) await setCached(`nearby:${key}`, places, 86400);
+  return { places, degraded };
+}
+
+export async function nearbyPlaces(
+  center: Coordinate,
+  radiusKm = 5,
+  path: Coordinate[] = [],
+): Promise<NearbyPlace[]> {
+  const { places } = await nearbyPlacesWithMeta(center, radiusKm, path);
   return places;
 }
 
@@ -412,36 +541,56 @@ export async function nearbyEssentials(
       ),
     );
     if (result.remark) return null;
-    const nearest = new Map<string, NearbyEssential>();
+    const byKind = new Map<string, NearbyEssential[]>();
     for (const element of result.elements) {
       const tags = element.tags || {};
+      const name = tags["name"];
+      if (
+        !name ||
+        !isSanePlaceName(name) ||
+        tags["access"] === "private" ||
+        tags["disused"] === "yes"
+      )
+        continue;
       const point = essentialSchema.safeParse({
-        name: tags["name"],
+        name,
         kind: tags["amenity"],
         lat: element.lat ?? element.center?.lat,
         lng: element.lon ?? element.center?.lon,
         distanceKm: 0,
         openingHours: tags["opening_hours"],
       });
-      if (
-        !point.success ||
-        tags["access"] === "private" ||
-        tags["disused"] === "yes"
-      )
-        continue;
+      if (!point.success) continue;
       const item = {
         ...point.data,
         distanceKm: distanceKm(center, point.data),
       };
       if (item.distanceKm > 10) continue;
-      const old = nearest.get(item.kind);
-      if (!old || item.distanceKm < old.distanceKm)
-        nearest.set(item.kind, item);
+      const list = byKind.get(item.kind) || [];
+      list.push(item);
+      byKind.set(item.kind, list);
     }
-    const items = [...nearest.values()];
+    const categories: Array<"hospital" | "police" | "pharmacy" | "clinic"> = [
+      "hospital",
+      "police",
+      "pharmacy",
+      "clinic",
+    ];
+    const items: NearbyEssential[] = [];
+    for (const cat of categories) {
+      const list = byKind.get(cat);
+      if (list && list.length > 0) {
+        list.sort((a, b) => a.distanceKm - b.distanceKm);
+        items.push(...list.slice(0, 3));
+      }
+    }
     await setCached(key, items, 86400);
     return items;
-  } catch {
+  } catch (err) {
+    console.error(
+      "[places] nearbyEssentials failed:",
+      err instanceof Error ? err.message : err,
+    );
     return null;
   }
 }

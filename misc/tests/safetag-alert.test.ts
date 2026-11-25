@@ -17,6 +17,12 @@ test("phone normalization to E.164 (+91)", () => {
   assert.equal(normalizeE164("9123456789"), "+919123456789");
   assert.equal(normalizeE164("14155238886"), "+14155238886");
   assert.equal(normalizeE164("00441632960961"), "+441632960961");
+  // Invalid Indian mobile patterns and garbage return null
+  assert.equal(normalizeE164("1234567890"), null);
+  assert.equal(normalizeE164("5551234567"), null);
+  assert.equal(normalizeE164("+911234567890"), null);
+  assert.equal(normalizeE164("12345"), null);
+  assert.equal(normalizeE164(""), null);
 });
 
 test("phone masking for secure logging", () => {
